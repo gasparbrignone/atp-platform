@@ -1,0 +1,36 @@
+---
+/**
+ * Official social links, reused in Navbar (mobile menu) and Footer.
+ * Lucide has no brand marks (Instagram/YouTube/WhatsApp), so each platform
+ * uses the closest neutral, generic icon instead of mixing in outside SVGs.
+ *
+ * Placeholder hrefs — replace once the real accounts are wired through
+ * content (see docs/CONTENT_SCHEMA.md → SocialNetwork).
+ */
+import Camera from '@lucide/astro/icons/camera';
+import Play from '@lucide/astro/icons/play';
+import MessageCircle from '@lucide/astro/icons/message-circle';
+
+const links = [
+  { platform: 'instagram', label: 'Instagram', href: '#', icon: Camera },
+  { platform: 'youtube', label: 'YouTube', href: '#', icon: Play },
+  { platform: 'whatsapp', label: 'WhatsApp', href: '#', icon: MessageCircle },
+] as const;
+---
+
+<ul class="flex items-center gap-2">
+  {
+    links.map(({ platform, label, href, icon: Icon }) => (
+      <li>
+        <a
+          href={href}
+          class="text-text-secondary ease-standard hover:bg-surface-alt hover:text-text inline-flex size-10 items-center justify-center rounded-full transition-colors duration-150"
+          data-platform={platform}
+        >
+          <span class="sr-only">{label}</span>
+          <Icon class="size-5" aria-hidden="true" />
+        </a>
+      </li>
+    ))
+  }
+</ul>

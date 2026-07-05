@@ -1,0 +1,22 @@
+---
+/**
+ * Standalone loading indicator for a section/page (as opposed to Button's
+ * own inline `loading` state, which has different a11y needs — see
+ * src/lib/spinnerClasses.ts).
+ */
+import type { HTMLAttributes } from 'astro/types';
+import { getSpinnerClasses, type SpinnerSize } from '@/lib/spinnerClasses';
+
+interface Props extends HTMLAttributes<'span'> {
+  size?: SpinnerSize;
+  /** Accessible label announced to screen readers. Visually hidden. */
+  label?: string;
+}
+
+const { size = 'md', label = 'Cargando', class: className, ...rest }: Props = Astro.props;
+---
+
+<span role="status" class:list={['inline-flex items-center justify-center', className]} {...rest}>
+  <span class={getSpinnerClasses(size)} aria-hidden="true"></span>
+  <span class="sr-only">{label}</span>
+</span>

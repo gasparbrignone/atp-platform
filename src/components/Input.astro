@@ -1,0 +1,21 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+import { getFieldClasses } from '@/lib/formFieldStyles';
+
+export type InputType = 'text' | 'email' | 'search' | 'password' | 'number' | 'tel' | 'url';
+
+interface Props extends Omit<HTMLAttributes<'input'>, 'type'> {
+  type?: InputType;
+  /** Marks the field invalid: red border/focus ring + `aria-invalid`. Pair with a visible error message linked via `aria-describedby`. */
+  error?: boolean;
+}
+
+const { type = 'text', error = false, class: className, ...rest }: Props = Astro.props;
+---
+
+<input
+  type={type}
+  class:list={['h-10 px-4', getFieldClasses(error), className]}
+  aria-invalid={error ? 'true' : undefined}
+  {...rest}
+/>

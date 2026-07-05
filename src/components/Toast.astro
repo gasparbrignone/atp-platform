@@ -1,0 +1,16 @@
+---
+/**
+ * Mount point for the Toast system — renders once in BaseLayout, always
+ * empty at build time. Actual toasts are created imperatively via
+ * `showToast()` (src/lib/toast.ts) from whatever future flow needs one
+ * (activity registration, CMS form submission, etc.).
+ */
+---
+
+<div
+  data-toast-region
+  role="region"
+  aria-label="Notificaciones"
+  class="z-toast pointer-events-none fixed inset-x-4 bottom-4 flex flex-col items-center gap-3 sm:inset-x-auto sm:right-4 sm:items-end"
+>
+</div>

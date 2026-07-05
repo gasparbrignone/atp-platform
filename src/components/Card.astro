@@ -1,0 +1,36 @@
+---
+/**
+ * Base card. Every specialized card (ActivityCard, BookCard, ToolCard...)
+ * must extend this component instead of reimplementing its own surface —
+ * never build a one-off card style outside this system.
+ *
+ * Sections are named slots so the caller controls heading levels and
+ * markup (needed to keep page heading hierarchy correct), while `image`,
+ * `badge` and `actions` stay optional as required by UI_COMPONENTS.md.
+ */
+import type { HTMLAttributes } from 'astro/types';
+
+interface Props extends HTMLAttributes<'div'> {
+  as?: keyof HTMLElementTagNameMap;
+}
+
+const { as: Tag = 'div', class: className, ...rest }: Props = Astro.props;
+---
+
+<Tag
+  class:list={[
+    'border-border bg-surface ease-standard flex flex-col overflow-hidden rounded-md border shadow-sm transition-shadow duration-200',
+    className,
+  ]}
+  {...rest}
+>
+  <slot name="image" />
+  <div class="flex flex-1 flex-col gap-3 p-6">
+    <slot name="badge" />
+    <slot name="title" />
+    <div class="text-body text-text-secondary flex-1">
+      <slot />
+    </div>
+    <slot name="actions" />
+  </div>
+</Tag>

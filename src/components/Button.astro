@@ -1,0 +1,84 @@
+---
+/**
+ * The single official component for every clickable action in the platform.
+ * Renders as a <button> by default, or as an <a> when `href` is provided —
+ * never build a separate "LinkButton".
+ *
+ * Icons are passed through the `icon-start` / `icon-end` slots so this
+ * component stays icon-library-agnostic.
+ */
+import type { HTMLAttributes } from 'astro/types';
+import { getSpinnerClasses } from '@/lib/spinnerClasses';
+
+export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+export type ButtonSize = 'sm' | 'md' | 'lg';
+
+interface Props extends HTMLAttributes<'button'> {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  href?: string;
+  type?: 'button' | 'submit' | 'reset';
+  disabled?: boolean;
+  loading?: boolean;
+}
+
+const {
+  variant = 'primary',
+  size = 'md',
+  href,
+  type = 'button',
+  disabled = false,
+  loading = false,
+  class: className,
+  ...rest
+}: Props = Astro.props;
+
+const isDisabled = disabled || loading;
+
+const sizeClasses: Record<ButtonSize, string> = {
+  sm: 'h-8 gap-2 px-3 text-body-sm',
+  md: 'h-10 gap-2 px-4 text-body',
+  lg: 'h-12 gap-3 px-6 text-body-lg',
+};
+
+/*
+ * Outline/ghost use `primary-strong`, not `primary`: the brand pink is too
+ * light to pass WCAG AA as bare text/border against a page background (see
+ * tokens.css). Solid fills (primary/secondary/danger) pair with their
+ * `-foreground` token instead, since a fill's contrast is self-contained.
+ */
+const variantClasses: Record<ButtonVariant, string> = {
+  primary: 'bg-primary text-primary-foreground hover:brightness-95 active:brightness-90',
+  secondary: 'bg-secondary text-secondary-foreground hover:brightness-95 active:brightness-90',
+  outline:
+    'border border-primary-strong bg-transparent text-primary-strong hover:bg-primary/10 active:bg-primary/20',
+  ghost: 'bg-transparent text-primary-strong hover:bg-primary/10 active:bg-primary/20',
+  danger: 'bg-error text-error-foreground hover:brightness-95 active:brightness-90',
+};
+
+const classes = [
+  'inline-flex select-none items-center justify-center whitespace-nowrap rounded-sm font-semibold transition-[filter,background-color,opacity] duration-150 ease-standard',
+  'disabled:pointer-events-none disabled:opacity-40 aria-disabled:pointer-events-none aria-disabled:opacity-40',
+  sizeClasses[size],
+  variantClasses[variant],
+  className,
+];
+
+const Tag = href ? 'a' : 'button';
+---
+
+<Tag
+  class:list={classes}
+  href={href && !disabled ? href : undefined}
+  type={href ? undefined : type}
+  disabled={href ? undefined : isDisabled}
+  aria-disabled={href && isDisabled ? true : undefined}
+  aria-busy={loading ? 'true' : undefined}
+  tabindex={href && isDisabled ? -1 : undefined}
+  {...rest}
+>
+  {loading && <span class:list={['shrink-0', getSpinnerClasses('sm')]} aria-hidden="true" />}
+  <slot name="icon-start" />
+  <slot />
+  <slot name="icon-end" />
+</Tag>

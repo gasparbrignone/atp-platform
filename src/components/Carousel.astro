@@ -1,0 +1,245 @@
+---
+/**
+ * Generic slide carousel — content-agnostic so it works for both "Próximas
+ * actividades" and "Novedades" (ActivityCard/NewsCard don't exist yet;
+ * whatever markup is passed to the default slot becomes the slide list).
+ *
+ * Touch/swipe comes from native CSS scroll-snap, not JS — the browser
+ * handles the gesture, momentum and snapping for free. JS only drives the
+ * prev/next buttons, the indicator dots and optional autoplay.
+ *
+ * Follows the WAI-ARIA Carousel pattern: the outer element is the labeled
+ * `region`/`carousel` (controls included, not just the slide track); each
+ * slide gets `role="group"` + `aria-roledescription="slide"` + a position
+ * label injected at runtime (so the consumer's own markup doesn't need to
+ * know about it); a visually-hidden live region announces the active slide
+ * (muted — `aria-live="off"` — while autoplay is actively rotating, per the
+ * pattern's guidance, so it doesn't talk over itself every few seconds);
+ * and autoplay has a persistent, keyboard/touch-reachable pause/play toggle
+ * (WCAG 2.2.2) — hover/focus-pausing alone isn't enough on a touch device,
+ * which has no hover state at all.
+ *
+ * Contract for each slide passed into the default slot: it must be a
+ * direct child of the track with `shrink-0 snap-center` and an explicit
+ * width (e.g. `w-[85%] sm:w-[45%] lg:w-[30%]`) — Carousel doesn't impose a
+ * slide width since that varies by content (activity cards vs. news cards).
+ */
+import type { HTMLAttributes } from 'astro/types';
+import ChevronLeft from '@lucide/astro/icons/chevron-left';
+import ChevronRight from '@lucide/astro/icons/chevron-right';
+import Pause from '@lucide/astro/icons/pause';
+import Play from '@lucide/astro/icons/play';
+
+interface Props extends HTMLAttributes<'div'> {
+  /** Accessible name for the carousel region, e.g. "Próximas actividades". */
+  label: string;
+  autoplay?: boolean;
+  /** Autoplay interval in ms. Ignored if `autoplay` is false or the user prefers reduced motion. */
+  interval?: number;
+}
+
+const { label, autoplay = false, interval = 6000, class: className, ...rest }: Props = Astro.props;
+---
+
+<div
+  role="region"
+  aria-roledescription="carrusel"
+  aria-label={label}
+  class:list={['relative', className]}
+  data-carousel
+  data-autoplay={autoplay ? '' : undefined}
+  data-interval={interval}
+  {...rest}
+>
+  <div
+    tabindex="0"
+    data-carousel-track
+    class="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2"
+  >
+    <slot />
+  </div>
+
+  <span data-carousel-status class="sr-only" aria-live="polite"></span>
+
+  <div class="mt-4 flex items-center justify-between gap-4">
+    <div data-carousel-dots class="flex items-center gap-2" aria-label="Diapositivas"></div>
+    <div class="flex items-center gap-2">
+      {
+        autoplay && (
+          <button
+            type="button"
+            data-carousel-toggle
+            aria-label="Pausar reproducción automática"
+            aria-pressed="true"
+            class="border-border bg-surface text-text-secondary ease-standard hover:bg-surface-alt inline-flex size-9 items-center justify-center rounded-full border transition-colors duration-150"
+          >
+            <Pause data-icon-pause class="size-5" aria-hidden="true" />
+            <Play data-icon-play class="hidden size-5" aria-hidden="true" />
+          </button>
+        )
+      }
+      <button
+        type="button"
+        data-carousel-prev
+        aria-label="Anterior"
+        class="border-border bg-surface text-text-secondary ease-standard hover:bg-surface-alt inline-flex size-9 items-center justify-center rounded-full border transition-colors duration-150"
+      >
+        <ChevronLeft class="size-5" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        data-carousel-next
+        aria-label="Siguiente"
+        class="border-border bg-surface text-text-secondary ease-standard hover:bg-surface-alt inline-flex size-9 items-center justify-center rounded-full border transition-colors duration-150"
+      >
+        <ChevronRight class="size-5" aria-hidden="true" />
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-carousel]').forEach((root) => {
+    const track = root.querySelector<HTMLElement>('[data-carousel-track]');
+    const dotsContainer = root.querySelector<HTMLElement>('[data-carousel-dots]');
+    const statusEl = root.querySelector<HTMLElement>('[data-carousel-status]');
+    const prevButton = root.querySelector<HTMLButtonElement>('[data-carousel-prev]');
+    const nextButton = root.querySelector<HTMLButtonElement>('[data-carousel-next]');
+    const toggleButton = root.querySelector<HTMLButtonElement>('[data-carousel-toggle]');
+    if (!track || !dotsContainer || !statusEl) return;
+    // Re-bound as a definitely-non-null const: TS narrowing from the guard
+    // above doesn't carry into the nested functions below.
+    const status = statusEl;
+
+    const slides = Array.from(track.children) as HTMLElement[];
+    if (slides.length === 0) return;
+
+    // Mark each slide per the APG carousel pattern, without requiring the
+    // consumer's own markup to know about it.
+    slides.forEach((slide, index) => {
+      slide.setAttribute('role', 'group');
+      slide.setAttribute('aria-roledescription', 'diapositiva');
+      slide.setAttribute('aria-label', `${index + 1} de ${slides.length}`);
+    });
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const scrollBehavior: ScrollBehavior = prefersReducedMotion ? 'auto' : 'smooth';
+
+    let activeIndex = 0;
+    const dots = slides.map((slide, index) => {
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.setAttribute('aria-label', `Ir a la diapositiva ${index + 1}`);
+      dot.className = 'size-2 rounded-full bg-border transition-colors duration-150 ease-standard';
+      dot.addEventListener('click', () => {
+        slide.scrollIntoView({ behavior: scrollBehavior, block: 'nearest', inline: 'center' });
+      });
+      dotsContainer.appendChild(dot);
+      return dot;
+    });
+
+    function setActive(index: number, announce = true) {
+      activeIndex = index;
+      dots.forEach((dot, i) => {
+        dot.classList.toggle('bg-primary', i === index);
+        dot.classList.toggle('bg-border', i !== index);
+        dot.setAttribute('aria-current', String(i === index));
+      });
+      if (announce) {
+        status.textContent = `Diapositiva ${index + 1} de ${slides.length}`;
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const index = slides.indexOf(entry.target as HTMLElement);
+            if (index !== -1) setActive(index);
+          }
+        });
+      },
+      { root: track, threshold: 0.6 },
+    );
+    slides.forEach((slide) => observer.observe(slide));
+    setActive(0, false);
+
+    function goTo(index: number) {
+      const clamped = Math.min(Math.max(index, 0), slides.length - 1);
+      slides[clamped]?.scrollIntoView({
+        behavior: scrollBehavior,
+        block: 'nearest',
+        inline: 'center',
+      });
+    }
+
+    prevButton?.addEventListener('click', () => goTo(activeIndex - 1));
+    nextButton?.addEventListener('click', () => goTo(activeIndex + 1));
+
+    const shouldAutoplay = root.hasAttribute('data-autoplay') && !prefersReducedMotion;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    let isPlaying = false;
+    let manuallyPaused = false;
+
+    function updateToggleIcon() {
+      const pauseIcon = toggleButton?.querySelector<HTMLElement>('[data-icon-pause]');
+      const playIcon = toggleButton?.querySelector<HTMLElement>('[data-icon-play]');
+      pauseIcon?.classList.toggle('hidden', !isPlaying);
+      playIcon?.classList.toggle('hidden', isPlaying);
+      toggleButton?.setAttribute('aria-pressed', String(isPlaying));
+      toggleButton?.setAttribute(
+        'aria-label',
+        isPlaying ? 'Pausar reproducción automática' : 'Reanudar reproducción automática',
+      );
+    }
+
+    function startTimer() {
+      const autoplayInterval = Number(root.dataset.interval) || 6000;
+      timer = setInterval(() => goTo((activeIndex + 1) % slides.length), autoplayInterval);
+      isPlaying = true;
+      // Muted while auto-rotating so it doesn't interrupt the screen reader
+      // every few seconds — the pause control below covers WCAG 2.2.2.
+      status.setAttribute('aria-live', 'off');
+      updateToggleIcon();
+    }
+
+    function stopTimer() {
+      if (timer) clearInterval(timer);
+      isPlaying = false;
+      status.setAttribute('aria-live', 'polite');
+      updateToggleIcon();
+    }
+
+    function play() {
+      if (!shouldAutoplay || manuallyPaused) return;
+      startTimer();
+    }
+
+    function pause() {
+      stopTimer();
+    }
+
+    toggleButton?.addEventListener('click', () => {
+      if (isPlaying) {
+        manuallyPaused = true;
+        stopTimer();
+      } else {
+        manuallyPaused = false;
+        startTimer();
+      }
+    });
+
+    // Hover/focus pausing is a convenience for pointer/keyboard users on top
+    // of the explicit toggle above — it never overrides an explicit pause.
+    root.addEventListener('pointerenter', pause);
+    root.addEventListener('pointerleave', () => {
+      if (!manuallyPaused) play();
+    });
+    root.addEventListener('focusin', pause);
+    root.addEventListener('focusout', () => {
+      if (!manuallyPaused) play();
+    });
+
+    play();
+  });
+</script>

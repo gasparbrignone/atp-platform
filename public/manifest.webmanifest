@@ -1,0 +1,25 @@
+{
+  "name": "ATP - Agrupación de Trabajos Prácticos",
+  "short_name": "ATP",
+  "description": "Plataforma digital de ATP, Facultad de Ciencias Médicas (UNR).",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fffdfe",
+  "theme_color": "#f969d7",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/branding/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

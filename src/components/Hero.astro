@@ -1,0 +1,105 @@
+---
+/**
+ * Fully generic, prop-driven hero. Carries no ATP-specific copy — every
+ * page composing a Hero passes its own title/description/actions/image.
+ * Never occupies excessive height on mobile: it sizes to its content
+ * (no min-h-screen), only Section's padding scale controls its spacing.
+ */
+import Section from './Section.astro';
+import Container from './Container.astro';
+import Button from './Button.astro';
+import type { SectionBackground } from './Section.astro';
+
+export type HeroAlignment = 'left' | 'center';
+
+interface HeroAction {
+  label: string;
+  href: string;
+}
+
+interface HeroImage {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+}
+
+interface Props {
+  title: string;
+  subtitle?: string;
+  description?: string;
+  primaryAction?: HeroAction;
+  secondaryAction?: HeroAction;
+  image?: HeroImage;
+  alignment?: HeroAlignment;
+  backgroundVariant?: SectionBackground;
+  /** Heading tag for `title`. Defaults to h1 — override to h2 if this Hero isn't the page's main heading. */
+  as?: 'h1' | 'h2';
+}
+
+const {
+  title,
+  subtitle,
+  description,
+  primaryAction,
+  secondaryAction,
+  image,
+  alignment = 'center',
+  backgroundVariant = 'background',
+  as: Heading = 'h1',
+}: Props = Astro.props;
+
+const isCentered = alignment === 'center';
+---
+
+<Section spacing="lg" background={backgroundVariant}>
+  <Container
+    class:list={[
+      'flex flex-col items-center gap-10 text-center',
+      !isCentered && 'lg:flex-row lg:text-left',
+    ]}
+  >
+    <div
+      class:list={['flex max-w-2xl flex-col items-center gap-4', !isCentered && 'lg:items-start']}
+    >
+      <Heading class="text-h1 text-text font-extrabold">{title}</Heading>
+      {subtitle && <p class="text-h4 text-text-secondary font-semibold">{subtitle}</p>}
+      {description && <p class="text-body-lg text-text-secondary">{description}</p>}
+      {
+        (primaryAction || secondaryAction) && (
+          <div class="mt-2 flex flex-col gap-3 sm:flex-row">
+            {primaryAction && (
+              <Button href={primaryAction.href} size="lg">
+                {primaryAction.label}
+              </Button>
+            )}
+            {secondaryAction && (
+              <Button href={secondaryAction.href} size="lg" variant="outline">
+                {secondaryAction.label}
+              </Button>
+            )}
+          </div>
+        )
+      }
+    </div>
+
+    {
+      image && (
+        <div class="w-full max-w-md shrink-0 lg:max-w-lg">
+          {/* Plain <img>, not astro:assets' <Image>: src/width/height come from
+              generic props, not a known local asset or allow-listed remote
+              domain yet. Revisit once Fase 3 (Home) sources real images. */}
+          <img
+            src={image.src}
+            alt={image.alt}
+            width={image.width}
+            height={image.height}
+            loading="eager"
+            decoding="async"
+            class="h-auto w-full rounded-lg"
+          />
+        </div>
+      )
+    }
+  </Container>
+</Section>

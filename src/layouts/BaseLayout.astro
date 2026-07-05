@@ -1,0 +1,64 @@
+---
+import '@/styles/global.css';
+import { resolveSeo } from '@/lib/seo';
+import { siteConfig } from '@/config/site';
+import type { SeoProps } from '@/types/seo';
+import Navbar from '@/components/Navbar.astro';
+import Footer from '@/components/Footer.astro';
+import Toast from '@/components/Toast.astro';
+
+type Props = SeoProps;
+
+const seo = resolveSeo(Astro.props, Astro.site);
+---
+
+<!doctype html>
+<html lang={siteConfig.locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+
+    <title>{seo.title}</title>
+    <meta name="description" content={seo.description} />
+    {seo.canonicalUrl && <link rel="canonical" href={seo.canonicalUrl} />}
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={seo.title} />
+    <meta property="og:description" content={seo.description} />
+    <meta property="og:image" content={seo.ogImage} />
+    {seo.canonicalUrl && <meta property="og:url" content={seo.canonicalUrl} />}
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#f969d7" />
+
+    <script is:inline>
+      (function () {
+        try {
+          const stored = localStorage.getItem('atp-theme');
+          if (stored === 'light' || stored === 'dark') {
+            document.documentElement.setAttribute('data-theme', stored);
+          }
+        } catch {
+          /* localStorage unavailable (privacy mode, etc.) — fall back to system preference. */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <a
+      href="#main-content"
+      class="focus:z-tooltip focus:bg-primary focus:text-primary-foreground sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:rounded-sm focus:px-4 focus:py-2 focus:font-semibold"
+    >
+      Saltar al contenido principal
+    </a>
+    <Navbar />
+    <main id="main-content">
+      <slot />
+    </main>
+    <Footer />
+    <Toast />
+  </body>
+</html>

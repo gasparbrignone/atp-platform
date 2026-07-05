@@ -1,0 +1,204 @@
+/**
+ * Design Tokens — ATP Platform
+ *
+ * Single source of truth for every reusable visual value in the platform.
+ * See /docs/DESIGN_TOKENS.md for the full specification.
+ *
+ * Tailwind consumes these variables through `@theme inline` in global.css
+ * instead of redefining any value — this file is the only place a raw
+ * value should ever be written.
+ */
+
+:root {
+  /* ---------------------------------------------------------------- */
+  /* Brand colors                                                      */
+  /* ---------------------------------------------------------------- */
+  --color-primary: #f969d7;
+  --color-primary-foreground: var(--gray-900);
+  --color-secondary: #2e5699;
+  --color-secondary-foreground: #ffffff;
+
+  /*
+   * ATP Rosa (#F969D7) is too light to pass WCAG AA as bare text/borders
+   * against a page background in either theme — it only works as a solid
+   * fill (paired with --color-primary-foreground above). `-strong` is the
+   * accessible stand-in for text, icons, outlines and focus rings that sit
+   * directly on the page background; it is themed on purpose (see the dark
+   * mode blocks below), never inverted automatically.
+   */
+  --color-primary-strong: #c6299e;
+
+  /* ---------------------------------------------------------------- */
+  /* Neutral scale (warm-tinted, never pure black/white)               */
+  /* ---------------------------------------------------------------- */
+  --gray-50: #faf9fb;
+  --gray-100: #f3f1f5;
+  --gray-200: #e7e4ec;
+  --gray-300: #d3cedb;
+  --gray-400: #a9a3b5;
+  --gray-500: #7d7690;
+  --gray-600: #5e5770;
+  --gray-700: #453f55;
+  --gray-800: #2e2a3a;
+  --gray-900: #1c1926;
+
+  /* ---------------------------------------------------------------- */
+  /* State colors                                                       */
+  /* ---------------------------------------------------------------- */
+  --color-success: #2e9e5b;
+  --color-success-foreground: var(--gray-900);
+  --color-warning: #d98e04;
+  --color-warning-foreground: var(--gray-900);
+  /* Tuned slightly darker/deeper than a "pure" red/blue so white text on a
+     solid fill — and the color itself as text — both clear 4.5:1 (AA). */
+  --color-error: #d32f2f;
+  --color-error-foreground: #ffffff;
+  --color-error-strong: #d32f2f;
+  --color-info: #1d63c4;
+  --color-info-foreground: #ffffff;
+
+  /* ---------------------------------------------------------------- */
+  /* Semantic surfaces — light mode (default)                          */
+  /* ---------------------------------------------------------------- */
+  --color-background: #fffdfe;
+  --color-surface: #ffffff;
+  --color-surface-alt: var(--gray-50);
+  --color-text: var(--gray-900);
+  --color-text-secondary: var(--gray-600);
+  --color-border: var(--gray-200);
+
+  /* ---------------------------------------------------------------- */
+  /* Typography                                                         */
+  /* ---------------------------------------------------------------- */
+  --font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  --text-display-xl-size: 4.5rem;
+  --text-display-xl-line-height: 1.05;
+  --text-display-l-size: 3.5rem;
+  --text-display-l-line-height: 1.1;
+  --text-h1-size: 2.5rem;
+  --text-h1-line-height: 1.15;
+  --text-h2-size: 2rem;
+  --text-h2-line-height: 1.2;
+  --text-h3-size: 1.5rem;
+  --text-h3-line-height: 1.3;
+  --text-h4-size: 1.25rem;
+  --text-h4-line-height: 1.4;
+  --text-body-lg-size: 1.125rem;
+  --text-body-lg-line-height: 1.6;
+  --text-body-size: 1rem;
+  --text-body-line-height: 1.6;
+  --text-body-sm-size: 0.875rem;
+  --text-body-sm-line-height: 1.5;
+  --text-caption-size: 0.75rem;
+  --text-caption-line-height: 1.4;
+  --text-overline-size: 0.6875rem;
+  --text-overline-line-height: 1.4;
+
+  /* ---------------------------------------------------------------- */
+  /* Spacing — 4px scale (drives Tailwind's default spacing multiplier)*/
+  /* ---------------------------------------------------------------- */
+  --spacing: 0.25rem;
+
+  /* ---------------------------------------------------------------- */
+  /* Radius                                                             */
+  /* ---------------------------------------------------------------- */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+  --radius-full: 9999px;
+
+  /* ---------------------------------------------------------------- */
+  /* Shadows — soft, never heavy black                                  */
+  /* ---------------------------------------------------------------- */
+  --shadow-xs: 0 1px 2px rgba(28, 25, 38, 0.04);
+  --shadow-sm: 0 2px 4px rgba(28, 25, 38, 0.06);
+  --shadow-md: 0 4px 12px rgba(28, 25, 38, 0.08);
+  --shadow-lg: 0 8px 24px rgba(28, 25, 38, 0.1);
+  --shadow-xl: 0 16px 40px rgba(28, 25, 38, 0.12);
+
+  /* ---------------------------------------------------------------- */
+  /* Blur                                                               */
+  /* ---------------------------------------------------------------- */
+  --blur-xs: 4px;
+  --blur-sm: 8px;
+  --blur-md: 12px;
+  --blur-lg: 20px;
+  --blur-xl: 32px;
+
+  /* ---------------------------------------------------------------- */
+  /* Borders                                                            */
+  /* ---------------------------------------------------------------- */
+  --border-thin: 1px;
+  --border-default: 1.5px;
+  --border-strong: 2px;
+
+  /* ---------------------------------------------------------------- */
+  /* Z-index layers                                                     */
+  /* ---------------------------------------------------------------- */
+  --z-base: 0;
+  --z-dropdown: 1000;
+  --z-sticky: 1100;
+  --z-overlay: 1200;
+  --z-modal: 1300;
+  --z-toast: 1400;
+  --z-tooltip: 1500;
+
+  /* ---------------------------------------------------------------- */
+  /* Motion                                                             */
+  /* ---------------------------------------------------------------- */
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ---------------------------------------------------------------- */
+  /* Layout                                                             */
+  /* ---------------------------------------------------------------- */
+  /*
+   * Breakpoints from DESIGN_TOKENS.md (Tablet 768 / Laptop 1024 /
+   * Desktop 1280 / Wide 1536) map 1:1 onto Tailwind's built-in
+   * md / lg / xl / 2xl — no custom breakpoint tokens needed.
+   */
+  --container-content: 80rem;
+}
+
+/*
+ * Dark mode is designed on purpose, not inverted automatically.
+ * It applies when the OS prefers dark AND no explicit choice was made
+ * ([data-theme] unset), or when [data-theme="dark"] is set explicitly
+ * (the future theme toggle owns that attribute — see Fase 2).
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-background: #16141c;
+    --color-surface: #1e1b26;
+    --color-surface-alt: #262230;
+    --color-text: #f5f3f7;
+    --color-text-secondary: var(--gray-400);
+    --color-border: #362f44;
+    --color-primary-strong: #f969d7;
+    --color-error-strong: #ff6b6b;
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-background: #16141c;
+  --color-surface: #1e1b26;
+  --color-surface-alt: #262230;
+  --color-text: #f5f3f7;
+  --color-text-secondary: var(--gray-400);
+  --color-border: #362f44;
+  --color-primary-strong: #f969d7;
+  --color-error-strong: #ff6b6b;
+}

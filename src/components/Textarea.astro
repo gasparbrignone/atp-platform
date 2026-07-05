@@ -1,0 +1,17 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+import { getFieldClasses } from '@/lib/formFieldStyles';
+
+interface Props extends HTMLAttributes<'textarea'> {
+  /** Marks the field invalid: red border/focus ring + `aria-invalid`. Pair with a visible error message linked via `aria-describedby`. */
+  error?: boolean;
+}
+
+const { error = false, rows = 4, class: className, ...rest }: Props = Astro.props;
+---
+
+<textarea
+  rows={rows}
+  class:list={['min-h-24 resize-y px-4 py-3', getFieldClasses(error), className]}
+  aria-invalid={error ? 'true' : undefined}
+  {...rest}></textarea>

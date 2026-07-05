@@ -1,0 +1,67 @@
+---
+/**
+ * Generic search input — no search logic here, just the UI shell (icon,
+ * clear button) that library/tools/other sections wire up to their own
+ * results logic later. Reuses the shared field styling from Input/Textarea/
+ * Select so it matches their visual language exactly.
+ */
+import type { HTMLAttributes } from 'astro/types';
+import Search from '@lucide/astro/icons/search';
+import X from '@lucide/astro/icons/x';
+import { getFieldClasses } from '@/lib/formFieldStyles';
+
+interface Props extends Omit<HTMLAttributes<'input'>, 'type'> {
+  /** Accessible name for the field (visually hidden — pair with a visible placeholder). */
+  label: string;
+}
+
+const { label, class: className, id, ...rest }: Props = Astro.props;
+const inputId = id ?? `search-${crypto.randomUUID()}`;
+---
+
+<div class:list={['relative', className]} data-search-bar>
+  <label class="sr-only" for={inputId}>{label}</label>
+  <Search
+    class="text-text-secondary pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2"
+    aria-hidden="true"
+  />
+  <input
+    id={inputId}
+    type="search"
+    autocomplete="off"
+    data-search-input
+    class:list={['h-11 pr-10 pl-10', getFieldClasses()]}
+    {...rest}
+  />
+  <button
+    type="button"
+    data-search-clear
+    aria-label="Limpiar búsqueda"
+    class="text-text-secondary ease-standard hover:bg-surface-alt absolute top-1/2 right-2 hidden size-7 -translate-y-1/2 items-center justify-center rounded-full transition-colors duration-150"
+  >
+    <X class="size-4" aria-hidden="true" />
+  </button>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-search-bar]').forEach((root) => {
+    const input = root.querySelector<HTMLInputElement>('[data-search-input]');
+    const clearButton = root.querySelector<HTMLButtonElement>('[data-search-clear]');
+    if (!input || !clearButton) return;
+
+    function syncClearButton() {
+      const hasValue = (input as HTMLInputElement).value.length > 0;
+      clearButton?.classList.toggle('hidden', !hasValue);
+      clearButton?.classList.toggle('inline-flex', hasValue);
+    }
+
+    input.addEventListener('input', syncClearButton);
+    clearButton.addEventListener('click', () => {
+      input.value = '';
+      input.focus();
+      syncClearButton();
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    syncClearButton();
+  });
+</script>

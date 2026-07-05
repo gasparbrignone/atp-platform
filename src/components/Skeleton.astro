@@ -1,0 +1,30 @@
+---
+/**
+ * A single loading placeholder block. Purely decorative (`aria-hidden`) —
+ * when composing several into a card-shaped placeholder, wrap them in a
+ * container with `role="status" aria-label="Cargando"` so screen readers
+ * get a single, correct announcement instead of silence or repetition.
+ */
+import type { HTMLAttributes } from 'astro/types';
+
+export type SkeletonVariant = 'text' | 'circle' | 'rect';
+
+interface Props extends HTMLAttributes<'div'> {
+  variant?: SkeletonVariant;
+}
+
+const { variant = 'rect', class: className, ...rest }: Props = Astro.props;
+
+const variantClasses: Record<SkeletonVariant, string> = {
+  text: 'h-4 rounded-xs',
+  circle: 'rounded-full',
+  rect: 'rounded-md',
+};
+---
+
+<div
+  class:list={['bg-surface-alt animate-pulse', variantClasses[variant], className]}
+  aria-hidden="true"
+  {...rest}
+>
+</div>

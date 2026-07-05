@@ -1,0 +1,19 @@
+---
+/**
+ * Controls the maximum reading width of its content and centers it.
+ * Owns no visual styling beyond width and horizontal padding — never add
+ * background, spacing-between-children, or other layout logic here.
+ */
+import type { HTMLAttributes } from 'astro/types';
+
+interface Props extends HTMLAttributes<'div'> {
+  /** Underlying HTML tag to render. Defaults to a plain `div`. */
+  as?: keyof HTMLElementTagNameMap;
+}
+
+const { as: Tag = 'div', class: className, ...rest }: Props = Astro.props;
+---
+
+<Tag class:list={['max-w-content mx-auto w-full px-4 md:px-6 xl:px-8', className]} {...rest}>
+  <slot />
+</Tag>

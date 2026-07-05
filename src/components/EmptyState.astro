@@ -1,0 +1,43 @@
+---
+/**
+ * Shown wherever a list/search/grid has no results. `title` uses a plain
+ * paragraph, not a heading — this renders inline inside whatever section
+ * already owns the surrounding heading structure (library, search results,
+ * etc.), so it must not presume a heading level (same reasoning as Card).
+ */
+import type { HTMLAttributes } from 'astro/types';
+import Button from './Button.astro';
+
+interface Props extends HTMLAttributes<'div'> {
+  title: string;
+  description?: string;
+  actionLabel?: string;
+  actionHref?: string;
+}
+
+const {
+  title,
+  description,
+  actionLabel,
+  actionHref,
+  class: className,
+  ...rest
+}: Props = Astro.props;
+---
+
+<div class:list={['flex flex-col items-center gap-4 px-4 py-16 text-center', className]} {...rest}>
+  <div class="text-text-secondary">
+    <slot name="icon" />
+  </div>
+  <div class="flex flex-col gap-2">
+    <p class="text-h4 text-text font-bold">{title}</p>
+    {description && <p class="text-body text-text-secondary">{description}</p>}
+  </div>
+  {
+    actionLabel && actionHref && (
+      <Button href={actionHref} class="mt-2">
+        {actionLabel}
+      </Button>
+    )
+  }
+</div>

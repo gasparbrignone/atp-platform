@@ -1,0 +1,89 @@
+---
+/**
+ * The mobile navigation drawer. Uses a native <dialog> so focus trapping,
+ * Escape-to-close and modal semantics come from the browser instead of
+ * hand-rolled JS. Opened by Navbar's `#mobile-menu-trigger` button — the two
+ * components talk through plain DOM ids since they always render together
+ * on the same page (see Navbar.astro).
+ */
+import X from '@lucide/astro/icons/x';
+import Button from './Button.astro';
+import SocialLinks from './SocialLinks.astro';
+
+interface NavLink {
+  label: string;
+  href: string;
+}
+
+interface Props {
+  links: NavLink[];
+}
+
+const { links }: Props = Astro.props;
+---
+
+<dialog
+  id="mobile-menu"
+  aria-label="Menú de navegación"
+  class="m-0 h-dvh max-h-none w-full max-w-none border-0 bg-transparent p-0 backdrop:bg-gray-900/60 backdrop:backdrop-blur-sm"
+>
+  <div
+    id="mobile-menu-panel"
+    class="bg-surface ease-standard ml-auto flex h-full w-full max-w-xs translate-x-full flex-col gap-8 overflow-y-auto p-6 opacity-0 shadow-lg transition-[transform,opacity] duration-250"
+  >
+    <div class="flex items-center justify-between">
+      <span class="text-h4 text-text font-bold">Menú</span>
+      <button
+        type="button"
+        id="mobile-menu-close"
+        class="text-text-secondary ease-standard hover:bg-surface-alt inline-flex size-10 items-center justify-center rounded-full transition-colors duration-150"
+      >
+        <span class="sr-only">Cerrar menú</span>
+        <X class="size-5" aria-hidden="true" />
+      </button>
+    </div>
+
+    <nav aria-label="Navegación del menú móvil">
+      <ul class="flex flex-col gap-1">
+        {
+          links.map((link) => (
+            <li>
+              <a
+                href={link.href}
+                class="text-body-lg text-text ease-standard hover:bg-surface-alt block rounded-sm px-3 py-3 font-semibold transition-colors duration-150"
+              >
+                {link.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <Button href="#" class="mt-auto">Sumate a ATP</Button>
+
+    <SocialLinks />
+  </div>
+</dialog>
+
+<script>
+  import { createDialogController } from '@/lib/dialogController';
+
+  const dialog = document.querySelector<HTMLDialogElement>('#mobile-menu');
+  const panel = document.querySelector<HTMLElement>('#mobile-menu-panel');
+  const trigger = document.querySelector<HTMLElement>('#mobile-menu-trigger');
+  const closeButton = document.querySelector<HTMLElement>('#mobile-menu-close');
+
+  if (dialog && panel) {
+    const menu = createDialogController({
+      dialog,
+      panel,
+      openClasses: ['translate-x-0', 'opacity-100'],
+      closedClasses: ['translate-x-full', 'opacity-0'],
+      onOpenChange: (isOpen) => trigger?.setAttribute('aria-expanded', String(isOpen)),
+    });
+
+    trigger?.addEventListener('click', menu.open);
+    closeButton?.addEventListener('click', menu.close);
+  }
+</script>

@@ -1,0 +1,81 @@
+---
+/**
+ * Generic centered dialog for confirmations, expanded info or quick actions.
+ * Decoupled from its trigger(s) via data attributes — any button anywhere
+ * on the page with `data-modal-open={id}` opens this modal, and any element
+ * inside it with `data-modal-close` closes it. This lets multiple, unrelated
+ * components open the same modal without prop-drilling a click handler.
+ */
+import type { HTMLAttributes } from 'astro/types';
+import X from '@lucide/astro/icons/x';
+
+interface Props extends Omit<HTMLAttributes<'dialog'>, 'id'> {
+  /** Unique id — trigger buttons reference it via `data-modal-open={id}`. */
+  id: string;
+}
+
+const { id, class: className, ...rest }: Props = Astro.props;
+const titleId = `${id}-title`;
+---
+
+<dialog
+  id={id}
+  data-modal
+  aria-labelledby={titleId}
+  class:list={[
+    'max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg border-0 bg-transparent p-0 backdrop:bg-gray-900/60 backdrop:backdrop-blur-sm',
+    className,
+  ]}
+  {...rest}
+>
+  <div
+    data-modal-panel
+    class="bg-surface ease-standard flex max-h-[85dvh] scale-95 flex-col gap-6 overflow-y-auto rounded-lg p-6 opacity-0 shadow-xl transition-[transform,opacity] duration-200"
+  >
+    <div class="flex items-start justify-between gap-4">
+      <h2 id={titleId} class="text-h4 text-text font-bold">
+        <slot name="title" />
+      </h2>
+      <button
+        type="button"
+        data-modal-close
+        aria-label="Cerrar"
+        class="text-text-secondary ease-standard hover:bg-surface-alt inline-flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-150"
+      >
+        <X class="size-5" aria-hidden="true" />
+      </button>
+    </div>
+
+    <div class="text-body text-text-secondary">
+      <slot />
+    </div>
+
+    <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      <slot name="actions" />
+    </div>
+  </div>
+</dialog>
+
+<script>
+  import { createDialogController } from '@/lib/dialogController';
+
+  document.querySelectorAll<HTMLDialogElement>('[data-modal]').forEach((dialog) => {
+    const panel = dialog.querySelector<HTMLElement>('[data-modal-panel]');
+    if (!panel) return;
+
+    const modal = createDialogController({
+      dialog,
+      panel,
+      openClasses: ['scale-100', 'opacity-100'],
+      closedClasses: ['scale-95', 'opacity-0'],
+    });
+
+    document
+      .querySelectorAll<HTMLElement>(`[data-modal-open="${dialog.id}"]`)
+      .forEach((trigger) => trigger.addEventListener('click', modal.open));
+
+    dialog
+      .querySelectorAll<HTMLElement>('[data-modal-close]')
+      .forEach((closeButton) => closeButton.addEventListener('click', modal.close));
+  });
+</script>

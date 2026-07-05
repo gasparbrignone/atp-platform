@@ -1,0 +1,38 @@
+---
+/**
+ * Shows a short status label (e.g. "Nuevo", "Destacado", "Actualizado").
+ * Always a solid-fill pill: each variant already pairs with an accessible
+ * `-foreground` token, so it stays WCAG AA compliant regardless of theme.
+ */
+import type { HTMLAttributes } from 'astro/types';
+
+export type BadgeVariant =
+  'neutral' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info';
+
+interface Props extends HTMLAttributes<'span'> {
+  variant?: BadgeVariant;
+}
+
+const { variant = 'neutral', class: className, ...rest }: Props = Astro.props;
+
+const variantClasses: Record<BadgeVariant, string> = {
+  neutral: 'bg-gray-100 text-gray-700',
+  primary: 'bg-primary text-primary-foreground',
+  secondary: 'bg-secondary text-secondary-foreground',
+  success: 'bg-success text-success-foreground',
+  warning: 'bg-warning text-warning-foreground',
+  error: 'bg-error text-error-foreground',
+  info: 'bg-info text-info-foreground',
+};
+---
+
+<span
+  class:list={[
+    'text-caption inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold',
+    variantClasses[variant],
+    className,
+  ]}
+  {...rest}
+>
+  <slot />
+</span>

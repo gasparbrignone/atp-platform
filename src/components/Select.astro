@@ -1,0 +1,33 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+import { getFieldClasses } from '@/lib/formFieldStyles';
+
+interface Props extends HTMLAttributes<'select'> {
+  /** Marks the field invalid: red border/focus ring + `aria-invalid`. Pair with a visible error message linked via `aria-describedby`. */
+  error?: boolean;
+}
+
+const { error = false, class: className, ...rest }: Props = Astro.props;
+---
+
+<div class="relative">
+  <select
+    class:list={['h-10 appearance-none pr-10 pl-4', getFieldClasses(error), className]}
+    aria-invalid={error ? 'true' : undefined}
+    {...rest}
+  >
+    <slot />
+  </select>
+  <svg
+    class="text-text-secondary pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="m6 9 6 6 6-6"></path>
+  </svg>
+</div>
