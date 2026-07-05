@@ -89,6 +89,7 @@ Estas tareas son indispensables para publicar la primera versión.
 
 * ✅ Container
 * ✅ Section
+* ✅ Grid
 
 ## Componentes base
 
@@ -104,7 +105,9 @@ Estas tareas son indispensables para publicar la primera versión.
 * ✅ Loader
 * ✅ EmptyState
 * ✅ SearchBar
-* ⬜ FilterPanel
+* ✅ SectionHeader
+* ✅ FilterPanel
+* ✅ FilterChip
 * ✅ Carousel
 * ✅ Hero
 * ✅ Navbar

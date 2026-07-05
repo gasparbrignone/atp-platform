@@ -1,0 +1,46 @@
+---
+/**
+ * Groups the filter controls of a page (biblioteca/actividades/herramientas)
+ * behind a consistent shell. Agnostic to which criteria exist — the caller
+ * fills `default` with its own Select/Input fields and `chips` with the
+ * active FilterChip list. "Limpiar filtros" only dispatches a bubbling
+ * CustomEvent; resetting the actual fields is the page's job.
+ */
+import type { HTMLAttributes } from 'astro/types';
+
+interface Props extends HTMLAttributes<'div'> {
+  title?: string;
+}
+
+const { title = 'Filtros', class: className, ...rest }: Props = Astro.props;
+---
+
+<div data-filter-panel class:list={['flex flex-col gap-4', className]} {...rest}>
+  <div class="flex items-center justify-between gap-4">
+    <h3 class="text-h4 text-text font-bold">{title}</h3>
+    <button
+      type="button"
+      data-filter-panel-clear
+      class="text-body-sm text-primary-strong ease-standard hover:underline"
+    >
+      Limpiar filtros
+    </button>
+  </div>
+
+  <div class="flex flex-wrap items-end gap-4">
+    <slot />
+  </div>
+
+  <div class="flex flex-wrap gap-2 empty:hidden">
+    <slot name="chips" />
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-filter-panel]').forEach((panel) => {
+    const clearButton = panel.querySelector<HTMLButtonElement>('[data-filter-panel-clear]');
+    clearButton?.addEventListener('click', () => {
+      panel.dispatchEvent(new CustomEvent('filterpanel:clear', { bubbles: true }));
+    });
+  });
+</script>

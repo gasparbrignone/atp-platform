@@ -1,0 +1,57 @@
+---
+/**
+ * Title + description pair used at the top of a page section (Actividades,
+ * Novedades, Biblioteca destacada...). Fully generic, like Hero — never hold
+ * ATP-specific copy, callers always pass their own text.
+ */
+import Button from './Button.astro';
+
+export type SectionHeaderAlignment = 'left' | 'center';
+
+interface SectionHeaderAction {
+  label: string;
+  href: string;
+}
+
+interface Props {
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  action?: SectionHeaderAction;
+  alignment?: SectionHeaderAlignment;
+  /** Heading tag for `title`. Defaults to h2 — override if this header sits at a different level. */
+  as?: 'h1' | 'h2' | 'h3';
+}
+
+const {
+  eyebrow,
+  title,
+  description,
+  action,
+  alignment = 'left',
+  as: Heading = 'h2',
+}: Props = Astro.props;
+
+const isCentered = alignment === 'center';
+---
+
+<div
+  class:list={[
+    'flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between',
+    isCentered && 'sm:flex-col sm:items-center sm:text-center',
+  ]}
+>
+  <div class:list={['flex max-w-2xl flex-col gap-2', isCentered && 'items-center']}>
+    {eyebrow && <p class="text-overline text-primary-strong font-bold uppercase">{eyebrow}</p>}
+    <Heading class="text-h2 text-text font-extrabold">{title}</Heading>
+    {description && <p class="text-body-lg text-text-secondary">{description}</p>}
+  </div>
+
+  {
+    action && (
+      <Button href={action.href} variant="outline" class="shrink-0">
+        {action.label}
+      </Button>
+    )
+  }
+</div>
