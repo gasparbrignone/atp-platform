@@ -1,0 +1,10 @@
+{
+  "title": "Fisiología Médica",
+  "author": "Guyton & Hall",
+  "subject": "Fisiología",
+  "career": ["medicina"],
+  "resourceType": "libro",
+  "downloadUrl": "https://drive.google.com/drive/folders/ejemplo-fisiologia-guyton",
+  "description": "Texto clásico de fisiología humana con enfoque clínico integrado.",
+  "published": true
+}

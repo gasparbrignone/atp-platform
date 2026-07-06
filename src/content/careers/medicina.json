@@ -1,0 +1,33 @@
+{
+  "name": "Medicina",
+  "description": "Medicina es la carrera con mayor cantidad de recursos disponibles en ATP: calendario académico, atlas de anatomía, microscopios virtuales y guías de estudio para cada año.",
+  "tools": [
+    {
+      "name": "Atlas de Anatomía",
+      "description": "Recurso interactivo para repasar estructuras del cuerpo humano.",
+      "icon": "book-open"
+    },
+    {
+      "name": "Microscopio Virtual",
+      "description": "Explorá preparados histológicos sin necesidad de laboratorio.",
+      "icon": "microscope"
+    },
+    {
+      "name": "Calendario Académico",
+      "description": "Fechas clave de cursada y mesas de examen.",
+      "icon": "calendar-check"
+    }
+  ],
+  "resources": [
+    {
+      "label": "Materiales de Medicina en la Biblioteca",
+      "href": "/biblioteca",
+      "external": false
+    },
+    {
+      "label": "Guías de estudio de ATP",
+      "href": "https://drive.google.com/drive/folders/ejemplo-guias-medicina",
+      "external": true
+    }
+  ]
+}

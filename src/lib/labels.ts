@@ -1,0 +1,35 @@
+/**
+ * Label maps de UI para los enums de src/content.config.ts. Viven separados
+ * del schema de contenido porque son vocabulario de presentación (español),
+ * no forma de datos.
+ *
+ * Los union types de acá duplican los `z.enum([...])` del content config en
+ * vez de derivarse con `z.infer` porque eso crearía un acoplamiento inverso
+ * (esta lib de UI dependiendo del schema de contenido) por 4 uniones cortas
+ * y estables — la duplicación controlada es preferible.
+ */
+
+export type ActivityStatus = 'proxima' | 'activa' | 'finalizada';
+export type ResourceType = 'libro' | 'resumen' | 'guia';
+export type CareerSlug = 'medicina' | 'enfermeria' | 'fonoaudiologia' | 'terapia-ocupacional';
+export type ToolIconKey = 'book-open' | 'microscope' | 'calculator' | 'activity' | 'link';
+export type CareerToolIconKey = 'book-open' | 'microscope' | 'calendar-check';
+
+export const statusLabels: Record<ActivityStatus, string> = {
+  proxima: 'Próxima',
+  activa: 'Activa',
+  finalizada: 'Finalizada',
+};
+
+export const resourceTypeLabels: Record<ResourceType, string> = {
+  libro: 'Libro',
+  resumen: 'Resumen',
+  guia: 'Guía',
+};
+
+export const careerLabels: Record<CareerSlug, string> = {
+  medicina: 'Medicina',
+  enfermeria: 'Enfermería',
+  fonoaudiologia: 'Fonoaudiología',
+  'terapia-ocupacional': 'Terapia Ocupacional',
+};

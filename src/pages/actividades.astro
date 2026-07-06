@@ -20,10 +20,10 @@ import Grid from '@/components/Grid.astro';
 import Card from '@/components/Card.astro';
 import Button from '@/components/Button.astro';
 import EmptyState from '@/components/EmptyState.astro';
-import { activities } from '@/content/activities';
+import { getCollection } from 'astro:content';
 
-const publishedActivities = activities.filter((activity) => activity.published);
-const featuredActivities = publishedActivities.filter((activity) => activity.featured);
+const publishedActivities = await getCollection('activities', ({ data }) => data.published);
+const featuredActivities = publishedActivities.filter((activity) => activity.data.featured);
 ---
 
 <BaseLayout title="Actividades" description="Talleres, cursos y encuentros que armamos en ATP.">
@@ -39,22 +39,24 @@ const featuredActivities = publishedActivities.filter((activity) => activity.fea
               {featuredActivities.map((activity) => (
                 <Card>
                   <h3 slot="title" class="text-h4 text-text font-bold">
-                    {activity.title}
+                    {activity.data.title}
                   </h3>
                   <p class="text-body-sm text-text-secondary font-semibold">
-                    {[activity.date, activity.time, activity.location].filter(Boolean).join(' · ')}
+                    {[activity.data.date, activity.data.time, activity.data.location]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </p>
-                  <p class="mt-2">{activity.summary}</p>
+                  <p class="mt-2">{activity.data.summary}</p>
                   <div slot="actions" class="flex flex-wrap items-center gap-2">
-                    <Button href={`/actividades/${activity.slug}`} variant="outline" size="sm">
+                    <Button href={`/actividades/${activity.id}`} variant="outline" size="sm">
                       Ver más
                     </Button>
-                    {activity.registrationUrl && (
+                    {activity.data.registrationUrl && (
                       <Button
-                        href={activity.registrationUrl}
+                        href={activity.data.registrationUrl}
                         target="_blank"
                         size="sm"
-                        disabled={activity.status === 'finalizada'}
+                        disabled={activity.data.status === 'finalizada'}
                       >
                         Inscribirse
                       </Button>
@@ -73,22 +75,24 @@ const featuredActivities = publishedActivities.filter((activity) => activity.fea
             {publishedActivities.map((activity) => (
               <Card>
                 <h3 slot="title" class="text-h4 text-text font-bold">
-                  {activity.title}
+                  {activity.data.title}
                 </h3>
                 <p class="text-body-sm text-text-secondary font-semibold">
-                  {[activity.date, activity.time, activity.location].filter(Boolean).join(' · ')}
+                  {[activity.data.date, activity.data.time, activity.data.location]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </p>
-                <p class="mt-2">{activity.summary}</p>
+                <p class="mt-2">{activity.data.summary}</p>
                 <div slot="actions" class="flex flex-wrap items-center gap-2">
-                  <Button href={`/actividades/${activity.slug}`} variant="outline" size="sm">
+                  <Button href={`/actividades/${activity.id}`} variant="outline" size="sm">
                     Ver más
                   </Button>
-                  {activity.registrationUrl && (
+                  {activity.data.registrationUrl && (
                     <Button
-                      href={activity.registrationUrl}
+                      href={activity.data.registrationUrl}
                       target="_blank"
                       size="sm"
-                      disabled={activity.status === 'finalizada'}
+                      disabled={activity.data.status === 'finalizada'}
                     >
                       Inscribirse
                     </Button>

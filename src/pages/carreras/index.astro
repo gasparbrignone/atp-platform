@@ -20,7 +20,9 @@ import Stethoscope from '@lucide/astro/icons/stethoscope';
 import HeartPulse from '@lucide/astro/icons/heart-pulse';
 import Ear from '@lucide/astro/icons/ear';
 import HandHeart from '@lucide/astro/icons/hand-heart';
-import { careers } from '@/content/careers';
+import { getCollection } from 'astro:content';
+
+const careers = await getCollection('careers');
 
 const careerIcons: Record<string, typeof Stethoscope> = {
   medicina: Stethoscope,
@@ -41,7 +43,7 @@ const careerIcons: Record<string, typeof Stethoscope> = {
       <Grid cols={2} gap="md">
         {
           careers.map((career) => {
-            const Icon = careerIcons[career.slug];
+            const Icon = careerIcons[career.id];
             return (
               <Card>
                 <div slot="image" class="p-6 pb-0">
@@ -50,10 +52,10 @@ const careerIcons: Record<string, typeof Stethoscope> = {
                   </div>
                 </div>
                 <h3 slot="title" class="text-h4 text-text font-bold">
-                  {career.name}
+                  {career.data.name}
                 </h3>
                 <div slot="actions">
-                  <Button href={`/carreras/${career.slug}`} variant="outline" size="sm">
+                  <Button href={`/carreras/${career.id}`} variant="outline" size="sm">
                     Entrar
                   </Button>
                 </div>

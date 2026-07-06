@@ -17,6 +17,7 @@
 * ✅ Completado
 * ⛔ Bloqueado
 * 🚀 Futuro
+* 🚫 Fuera de alcance (decisión de producto)
 
 ---
 
@@ -224,11 +225,20 @@ Estas tareas son indispensables para publicar la primera versión.
 
 # Institucional
 
-* ⬜ Quiénes somos.
-* ⬜ Historia.
-* ⬜ Valores.
-* ⬜ Contacto.
-* ⬜ Sumate a ATP.
+* ✅ Sumate a ATP.
+* 🚫 Quiénes somos — fuera de alcance (decisión de producto).
+* 🚫 Historia — fuera de alcance (decisión de producto).
+* 🚫 Valores — fuera de alcance (decisión de producto).
+* 🚫 Contacto — fuera de alcance (decisión de producto).
+
+---
+
+# CMS
+
+* ✅ Migrar contenido a Astro Content Collections (Actividades, Biblioteca, Carreras, Herramientas).
+* ✅ Panel `/admin` de Decap CMS (sin dependencia npm, vía CDN) + `config.yml`.
+* ⬜ Crear repositorio real de GitHub (acción externa, ver `docs/CMS_SETUP.md`).
+* ⬜ Configurar proveedor de autenticación OAuth (acción externa, ver `docs/CMS_SETUP.md`).
 
 ---
 

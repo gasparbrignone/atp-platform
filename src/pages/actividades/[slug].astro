@@ -17,38 +17,45 @@ import Section from '@/components/Section.astro';
 import Container from '@/components/Container.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
 import Button from '@/components/Button.astro';
-import { activities, type Activity } from '@/content/activities';
+import { getCollection, type CollectionEntry } from 'astro:content';
 
-export const getStaticPaths: GetStaticPaths = () => {
-  return activities
-    .filter((activity) => activity.published)
-    .map((activity) => ({ params: { slug: activity.slug }, props: { activity } }));
+export const getStaticPaths: GetStaticPaths = async () => {
+  const activities = await getCollection('activities', ({ data }) => data.published);
+  return activities.map((activity) => ({
+    params: { slug: activity.id },
+    props: { activity },
+  }));
 };
 
-const { activity } = Astro.props as { activity: Activity };
-const meta = [activity.date, activity.time, activity.location].filter(Boolean).join(' · ');
+const { activity } = Astro.props as { activity: CollectionEntry<'activities'> };
+const meta = [activity.data.date, activity.data.time, activity.data.location]
+  .filter(Boolean)
+  .join(' · ');
 ---
 
-<BaseLayout title={activity.title} description={activity.description ?? activity.summary}>
+<BaseLayout
+  title={activity.data.title}
+  description={activity.data.description ?? activity.data.summary}
+>
   <Section spacing="lg">
     <Container class="flex flex-col gap-8">
       <Button href="/actividades" variant="ghost" size="sm" class="self-start">
         ← Volver a actividades
       </Button>
 
-      <SectionHeader as="h1" title={activity.title} description={meta} />
+      <SectionHeader as="h1" title={activity.data.title} description={meta} />
 
       <p class="text-body-lg text-text-secondary max-w-2xl">
-        {activity.description ?? activity.summary}
+        {activity.data.description ?? activity.data.summary}
       </p>
 
       <div class="flex flex-wrap gap-3">
         {
-          activity.registrationUrl ? (
+          activity.data.registrationUrl ? (
             <Button
-              href={activity.registrationUrl}
+              href={activity.data.registrationUrl}
               target="_blank"
-              disabled={activity.status === 'finalizada'}
+              disabled={activity.data.status === 'finalizada'}
             >
               Inscribirse
             </Button>

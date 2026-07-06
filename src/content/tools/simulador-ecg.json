@@ -1,0 +1,6 @@
+{
+  "name": "Simulador de ECG",
+  "description": "Practicá la lectura de electrocardiogramas con casos guiados.",
+  "icon": "activity",
+  "published": true
+}

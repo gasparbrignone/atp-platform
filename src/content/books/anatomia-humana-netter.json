@@ -1,0 +1,10 @@
+{
+  "title": "Anatomía Humana",
+  "author": "Frank H. Netter",
+  "subject": "Anatomía",
+  "career": ["medicina"],
+  "resourceType": "libro",
+  "downloadUrl": "https://drive.google.com/drive/folders/ejemplo-anatomia-netter",
+  "description": "Atlas de referencia con ilustraciones detalladas de todos los sistemas del cuerpo.",
+  "published": true
+}

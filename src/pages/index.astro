@@ -25,7 +25,7 @@ import Stethoscope from '@lucide/astro/icons/stethoscope';
 import HeartPulse from '@lucide/astro/icons/heart-pulse';
 import Ear from '@lucide/astro/icons/ear';
 import HandHeart from '@lucide/astro/icons/hand-heart';
-import { activities } from '@/content/activities';
+import { getCollection } from 'astro:content';
 
 const quickLinks = [
   { icon: BookOpen, title: 'Biblioteca', href: '/biblioteca' },
@@ -34,7 +34,10 @@ const quickLinks = [
   { icon: Wrench, title: 'Herramientas', href: '/herramientas' },
 ];
 
-const featuredActivities = activities.filter((activity) => activity.published && activity.featured);
+const featuredActivities = await getCollection(
+  'activities',
+  ({ data }) => data.published && data.featured,
+);
 
 const careers = [
   { icon: Stethoscope, name: 'Medicina', href: '/carreras/medicina' },
@@ -50,7 +53,7 @@ const careers = [
 >
   <Hero
     title="ATP"
-    primaryAction={{ label: 'Sumate a ATP', href: '#sumate' }}
+    primaryAction={{ label: 'Sumate a ATP', href: '/sumate' }}
     secondaryAction={{ label: 'Ver actividades', href: '/actividades' }}
   />
 
@@ -89,22 +92,24 @@ const careers = [
             {featuredActivities.map((activity) => (
               <Card class="w-[85%] shrink-0 snap-center sm:w-[45%] lg:w-[30%]">
                 <h3 slot="title" class="text-h4 text-text font-bold">
-                  {activity.title}
+                  {activity.data.title}
                 </h3>
                 <p class="text-body-sm text-text-secondary font-semibold">
-                  {[activity.date, activity.time, activity.location].filter(Boolean).join(' · ')}
+                  {[activity.data.date, activity.data.time, activity.data.location]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </p>
-                <p class="mt-2">{activity.summary}</p>
+                <p class="mt-2">{activity.data.summary}</p>
                 <div slot="actions" class="flex flex-wrap items-center gap-2">
-                  <Button href={`/actividades/${activity.slug}`} variant="outline" size="sm">
+                  <Button href={`/actividades/${activity.id}`} variant="outline" size="sm">
                     Ver más
                   </Button>
-                  {activity.registrationUrl && (
+                  {activity.data.registrationUrl && (
                     <Button
-                      href={activity.registrationUrl}
+                      href={activity.data.registrationUrl}
                       target="_blank"
                       size="sm"
-                      disabled={activity.status === 'finalizada'}
+                      disabled={activity.data.status === 'finalizada'}
                     >
                       Inscribirse
                     </Button>
@@ -153,7 +158,7 @@ const careers = [
   <Section id="sumate" spacing="lg" background="surface-alt">
     <Container class="flex flex-col items-center gap-6 text-center">
       <SectionHeader title="Sumate a transformar la facultad" alignment="center" />
-      <Button href="#" size="lg">Sumate a ATP</Button>
+      <Button href="/sumate" size="lg">Sumate a ATP</Button>
       <SocialLinks />
     </Container>
   </Section>

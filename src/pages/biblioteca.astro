@@ -23,9 +23,10 @@ import SearchBar from '@/components/SearchBar.astro';
 import FilterPanel from '@/components/FilterPanel.astro';
 import FilterChip from '@/components/FilterChip.astro';
 import EmptyState from '@/components/EmptyState.astro';
-import { books, careerLabels, resourceTypeLabels, type CareerSlug } from '@/content/books';
+import { getCollection } from 'astro:content';
+import { careerLabels, resourceTypeLabels, type CareerSlug } from '@/lib/labels';
 
-const publishedBooks = books.filter((book) => book.published);
+const publishedBooks = await getCollection('books', ({ data }) => data.published);
 const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
 ---
 
@@ -62,21 +63,21 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
       <Grid data-library-grid cols={3} gap="md">
         {
           publishedBooks.map((book) => (
-            <Card data-book-card data-career={book.career.join(' ')}>
+            <Card data-book-card data-career={book.data.career.join(' ')}>
               <Badge slot="badge" variant="secondary">
-                {resourceTypeLabels[book.resourceType]}
+                {resourceTypeLabels[book.data.resourceType]}
               </Badge>
               <h3 slot="title" class="text-h4 text-text font-bold">
-                {book.title}
+                {book.data.title}
               </h3>
               <p class="text-body-sm text-text-secondary font-semibold">
-                {book.author} · {book.subject}
+                {book.data.author} · {book.data.subject}
               </p>
               <div slot="actions" class="flex items-center justify-between gap-4">
                 <span class="text-caption text-text-secondary">
-                  {book.career.map((slug) => careerLabels[slug]).join(', ')}
+                  {book.data.career.map((slug) => careerLabels[slug]).join(', ')}
                 </span>
-                <Button href={book.downloadUrl} target="_blank" variant="outline" size="sm">
+                <Button href={book.data.downloadUrl} target="_blank" variant="outline" size="sm">
                   Descargar
                 </Button>
               </div>

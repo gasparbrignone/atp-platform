@@ -1,0 +1,12 @@
+{
+  "title": "Jornada de Bienvenida",
+  "summary": "Encuentro para estudiantes ingresantes: conocé ATP y sus propuestas.",
+  "description": "Encuentro para estudiantes ingresantes: conocé ATP, a quienes formamos parte de la agrupación y todas las propuestas que tenemos para acompañarte en el primer año.",
+  "date": "5 de septiembre",
+  "time": "10:00 hs",
+  "location": "Anfiteatro Central",
+  "status": "proxima",
+  "registrationUrl": "https://forms.gle/ejemplo-jornada-bienvenida",
+  "featured": false,
+  "published": true
+}

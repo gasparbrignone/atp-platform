@@ -25,35 +25,37 @@ import BookOpen from '@lucide/astro/icons/book-open';
 import Microscope from '@lucide/astro/icons/microscope';
 import CalendarCheck from '@lucide/astro/icons/calendar-check';
 import ExternalLink from '@lucide/astro/icons/external-link';
-import { careers, type Career, type ToolIconKey } from '@/content/careers';
+import { getCollection, type CollectionEntry } from 'astro:content';
+import type { CareerToolIconKey } from '@/lib/labels';
 
-const toolIcons: Record<ToolIconKey, typeof BookOpen> = {
+const toolIcons: Record<CareerToolIconKey, typeof BookOpen> = {
   'book-open': BookOpen,
   microscope: Microscope,
   'calendar-check': CalendarCheck,
 };
 
-export const getStaticPaths: GetStaticPaths = () => {
-  return careers.map((career) => ({ params: { career: career.slug }, props: { career } }));
+export const getStaticPaths: GetStaticPaths = async () => {
+  const careers = await getCollection('careers');
+  return careers.map((career) => ({ params: { career: career.id }, props: { career } }));
 };
 
-const { career } = Astro.props as { career: Career };
+const { career } = Astro.props as { career: CollectionEntry<'careers'> };
 ---
 
 <BaseLayout
-  title={career.name}
-  description={`Recursos, herramientas y actividades de ATP para estudiantes de ${career.name}.`}
+  title={career.data.name}
+  description={`Recursos, herramientas y actividades de ATP para estudiantes de ${career.data.name}.`}
 >
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
-      <SectionHeader as="h1" title={career.name} description={career.description} />
+      <SectionHeader as="h1" title={career.data.name} description={career.data.description} />
 
       <div class="flex flex-col gap-6">
         <SectionHeader title="Herramientas útiles" as="h2" />
         {
-          career.tools.length > 0 ? (
+          career.data.tools.length > 0 ? (
             <Grid cols={3} gap="md">
-              {career.tools.map((tool) => {
+              {career.data.tools.map((tool) => {
                 const Icon = toolIcons[tool.icon];
                 return (
                   <Card>
@@ -93,9 +95,9 @@ const { career } = Astro.props as { career: Career };
       <div class="flex flex-col gap-6">
         <SectionHeader title="Recursos" as="h2" />
         {
-          career.resources.length > 0 ? (
+          career.data.resources.length > 0 ? (
             <Grid cols={2} gap="md">
-              {career.resources.map((resource) => (
+              {career.data.resources.map((resource) => (
                 <Card>
                   <h3 slot="title" class="text-h4 text-text font-bold">
                     {resource.label}
@@ -127,7 +129,7 @@ const { career } = Astro.props as { career: Career };
         <p class="text-h4 text-text font-bold">¿Querés participar de ATP?</p>
         <div class="flex flex-col gap-3 sm:flex-row">
           <Button href="/actividades" variant="outline"> Ver actividades </Button>
-          <Button href="/#sumate">Sumate a ATP</Button>
+          <Button href="/sumate">Sumate a ATP</Button>
         </div>
       </div>
     </Container>

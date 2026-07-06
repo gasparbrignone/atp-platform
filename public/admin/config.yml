@@ -1,0 +1,164 @@
+# Panel de edición de contenido (Decap CMS). Ver docs/CMS_SETUP.md para los
+# pasos pendientes (crear el repo real, OAuth) y cómo probar esto en local
+# ahora mismo con `npx decap-server`, sin necesitar nada de eso todavía.
+
+backend:
+  name: github
+  repo: TU-USUARIO/TU-REPO # TODO: completar con el owner/repo real de GitHub (ver docs/CMS_SETUP.md)
+  branch: main
+  base_url: https://reemplazar-proveedor-oauth.example # TODO: ver docs/CMS_SETUP.md
+
+local_backend: true
+
+media_folder: public/uploads
+public_folder: /uploads
+
+# Config global de generación de slugs (solo aplica al crear una entrada
+# nueva — ver nota en cada colección de abajo). Sin acentos/espacios para que
+# el nombre de archivo quede estable y portable.
+slug:
+  encoding: 'ascii'
+  clean_accents: true
+  sanitize_replacement: '-'
+
+collections:
+  # `slug: '{{slug}}'` solo define el nombre de archivo en el momento de
+  # CREAR la entrada (a partir del título). Editar el título después NO
+  # renombra el archivo ni cambia `entry.id` en Astro — el slug y el título
+  # quedan desacoplados una vez creada la entrada. Es el comportamiento por
+  # default de Decap, documentado acá para que quede explícito.
+  - name: activities
+    label: Actividades
+    folder: src/content/activities
+    create: true
+    delete: true
+    slug: '{{slug}}'
+    fields:
+      - { label: Título, name: title, widget: string }
+      - { label: Resumen, name: summary, widget: text }
+      - { label: Descripción, name: description, widget: text, required: false }
+      - {
+          label: Fecha,
+          name: date,
+          widget: datetime,
+          format: 'YYYY-MM-DD',
+          date_format: true,
+          time_format: false,
+          picker_utc: true,
+        }
+      - {
+          label: Hora,
+          name: time,
+          widget: string,
+          pattern: ['^([01]\d|2[0-3]):[0-5]\d$', 'Formato HH:MM en 24hs, ej: 08:00 o 19:45'],
+        }
+      - { label: Lugar, name: location, widget: string, required: false }
+      - { label: Estado, name: status, widget: select, options: [proxima, activa, finalizada] }
+      - {
+          label: Link de inscripción,
+          name: registrationUrl,
+          widget: string,
+          required: false,
+          pattern: ['^https?://', 'Debe empezar con http:// o https://'],
+        }
+      - { label: Destacada, name: featured, widget: boolean, default: false }
+      - { label: Publicada, name: published, widget: boolean, default: true }
+      - { label: Orden, name: order, widget: number, required: false, value_type: int }
+
+  - name: books
+    label: Biblioteca
+    folder: src/content/books
+    create: true
+    delete: true
+    slug: '{{slug}}'
+    fields:
+      - { label: Título, name: title, widget: string }
+      - { label: Autor, name: author, widget: string }
+      - { label: Materia, name: subject, widget: string }
+      - {
+          label: Carreras,
+          name: career,
+          widget: select,
+          multiple: true,
+          options: [medicina, enfermeria, fonoaudiologia, terapia-ocupacional],
+        }
+      - { label: Tipo, name: resourceType, widget: select, options: [libro, resumen, guia] }
+      - {
+          label: Link de descarga,
+          name: downloadUrl,
+          widget: string,
+          pattern: ['^https?://', 'Debe empezar con http:// o https://'],
+        }
+      - { label: Descripción, name: description, widget: text }
+      - { label: Publicado, name: published, widget: boolean, default: true }
+      # Sin consumidor todavía en ninguna página — solo se prepara el campo
+      # para cuando haya portadas reales (ver content.config.ts).
+      - { label: Portada, name: cover, widget: image, required: false }
+      - { label: Orden, name: order, widget: number, required: false, value_type: int }
+
+  # create/delete en false a propósito: los íconos por carrera están
+  # hardcodeados por slug en src/pages/carreras/index.astro y
+  # src/pages/index.astro — una carrera nueva creada desde acá quedaría sin
+  # ícono mapeado. Agregar una carrera nueva sigue siendo una tarea de código.
+  - name: careers
+    label: Carreras
+    folder: src/content/careers
+    create: false
+    delete: false
+    fields:
+      - { label: Nombre, name: name, widget: string }
+      - { label: Descripción, name: description, widget: text }
+      - label: Herramientas
+        name: tools
+        widget: list
+        fields:
+          - { label: Nombre, name: name, widget: string }
+          - { label: Descripción, name: description, widget: text }
+          - {
+              label: Link,
+              name: href,
+              widget: string,
+              required: false,
+              pattern: ['^https?://', 'Debe empezar con http:// o https://'],
+            }
+          - {
+              label: Ícono,
+              name: icon,
+              widget: select,
+              options: [book-open, microscope, calendar-check],
+            }
+      - label: Recursos
+        name: resources
+        widget: list
+        fields:
+          - { label: Título, name: label, widget: string }
+          # A diferencia de los demás links, este también admite rutas
+          # internas del sitio (p. ej. "/biblioteca", ver el flag "Es
+          # externo") — no se restringe a http(s) para no romper esos casos.
+          - { label: Link, name: href, widget: string }
+          - { label: Es externo, name: external, widget: boolean, default: false }
+
+  - name: tools
+    label: Herramientas
+    folder: src/content/tools
+    create: true
+    delete: true
+    slug: '{{slug}}'
+    fields:
+      - { label: Nombre, name: name, widget: string }
+      - { label: Descripción, name: description, widget: text }
+      - {
+          label: URL,
+          name: url,
+          widget: string,
+          required: false,
+          pattern: ['^https?://', 'Debe empezar con http:// o https://'],
+        }
+      - {
+          label: Ícono,
+          name: icon,
+          widget: select,
+          options: [book-open, microscope, calculator, activity, link],
+        }
+      - { label: Publicada, name: published, widget: boolean, default: true }
+      - { label: Orden, name: order, widget: number, required: false, value_type: int }

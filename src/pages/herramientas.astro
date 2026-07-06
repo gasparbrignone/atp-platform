@@ -21,7 +21,8 @@ import Microscope from '@lucide/astro/icons/microscope';
 import Calculator from '@lucide/astro/icons/calculator';
 import Activity from '@lucide/astro/icons/activity';
 import Link from '@lucide/astro/icons/link';
-import { tools, type ToolIconKey } from '@/content/tools';
+import { getCollection } from 'astro:content';
+import type { ToolIconKey } from '@/lib/labels';
 
 const toolIcons: Record<ToolIconKey, typeof BookOpen> = {
   'book-open': BookOpen,
@@ -31,7 +32,7 @@ const toolIcons: Record<ToolIconKey, typeof BookOpen> = {
   link: Link,
 };
 
-const publishedTools = tools.filter((tool) => tool.published);
+const publishedTools = await getCollection('tools', ({ data }) => data.published);
 ---
 
 <BaseLayout title="Herramientas" description="Atlas, simuladores y accesos útiles para estudiar.">
@@ -42,7 +43,7 @@ const publishedTools = tools.filter((tool) => tool.published);
       <Grid cols={3} gap="md">
         {
           publishedTools.map((tool) => {
-            const Icon = toolIcons[tool.icon];
+            const Icon = toolIcons[tool.data.icon];
             return (
               <Card>
                 <div slot="image" class="p-6 pb-0">
@@ -51,12 +52,12 @@ const publishedTools = tools.filter((tool) => tool.published);
                   </div>
                 </div>
                 <h3 slot="title" class="text-h4 text-text font-bold">
-                  {tool.name}
+                  {tool.data.name}
                 </h3>
-                <p>{tool.description}</p>
+                <p>{tool.data.description}</p>
                 <div slot="actions">
-                  {tool.url ? (
-                    <Button href={tool.url} target="_blank" variant="outline" size="sm">
+                  {tool.data.url ? (
+                    <Button href={tool.data.url} target="_blank" variant="outline" size="sm">
                       Acceder
                     </Button>
                   ) : (

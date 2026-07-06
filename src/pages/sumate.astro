@@ -1,0 +1,156 @@
+---
+/**
+ * Fase 9 — página institucional "Sumate a ATP". Reemplaza el botón que en
+ * Navbar, MobileMenu, Home y las páginas de carrera apuntaba a href="#".
+ * Copy institucional real (provista por ATP), contenido inline: es una
+ * única página de texto fijo, no una lista de items — mismo criterio que
+ * ya aplica el resto del sitio para secciones no data-driven.
+ *
+ * Las cards de "¿Qué pensamos?" y "¿Por qué sumarte?" usan el slot "image"
+ * de Card con un ícono, mismo patrón que las cards de Home/Carreras
+ * (src/pages/index.astro) cuando todavía no hay foto real. Cuando existan
+ * fotos de ATP, ese `<div slot="image">` se reemplaza por un `<img>` real
+ * sin tocar el resto del componente.
+ *
+ * El formulario es un placeholder de ejemplo (forms.gle/ejemplo-...), igual
+ * al patrón ya usado en src/content/activities.ts para registrationUrl.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Hero from '@/components/Hero.astro';
+import Section from '@/components/Section.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import Container from '@/components/Container.astro';
+import Grid from '@/components/Grid.astro';
+import Card from '@/components/Card.astro';
+import Button from '@/components/Button.astro';
+import Landmark from '@lucide/astro/icons/landmark';
+import HeartPulse from '@lucide/astro/icons/heart-pulse';
+import Users from '@lucide/astro/icons/users';
+import BookOpen from '@lucide/astro/icons/book-open';
+import Sparkles from '@lucide/astro/icons/sparkles';
+import Handshake from '@lucide/astro/icons/handshake';
+
+const JOIN_FORM_URL = 'https://forms.gle/ejemplo-sumate-atp';
+
+const beliefs = [
+  {
+    icon: Landmark,
+    title: 'Universidad pública',
+    description:
+      'Creemos en una universidad pública, gratuita y de calidad, comprometida con las necesidades de nuestro pueblo.',
+  },
+  {
+    icon: HeartPulse,
+    title: 'La salud como derecho',
+    description:
+      'Creemos que la salud es un derecho y que formar profesionales también implica pensar el sistema de salud que queremos construir.',
+  },
+  {
+    icon: Users,
+    title: 'Comunidad organizada',
+    description:
+      'La mejor facultad no la hacen los edificios ni los planes de estudio: la hacemos los estudiantes, cuando nos organizamos, compartimos lo que sabemos y construimos comunidad.',
+  },
+];
+
+const reasons = [
+  {
+    icon: BookOpen,
+    title: 'Para estudiar',
+    description:
+      'Vas a encontrar compañeros con quienes preparar un parcial o armar un grupo de estudio.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Para crecer',
+    description:
+      'Vas a poder llevar adelante una idea, aprender cosas nuevas y aportar desde el lugar que más te guste.',
+  },
+  {
+    icon: Handshake,
+    title: 'Para construir',
+    description:
+      'Vas a sumarte a proyectos que llegan a miles de estudiantes, junto a gente con la que compartir unos mates después de cursar.',
+  },
+];
+---
+
+<BaseLayout
+  title="Sumate a ATP"
+  description="ATP es la agrupación estudiantil de la Facultad de Ciencias Médicas (UNR). Conocé quiénes somos, qué pensamos y sumate a construir la facultad que queremos."
+>
+  <Hero
+    title="Sumate a ATP"
+    description="Somos estudiantes de la Facultad de Ciencias Médicas que un día decidimos involucrarnos un poco más para hacer que la cursada sea mejor para todos. No hace falta haber militado antes ni tener experiencia: alcanza con tener ganas de participar, conocer gente y aportar desde el lugar que más te guste."
+    primaryAction={{ label: 'Completar formulario', href: '#sumate-cta' }}
+  />
+
+  <Section spacing="md" background="surface-alt">
+    <Container class="flex flex-col gap-10">
+      <SectionHeader title="¿Qué pensamos?" alignment="center" />
+      <Grid cols={3} gap="md">
+        {
+          beliefs.map(({ icon: Icon, title, description }) => (
+            <Card>
+              <div slot="image" class="p-6 pb-0">
+                <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 items-center justify-center rounded-full">
+                  <Icon class="size-6" aria-hidden="true" />
+                </div>
+              </div>
+              <h3 slot="title" class="text-h4 text-text font-bold">
+                {title}
+              </h3>
+              <p>{description}</p>
+            </Card>
+          ))
+        }
+      </Grid>
+    </Container>
+  </Section>
+
+  <Section spacing="md">
+    <Container class="flex flex-col gap-10">
+      <SectionHeader
+        title="¿Por qué sumarte?"
+        description="Porque ATP es mucho más que una agrupación: es un grupo de compañeros que estudia, organiza actividades, impulsa proyectos y disfruta de la facultad juntos."
+        alignment="center"
+      />
+      <Grid cols={3} gap="md">
+        {
+          reasons.map(({ icon: Icon, title, description }) => (
+            <Card>
+              <div slot="image" class="p-6 pb-0">
+                <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 items-center justify-center rounded-full">
+                  <Icon class="size-6" aria-hidden="true" />
+                </div>
+              </div>
+              <h3 slot="title" class="text-h4 text-text font-bold">
+                {title}
+              </h3>
+              <p>{description}</p>
+            </Card>
+          ))
+        }
+      </Grid>
+    </Container>
+  </Section>
+
+  <Section id="sumate-cta" spacing="lg" background="surface-alt">
+    <Container class="flex flex-col items-center gap-6 text-center">
+      <SectionHeader title="Sumate" alignment="center" />
+      <div class="text-body-lg text-text-secondary flex max-w-2xl flex-col gap-4">
+        <p>Si te gusta esta forma de vivir la facultad, nos encantaría conocerte.</p>
+        <p>
+          Completá el formulario y te vamos a escribir para coordinar un encuentro, contarte un poco
+          más sobre ATP y responder todas las dudas que tengas. Sin compromiso.
+        </p>
+        <p>
+          Capaz encontrás un grupo para estudiar. Capaz hacés nuevos amigos. O capaz descubrís un
+          lugar desde donde transformar la facultad.
+        </p>
+      </div>
+      <Button href={JOIN_FORM_URL} target="_blank" size="lg">Completar formulario</Button>
+      <p class="text-body-lg text-text font-semibold">Te esperamos. 💙</p>
+    </Container>
+  </Section>
+</BaseLayout>

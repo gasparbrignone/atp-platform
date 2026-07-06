@@ -37,8 +37,8 @@ const isCentered = alignment === 'center';
 
 <div
   class:list={[
-    'flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between',
-    isCentered && 'sm:flex-col sm:items-center sm:text-center',
+    'flex flex-col gap-4',
+    isCentered ? 'items-center text-center' : 'sm:flex-row sm:items-end sm:justify-between',
   ]}
 >
   <div class:list={['flex max-w-2xl flex-col gap-2', isCentered && 'items-center']}>

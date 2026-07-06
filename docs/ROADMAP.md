@@ -303,15 +303,10 @@ Crear páginas permanentes.
 
 Incluye
 
-Quiénes somos.
-
-Historia.
-
-Valores.
-
-Contacto.
-
 Sumate a ATP.
+
+Decisión de producto: Quiénes somos, Historia, Valores y Contacto quedan
+fuera de alcance. No se van a construir.
 
 ---
 
@@ -327,17 +322,27 @@ Actividades.
 
 Biblioteca.
 
-Noticias.
-
 Herramientas.
 
 Carreras.
 
-Páginas.
-
-Enlaces.
-
 Sin modificar código.
+
+Noticias, Páginas y Enlaces quedan fuera: no existen esos módulos en el sitio
+(Noticias se sacó por decisión de producto en Fase 6; Páginas/Enlaces
+corresponden a la Fase 9, que también quedó reducida por decisión de producto).
+
+## Estado
+
+Integrado **Decap CMS** (decisión ya tomada en `docs/STACK_DECISIONS.md`).
+Migrados los 4 módulos de contenido a Astro Content Collections (JSON +
+`src/content.config.ts`) — requisito para que Decap pueda editarlos. Panel en
+`/admin` (sin dependencia npm, vía CDN) con las 4 colecciones configuradas.
+
+Pendiente de acción externa del usuario (no es código, ver
+`docs/CMS_SETUP.md`): crear el repositorio real de GitHub y un proveedor de
+autenticación OAuth. Mientras tanto, el panel se puede probar completo en
+local con `npx decap-server`.
 
 ---
 

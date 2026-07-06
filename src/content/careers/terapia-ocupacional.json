@@ -1,0 +1,12 @@
+{
+  "name": "Terapia Ocupacional",
+  "description": "Espacio dedicado a la carrera de Terapia Ocupacional, con material de estudio y acompañamiento de ATP durante toda la cursada.",
+  "tools": [],
+  "resources": [
+    {
+      "label": "Materiales de Terapia Ocupacional en la Biblioteca",
+      "href": "/biblioteca",
+      "external": false
+    }
+  ]
+}

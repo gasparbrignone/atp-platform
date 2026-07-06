@@ -1,0 +1,12 @@
+{
+  "name": "Fonoaudiología",
+  "description": "Espacio dedicado a la carrera de Fonoaudiología, con material de estudio y acompañamiento de ATP durante toda la cursada.",
+  "tools": [],
+  "resources": [
+    {
+      "label": "Materiales de Fonoaudiología en la Biblioteca",
+      "href": "/biblioteca",
+      "external": false
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "title": "Simulacro de ECOE",
+  "summary": "Instancia de práctica con estaciones simuladas para rendir el examen ECOE.",
+  "description": "Instancia de práctica con estaciones simuladas para rendir el examen ECOE, pensada para estudiantes que están por rendir la evaluación en los próximos meses.",
+  "date": "29 de agosto",
+  "time": "09:00 hs",
+  "location": "Aula Magna",
+  "status": "proxima",
+  "registrationUrl": "https://forms.gle/ejemplo-simulacro-ecoe",
+  "featured": false,
+  "published": true
+}
