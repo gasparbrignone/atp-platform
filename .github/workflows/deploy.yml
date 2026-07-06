@@ -21,7 +21,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install, build, and upload the site
+        # package.json requires Node >=22.12.0 (see "engines"); this action
+        # defaults to Node 20 otherwise, which doesn't satisfy that.
         uses: withastro/action@v3
+        with:
+          node-version: 22
 
   deploy:
     needs: build
