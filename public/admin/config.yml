@@ -4,7 +4,7 @@
 
 backend:
   name: github
-  repo: TU-USUARIO/TU-REPO # TODO: completar con el owner/repo real de GitHub (ver docs/CMS_SETUP.md)
+  repo: gasparbrignone/atp-platform
   branch: main
   base_url: https://reemplazar-proveedor-oauth.example # TODO: ver docs/CMS_SETUP.md
 

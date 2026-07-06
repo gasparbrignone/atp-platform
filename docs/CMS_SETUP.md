@@ -27,10 +27,10 @@ código.
 
 # Qué falta (acción externa, no código)
 
-## 1. Crear el repositorio real en GitHub
+## 1. ~~Crear el repositorio real en GitHub~~ ✅ Listo
 
-Hoy el proyecto no tiene remoto configurado (`git remote -v` vacío). Decap
-necesita un repo real de GitHub para poder commitear los cambios de contenido.
+Repo: `gasparbrignone/atp-platform` (rama `main`), ya con el código pusheado.
+`config.yml` ya tiene el `repo:` real completado.
 
 ## 2. Crear una GitHub OAuth App
 
@@ -49,11 +49,10 @@ recomendada, sin escribir ni mantener código de servidor:
 - Cargar ahí el Client ID/Secret de la OAuth App creada en el paso 2.
 - La URL de ese sitio Netlify es el `base_url` que va en `config.yml`.
 
-## 4. Completar los placeholders de `public/admin/config.yml`
+## 4. Completar el placeholder restante de `public/admin/config.yml`
 
-- `repo: TU-USUARIO/TU-REPO` → owner/nombre real del repo de GitHub.
 - `base_url: https://reemplazar-proveedor-oauth.example` → la URL del sitio
-  Netlify del paso 3.
+  Netlify del paso 3. (`repo:` ya quedó completado en el paso 1.)
 
 ---
 
