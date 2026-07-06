@@ -35,7 +35,11 @@ const toolIcons: Record<ToolIconKey, typeof BookOpen> = {
 const publishedTools = await getCollection('tools', ({ data }) => data.published);
 ---
 
-<BaseLayout title="Herramientas" description="Atlas, simuladores y accesos útiles para estudiar.">
+<BaseLayout
+  title="Herramientas"
+  description="Atlas, simuladores y accesos útiles para estudiar."
+  canonicalPath="/herramientas"
+>
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
       <SectionHeader as="h1" title="Herramientas" />

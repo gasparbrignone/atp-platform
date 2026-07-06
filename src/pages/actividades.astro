@@ -26,7 +26,11 @@ const publishedActivities = await getCollection('activities', ({ data }) => data
 const featuredActivities = publishedActivities.filter((activity) => activity.data.featured);
 ---
 
-<BaseLayout title="Actividades" description="Talleres, cursos y encuentros que armamos en ATP.">
+<BaseLayout
+  title="Actividades"
+  description="Talleres, cursos y encuentros que armamos en ATP."
+  canonicalPath="/actividades"
+>
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
       <SectionHeader title="Actividades" />

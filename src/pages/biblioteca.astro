@@ -30,7 +30,11 @@ const publishedBooks = await getCollection('books', ({ data }) => data.published
 const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
 ---
 
-<BaseLayout title="Biblioteca" description="Buscá apuntes, libros y guías de todas las materias.">
+<BaseLayout
+  title="Biblioteca"
+  description="Buscá apuntes, libros y guías de todas las materias."
+  canonicalPath="/biblioteca"
+>
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
       <SectionHeader title="Biblioteca" />

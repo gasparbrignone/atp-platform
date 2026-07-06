@@ -11,19 +11,24 @@ export interface ResolvedSeo {
 /**
  * Resolves page SEO props into final values.
  *
- * `site` is `Astro.site` — it stays `undefined` until astro.config.mjs
- * declares a `site` URL (deliberately deferred until the domain/repo is
- * final, see STACK_DECISIONS.md). Until then the canonical tag is omitted
- * rather than emitting an incorrect relative URL.
+ * `site` is `Astro.site`, now always set (see astro.config.mjs). The
+ * `undefined` fallback stays supported so this still degrades gracefully
+ * (omits the canonical tag instead of emitting a wrong relative URL) if that
+ * ever changes.
+ *
+ * `ogImage` is resolved against `site` too — Open Graph/Twitter Card images
+ * must be absolute URLs, a bare "/branding/logo.svg" isn't valid there even
+ * though it works fine as an <img src>.
  */
 export function resolveSeo(props: SeoProps, site: URL | undefined): ResolvedSeo {
   const canonicalPath = props.canonicalPath ?? '/';
   const canonicalUrl = site ? new URL(canonicalPath, site).toString() : undefined;
+  const ogImagePath = props.image ?? siteConfig.defaultOgImage;
 
   return {
     title: `${props.title} · ${siteConfig.name}`,
     description: props.description,
     canonicalUrl,
-    ogImage: props.image ?? siteConfig.defaultOgImage,
+    ogImage: site ? new URL(ogImagePath, site).toString() : ogImagePath,
   };
 }

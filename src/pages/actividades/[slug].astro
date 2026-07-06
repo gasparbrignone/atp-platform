@@ -2,8 +2,8 @@
 /**
  * Activity detail. Same dynamic-route pattern as
  * src/pages/carreras/[career].astro: one Astro route + getStaticPaths
- * generates a static page per published activity from
- * src/content/activities.ts, no new component or content type.
+ * generates a static page per published activity from the `activities`
+ * content collection (src/content.config.ts).
  *
  * Simplified (identity/UX pass): title, date/time/location, full
  * description (falls back to the listing's short summary when a longer
@@ -36,6 +36,7 @@ const meta = [activity.data.date, activity.data.time, activity.data.location]
 <BaseLayout
   title={activity.data.title}
   description={activity.data.description ?? activity.data.summary}
+  canonicalPath={`/actividades/${activity.id}`}
 >
   <Section spacing="lg">
     <Container class="flex flex-col gap-8">

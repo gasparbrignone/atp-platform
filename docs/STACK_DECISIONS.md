@@ -163,7 +163,13 @@ Evitar desarrollar un panel de administración personalizado salvo que aparezca 
 
 ## Decisión
 
-GitHub Pages.
+GitHub Pages, con dominio propio: **atpfcm.com.ar** (comprado en nic.ar).
+Al ser un dominio propio en la raíz (no un project site tipo
+`usuario.github.io/repo`), no hace falta configurar `base` en Astro — los
+links internos absolutos del sitio no se rompen. DNS/CNAME y la puesta en
+marcha del hosting quedan para la Fase 17 (Despliegue); `site` ya está
+configurado en `astro.config.mjs` para que el resto de la Fase 11 (SEO)
+pueda generar URLs absolutas correctas.
 
 ## Motivos
 

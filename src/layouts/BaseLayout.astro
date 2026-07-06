@@ -10,6 +10,27 @@ import Toast from '@/components/Toast.astro';
 type Props = SeoProps;
 
 const seo = resolveSeo(Astro.props, Astro.site);
+
+// Organization + WebSite: identidad de marca genérica para todo el sitio.
+// No hay datos estructurados por tipo de contenido (Event para actividades,
+// Book para biblioteca, etc.) todavía: las fechas de actividades siguen
+// mezclando texto libre viejo ("22 de agosto") con ISO nuevo del CMS
+// (ver src/content.config.ts), y Event exige startDate en ISO — agregarlo
+// ahora emitiría datos estructurados inválidos para el contenido viejo.
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: siteConfig.name,
+  url: Astro.site?.toString(),
+  logo: seo.ogImage,
+};
+
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: siteConfig.name,
+  url: Astro.site?.toString(),
+};
 ---
 
 <!doctype html>
@@ -29,10 +50,18 @@ const seo = resolveSeo(Astro.props, Astro.site);
     <meta property="og:image" content={seo.ogImage} />
     {seo.canonicalUrl && <meta property="og:url" content={seo.canonicalUrl} />}
 
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={seo.title} />
+    <meta name="twitter:description" content={seo.description} />
+    <meta name="twitter:image" content={seo.ogImage} />
+
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#f969d7" />
+
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(organizationJsonLd)} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(websiteJsonLd)} />
   </head>
   <body>
     <a

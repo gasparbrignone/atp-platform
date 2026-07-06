@@ -2,8 +2,8 @@
 /**
  * Career pages (Fase 4). One Astro dynamic route generates the four static
  * pages instead of four near-identical files — plain Astro routing, not a
- * new component or content type. Data comes from src/content/careers.ts
- * (see that file for why it isn't declared inline here).
+ * new component or content type. Data comes from the `careers` content
+ * collection (src/content.config.ts).
  *
  * Medicina has real tools/resources per docs/PROJECT.md ("Medicine
  * currently contains the largest amount of content"). The other three
@@ -45,6 +45,7 @@ const { career } = Astro.props as { career: CollectionEntry<'careers'> };
 <BaseLayout
   title={career.data.name}
   description={`Recursos, herramientas y actividades de ATP para estudiantes de ${career.data.name}.`}
+  canonicalPath={`/carreras/${career.id}`}
 >
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">

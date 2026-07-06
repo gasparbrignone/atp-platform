@@ -63,12 +63,12 @@ Estas tareas son indispensables para publicar la primera versión.
 * ✅ Configurar ESLint.
 * ✅ Configurar Prettier.
 * ✅ Configurar aliases.
-* ⬜ Configurar GitHub Pages. (`site`/`base` diferidos hasta conocer dominio/repo final)
-* ⬜ Configurar dominio personalizado (si corresponde).
+* ⬜ Configurar GitHub Pages. (deploy real diferido a Fase 17; `site` ya configurado en astro.config.mjs)
+* 🟨 Configurar dominio personalizado. (decidido: atpfcm.com.ar, comprado en nic.ar; falta DNS/CNAME, ver Fase 17)
 * ⬜ Configurar HTTPS.
 * 🟨 Configurar PWA. (`manifest.webmanifest` listo; Service Worker/offline quedan para Fase 15)
-* ⬜ Configurar sitemap.
-* ⬜ Configurar robots.txt.
+* ✅ Configurar sitemap.
+* ✅ Configurar robots.txt.
 
 ---
 
@@ -268,12 +268,12 @@ Estas tareas son indispensables para publicar la primera versión.
 
 # SEO
 
-* ⬜ Meta tags.
-* ⬜ Open Graph.
-* ⬜ Twitter Cards.
-* ⬜ Canonical.
-* ⬜ Datos estructurados.
-* ⬜ Sitemap automático.
+* ✅ Meta tags.
+* ✅ Open Graph.
+* ✅ Twitter Cards.
+* ✅ Canonical.
+* 🟨 Datos estructurados. (Organization/WebSite sitewide; Event/Book por tipo de contenido quedan pendientes de que las fechas de actividades sean 100% ISO)
+* ✅ Sitemap automático.
 
 ---
 
