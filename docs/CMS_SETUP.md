@@ -49,10 +49,15 @@ recomendada, sin escribir ni mantener código de servidor:
 - Cargar ahí el Client ID/Secret de la OAuth App creada en el paso 2.
 - La URL de ese sitio Netlify es el `base_url` que va en `config.yml`.
 
-## 4. Completar el placeholder restante de `public/admin/config.yml`
+## 4. ~~Completar el placeholder restante de `public/admin/config.yml`~~ ✅ Listo
 
-- `base_url: https://reemplazar-proveedor-oauth.example` → la URL del sitio
-  Netlify del paso 3. (`repo:` ya quedó completado en el paso 1.)
+`base_url: https://mellifluous-cat-9cd28e.netlify.app` (el sitio Netlify del
+paso 3). `config.yml` ya no tiene placeholders pendientes.
+
+Para que el login funcione de punta a punta todavía hace falta que el paso 2
+(OAuth App) esté conectado en ese mismo sitio Netlify (paso 3, Access control
+→ OAuth, con el Client ID/Secret de la OAuth App) — eso sigue siendo una
+acción manual en las cuentas de GitHub/Netlify, no un cambio de código.
 
 ---
 

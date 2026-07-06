@@ -1,12 +1,12 @@
-# Panel de edición de contenido (Decap CMS). Ver docs/CMS_SETUP.md para los
-# pasos pendientes (crear el repo real, OAuth) y cómo probar esto en local
-# ahora mismo con `npx decap-server`, sin necesitar nada de eso todavía.
+# Panel de edición de contenido (Decap CMS). Ver docs/CMS_SETUP.md para el
+# estado de la puesta en marcha (repo + OAuth) y cómo probar esto en local
+# ahora mismo con `npx decap-server`, sin necesitar nada de eso.
 
 backend:
   name: github
   repo: gasparbrignone/atp-platform
   branch: main
-  base_url: https://reemplazar-proveedor-oauth.example # TODO: ver docs/CMS_SETUP.md
+  base_url: https://mellifluous-cat-9cd28e.netlify.app
 
 local_backend: true
 
