@@ -80,6 +80,16 @@
   --color-text-secondary: var(--gray-600);
   --color-border: var(--gray-200);
 
+  /*
+   * `border` (gray-200, ~1.2:1 on background) is for purely decorative
+   * dividers (Card, Footer, Navbar) — WCAG 1.4.11 doesn't apply to those.
+   * `border-strong` is for borders that are the ONLY way to see a control's
+   * boundary (Input/Select/Textarea, Carousel nav buttons): those need 3:1
+   * non-text contrast, which gray-200 fails badly (Fase 13 accessibility
+   * pass). Same per-theme "-strong" pattern as primary/secondary/error.
+   */
+  --color-border-strong: #928ca2;
+
   /* ---------------------------------------------------------------- */
   /* Typography                                                         */
   /* ---------------------------------------------------------------- */
@@ -199,6 +209,7 @@
     --color-text: #f5f3f7;
     --color-text-secondary: var(--gray-400);
     --color-border: #362f44;
+    --color-border-strong: #6b6480;
     --color-primary-strong: #f969d7;
     --color-error-strong: #ff6b6b;
     /*

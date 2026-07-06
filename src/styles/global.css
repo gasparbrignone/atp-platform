@@ -30,6 +30,7 @@
   --color-text: var(--color-text);
   --color-text-secondary: var(--color-text-secondary);
   --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
 
   --color-gray-50: var(--gray-50);
   --color-gray-100: var(--gray-100);
@@ -110,73 +111,77 @@
   --z-tooltip: var(--z-tooltip);
 }
 
-/* Self-hosted Montserrat — only the weights the design system uses. */
+/*
+ * Self-hosted Montserrat — only the weights the design system uses, as
+ * WOFF2 (Fase 13): ~70% smaller than the TTF originals, and every browser
+ * that matters has supported it for years, so no TTF fallback is kept.
+ */
 @font-face {
   font-family: 'Montserrat';
-  src: url('/branding/Montserrat-Regular.ttf') format('truetype');
+  src: url('/branding/Montserrat-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Montserrat';
-  src: url('/branding/Montserrat-Italic.ttf') format('truetype');
+  src: url('/branding/Montserrat-Italic.woff2') format('woff2');
   font-weight: 400;
   font-style: italic;
   font-display: swap;
 }
 @font-face {
   font-family: 'Montserrat';
-  src: url('/branding/Montserrat-Medium.ttf') format('truetype');
+  src: url('/branding/Montserrat-Medium.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Montserrat';
-  src: url('/branding/Montserrat-MediumItalic.ttf') format('truetype');
+  src: url('/branding/Montserrat-MediumItalic.woff2') format('woff2');
   font-weight: 500;
   font-style: italic;
   font-display: swap;
 }
 @font-face {
   font-family: 'Montserrat';
-  src: url('/branding/Montserrat-SemiBold.ttf') format('truetype');
+  src: url('/branding/Montserrat-SemiBold.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Montserrat';
-  src: url('/branding/Montserrat-SemiBoldItalic.ttf') format('truetype');
+  src: url('/branding/Montserrat-SemiBoldItalic.woff2') format('woff2');
   font-weight: 600;
   font-style: italic;
   font-display: swap;
 }
 @font-face {
   font-family: 'Montserrat';
-  src: url('/branding/Montserrat-Bold.ttf') format('truetype');
+  src: url('/branding/Montserrat-Bold.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Montserrat';
-  src: url('/branding/Montserrat-BoldItalic.ttf') format('truetype');
+  src: url('/branding/Montserrat-BoldItalic.woff2') format('woff2');
   font-weight: 700;
   font-style: italic;
   font-display: swap;
 }
 @font-face {
   font-family: 'Montserrat';
-  src: url('/branding/Montserrat-ExtraBold.ttf') format('truetype');
+  src: url('/branding/Montserrat-ExtraBold.woff2') format('woff2');
   font-weight: 800;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Montserrat';
-  src: url('/branding/Montserrat-ExtraBoldItalic.ttf') format('truetype');
+  src: url('/branding/Montserrat-ExtraBoldItalic.woff2') format('woff2');
   font-weight: 800;
   font-style: italic;
   font-display: swap;

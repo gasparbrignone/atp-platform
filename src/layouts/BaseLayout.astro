@@ -40,6 +40,18 @@ const websiteJsonLd = {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
 
+    <!-- Fase 13: precargar solo el peso que se usa para texto de cuerpo en
+         casi toda página — evita el salto de fuente (FOUT) en el contenido
+         principal. Los demás pesos (headings, negritas) ya usan
+         font-display: swap y no bloquean el render. -->
+    <link
+      rel="preload"
+      href="/branding/Montserrat-Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
     <title>{seo.title}</title>
     <meta name="description" content={seo.description} />
     {seo.canonicalUrl && <link rel="canonical" href={seo.canonicalUrl} />}

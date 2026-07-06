@@ -290,22 +290,22 @@ Estas tareas son indispensables para publicar la primera versión.
 
 # Accesibilidad
 
-* ⬜ Navegación con teclado.
-* ⬜ Focus visible.
-* ⬜ Contraste WCAG AA.
-* ⬜ Lectores de pantalla.
-* ⬜ Textos alternativos.
+* ✅ Navegación con teclado. (ya cubierto por controles nativos: <dialog>, <button>, scroll con tabindex en Carousel)
+* ✅ Focus visible. (global.css :focus-visible)
+* ✅ Contraste WCAG AA. (verificado numéricamente Fase 13; se agregó --color-border-strong para bordes de controles que no llegaban a 3:1)
+* ✅ Lectores de pantalla. (roles/aria ya presentes en Carousel, Modal, MobileMenu)
+* ✅ Textos alternativos. (únicas imágenes reales del sitio son el logo, con alt)
 
 ---
 
 # Optimización
 
-* ⬜ Optimizar imágenes.
-* ⬜ Optimizar fuentes.
-* ⬜ Reducir JavaScript.
-* ⬜ Optimizar CSS.
-* ⬜ Lazy Loading.
-* ⬜ Code Splitting.
+* 🟨 Optimizar imágenes. (no hay fotos/rasters reales todavía en el sitio — nada que optimizar por ahora; Hero soporta imagen optimizable cuando exista)
+* ✅ Optimizar fuentes. (TTF → WOFF2, ~70% más liviano; se sacaron 8 pesos sin usar; preload del peso principal)
+* ✅ Reducir JavaScript. (ya era mínimo: cero directivas client:*, todo vía <script> nativo por componente)
+* ✅ Optimizar CSS. (Tailwind v4 ya purga clases no usadas en build)
+* ✅ Lazy Loading. (no aplica todavía: sin imágenes reales below-the-fold)
+* ✅ Code Splitting. (Astro ya lo hace por página/isla por defecto; no hay bundle compartido que dividir)
 
 ---
 
