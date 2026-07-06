@@ -279,7 +279,7 @@ Estas tareas son indispensables para publicar la primera versión.
 
 # Analíticas
 
-* 🟨 Integrar herramienta de analíticas. (GoatCounter integrado en código; falta crear la cuenta real, ver docs/ANALYTICS_SETUP.md)
+* ✅ Integrar herramienta de analíticas. (GoatCounter, cuenta creada, site code `atpfcm`)
 * ✅ Medir visitas.
 * ✅ Medir descargas.
 * ✅ Medir búsquedas.
@@ -301,11 +301,17 @@ Estas tareas son indispensables para publicar la primera versión.
 # Optimización
 
 * 🟨 Optimizar imágenes. (no hay fotos/rasters reales todavía en el sitio — nada que optimizar por ahora; Hero soporta imagen optimizable cuando exista)
-* ✅ Optimizar fuentes. (TTF → WOFF2, ~70% más liviano; se sacaron 8 pesos sin usar; preload del peso principal)
+* ✅ Optimizar fuentes. (TTF → WOFF2, ~70% más liviano; se sacaron 8 pesos sin usar; preload del peso principal; .ttf viejos borrados del repo)
 * ✅ Reducir JavaScript. (ya era mínimo: cero directivas client:*, todo vía <script> nativo por componente)
 * ✅ Optimizar CSS. (Tailwind v4 ya purga clases no usadas en build)
 * ✅ Lazy Loading. (no aplica todavía: sin imágenes reales below-the-fold)
 * ✅ Code Splitting. (Astro ya lo hace por página/isla por defecto; no hay bundle compartido que dividir)
+
+---
+
+# Internacionalización
+
+* ✅ No hardcodear idioma. (`<html lang>` en BaseLayout.astro toma `siteConfig.locale`, no un literal) — decisión de producto (2026-07-06): Fase 14 reducida a este mínimo, sin traducción a portugués ni rutas por idioma.
 
 ---
 

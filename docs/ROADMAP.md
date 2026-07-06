@@ -420,6 +420,12 @@ Español.
 
 Arquitectura preparada para portugués.
 
+Decisión de producto (2026-07-06): fase reducida a su mínimo. No se traduce
+contenido a portugués ni se agregan rutas por idioma. El único requisito —
+no hardcodear el idioma — ya se cumple: `<html lang>` en BaseLayout.astro
+toma el valor de `siteConfig.locale`, no un literal fijo. No hay trabajo
+pendiente en esta fase; se considera cerrada.
+
 ---
 
 # Fase 15 — PWA
