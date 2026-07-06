@@ -428,6 +428,11 @@ Las animaciones deben mejorar la comprensión de la interfaz, no llamar la atenc
 
 Incorporar analíticas respetando la privacidad y con un impacto mínimo en el rendimiento.
 
+La herramienta elegida es **GoatCounter**: gratuita para proyectos sin fines
+de lucro/open source, sin cookies, sin datos personales, no requiere banner
+de consentimiento. Ver `docs/ANALYTICS_SETUP.md` para el estado y el único
+paso pendiente (crear la cuenta real).
+
 ## Objetivos
 
 Comprender:

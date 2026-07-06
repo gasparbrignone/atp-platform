@@ -279,12 +279,12 @@ Estas tareas son indispensables para publicar la primera versión.
 
 # Analíticas
 
-* ⬜ Integrar herramienta de analíticas.
-* ⬜ Medir visitas.
-* ⬜ Medir descargas.
-* ⬜ Medir búsquedas.
-* ⬜ Medir clics en CTA.
-* ⬜ Medir actividades más consultadas.
+* 🟨 Integrar herramienta de analíticas. (GoatCounter integrado en código; falta crear la cuenta real, ver docs/ANALYTICS_SETUP.md)
+* ✅ Medir visitas.
+* ✅ Medir descargas.
+* ✅ Medir búsquedas.
+* ✅ Medir clics en CTA.
+* ✅ Medir actividades más consultadas. (vía vistas de la página de detalle + clics en "Inscribirse")
 
 ---
 

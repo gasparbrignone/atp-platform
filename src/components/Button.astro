@@ -25,6 +25,13 @@ interface Props extends HTMLAttributes<'button'> {
   type?: 'button' | 'submit' | 'reset';
   disabled?: boolean;
   loading?: boolean;
+  /**
+   * Opt-in analytics event id (GoatCounter, see BaseLayout.astro). Leave
+   * unset for ordinary navigation/UI buttons — only pass this for the
+   * actions actually worth measuring (downloads, registrations, key CTAs),
+   * per docs/STACK_DECISIONS.md ("no recopilar datos innecesarios").
+   */
+  trackId?: string;
 }
 
 const {
@@ -36,6 +43,7 @@ const {
   type = 'button',
   disabled = false,
   loading = false,
+  trackId,
   class: className,
   ...rest
 }: Props = Astro.props;
@@ -90,6 +98,7 @@ const Tag = href ? 'a' : 'button';
   aria-disabled={href && isDisabled ? true : undefined}
   aria-busy={loading ? 'true' : undefined}
   tabindex={href && isDisabled ? -1 : undefined}
+  data-goatcounter-click={trackId}
   {...rest}
 >
   {loading && <span class:list={['shrink-0', getSpinnerClasses('sm')]} aria-hidden="true" />}

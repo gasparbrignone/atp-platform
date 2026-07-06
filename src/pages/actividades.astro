@@ -61,6 +61,7 @@ const featuredActivities = publishedActivities.filter((activity) => activity.dat
                         target="_blank"
                         size="sm"
                         disabled={activity.data.status === 'finalizada'}
+                        trackId={`inscripcion:${activity.id}`}
                       >
                         Inscribirse
                       </Button>
@@ -97,6 +98,7 @@ const featuredActivities = publishedActivities.filter((activity) => activity.dat
                       target="_blank"
                       size="sm"
                       disabled={activity.data.status === 'finalizada'}
+                      trackId={`inscripcion:${activity.id}`}
                     >
                       Inscribirse
                     </Button>

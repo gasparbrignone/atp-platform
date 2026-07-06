@@ -62,6 +62,19 @@ const websiteJsonLd = {
 
     <script is:inline type="application/ld+json" set:html={JSON.stringify(organizationJsonLd)} />
     <script is:inline type="application/ld+json" set:html={JSON.stringify(websiteJsonLd)} />
+
+    <!--
+      GoatCounter (Fase 12 — Analíticas): sin cookies, sin datos personales,
+      no requiere banner de consentimiento. Cuenta pageviews automáticamente;
+      los eventos de descargas/botones/búsquedas se agregan por separado vía
+      `data-goatcounter-click` (ver Button.astro) o `goatcounter.count(...)`
+      (ver biblioteca.astro). Ver docs/ANALYTICS_SETUP.md.
+    -->
+    <script
+      is:inline
+      data-goatcounter={`https://${siteConfig.goatcounterSite}.goatcounter.com/count`}
+      async
+      src="//gc.zgo.at/count.js"></script>
   </head>
   <body>
     <a

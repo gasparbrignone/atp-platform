@@ -81,7 +81,13 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
                 <span class="text-caption text-text-secondary">
                   {book.data.career.map((slug) => careerLabels[slug]).join(', ')}
                 </span>
-                <Button href={book.data.downloadUrl} target="_blank" variant="outline" size="sm">
+                <Button
+                  href={book.data.downloadUrl}
+                  target="_blank"
+                  variant="outline"
+                  size="sm"
+                  trackId={`descarga:${book.id}`}
+                >
                   Descargar
                 </Button>
               </div>
@@ -101,6 +107,15 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
 </BaseLayout>
 
 <script>
+  // Fase 12 — Analíticas: qué buscan los estudiantes (GoatCounter, ver
+  // BaseLayout.astro). Debounced: un evento por búsqueda "asentada", no uno
+  // por tecla — evitar ruido en el panel de analíticas.
+  declare global {
+    interface Window {
+      goatcounter?: { count: (options: { path: string; event?: boolean }) => void };
+    }
+  }
+
   const cards = document.querySelectorAll<HTMLElement>('[data-book-card]');
   const chips = document.querySelectorAll<HTMLElement>('[data-filter-chip]');
   const searchInput = document.querySelector<HTMLInputElement>('[data-library-search]');
@@ -134,6 +149,15 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
 
   careerSelect?.addEventListener('change', applyFilters);
   searchInput?.addEventListener('input', applyFilters);
+
+  let searchTrackTimeout: ReturnType<typeof setTimeout> | undefined;
+  searchInput?.addEventListener('input', () => {
+    clearTimeout(searchTrackTimeout);
+    searchTrackTimeout = setTimeout(() => {
+      const query = searchInput.value.trim().toLowerCase();
+      if (query) window.goatcounter?.count({ path: `busqueda:${query}`, event: true });
+    }, 600);
+  });
 
   document.addEventListener('filterchip:remove', ((event: CustomEvent<{ value: string }>) => {
     const value = event.detail?.value ?? '';

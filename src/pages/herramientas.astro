@@ -61,7 +61,13 @@ const publishedTools = await getCollection('tools', ({ data }) => data.published
                 <p>{tool.data.description}</p>
                 <div slot="actions">
                   {tool.data.url ? (
-                    <Button href={tool.data.url} target="_blank" variant="outline" size="sm">
+                    <Button
+                      href={tool.data.url}
+                      target="_blank"
+                      variant="outline"
+                      size="sm"
+                      trackId={`herramienta:${tool.id}`}
+                    >
                       Acceder
                     </Button>
                   ) : (
