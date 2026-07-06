@@ -17,15 +17,18 @@ const activities = defineCollection({
   schema: z.object({
     title: z.string(),
     summary: z.string(),
-    description: z.string().optional(),
+    // `.nullish()`, no `.optional()`: el CMS (Sveltia) guarda un campo
+    // opcional vacío como `null` explícito, no como clave ausente — el
+    // schema tiene que aceptar ambas formas de "no hay valor".
+    description: z.string().nullish(),
     date: z.string(),
     time: z.string(),
-    location: z.string().optional(),
+    location: z.string().nullish(),
     status: z.enum(['proxima', 'activa', 'finalizada']),
-    registrationUrl: z.httpUrl().optional(),
+    registrationUrl: z.httpUrl().nullish(),
     featured: z.boolean(),
     published: z.boolean(),
-    order: z.number().optional(),
+    order: z.number().nullish(),
   }),
 });
 
@@ -41,11 +44,11 @@ const books = defineCollection({
     description: z.string(),
     published: z.boolean(),
     // Todavía sin consumidor en ninguna página — solo preparar el modelo y
-    // el CMS (Decap) para cuando haya portadas reales. Path plano (no el
-    // helper `image()` de Astro) porque ese helper exige que el archivo
+    // el CMS para cuando haya portadas reales. Path plano (no el helper
+    // `image()` de Astro) porque ese helper exige que el archivo
     // referenciado exista en build time, y hoy no hay ninguna imagen real.
-    cover: z.string().optional(),
-    order: z.number().optional(),
+    cover: z.string().nullish(),
+    order: z.number().nullish(),
   }),
 });
 
@@ -58,7 +61,7 @@ const careers = defineCollection({
       z.object({
         name: z.string(),
         description: z.string(),
-        href: z.httpUrl().optional(),
+        href: z.httpUrl().nullish(),
         icon: z.enum(['book-open', 'microscope', 'calendar-check']),
       }),
     ),
@@ -81,10 +84,10 @@ const tools = defineCollection({
   schema: z.object({
     name: z.string(),
     description: z.string(),
-    url: z.httpUrl().optional(),
+    url: z.httpUrl().nullish(),
     icon: z.enum(['book-open', 'microscope', 'calculator', 'activity', 'link']),
     published: z.boolean(),
-    order: z.number().optional(),
+    order: z.number().nullish(),
   }),
 });
 
