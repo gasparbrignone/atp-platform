@@ -1,16 +1,27 @@
 # CMS_SETUP.md
 
-# Puesta en marcha de Decap CMS
+# Puesta en marcha del CMS (Sveltia CMS)
 
 ## Objetivo
 
-Documentar los pasos que quedan pendientes para que el panel `/admin` (Decap
-CMS) pueda editar contenido real en producción, y cómo probar todo lo demás
-ahora mismo sin necesitar ninguno de esos pasos.
+Documentar cómo dejar el panel `/admin` editando contenido real, y cómo
+probarlo en local.
 
-Estos pasos son acciones sobre cuentas externas (GitHub, un proveedor de auth)
-que solo puede hacer quien tenga acceso a esas cuentas — no son cambios de
-código.
+---
+
+# Por qué Sveltia CMS y no Decap CMS
+
+Se empezó con **Decap CMS** (ver `docs/STACK_DECISIONS.md`), usando Netlify
+como intermediario del login con GitHub. Al probarlo en la práctica, ese login
+tiraba "Page not found": Netlify discontinuó **Netlify Identity**, la función
+de la que depende ese método, y ya no tiene arreglo por ese lado (confirmado
+en el foro oficial de soporte de Netlify — no es un error de configuración
+nuestro).
+
+**Sveltia CMS** es el sucesor de facto de Decap CMS: mismo `config.yml`, mismas
+colecciones y campos, mantenido activamente. Además soporta un método de login
+que Decap no tiene — pegar un **Personal Access Token** de GitHub — sin OAuth
+App, sin Netlify, sin ningún proxy propio. Es el que se usa acá.
 
 ---
 
@@ -18,63 +29,57 @@ código.
 
 - Todo el contenido (`Actividades`, `Biblioteca`, `Carreras`, `Herramientas`)
   vive en Astro Content Collections (`src/content.config.ts` + JSON en
-  `src/content/<colección>/`), el formato que Decap puede editar.
+  `src/content/<colección>/`).
 - El panel vive en `public/admin/` (`index.html` + `config.yml`), sin ninguna
-  dependencia nueva en `package.json` — Decap se carga vía CDN.
-- `config.yml` ya tiene las 4 colecciones configuradas con sus campos.
+  dependencia nueva en `package.json` — Sveltia CMS se carga vía CDN.
+- El repo real ya existe: `gasparbrignone/atp-platform`, rama `main`, ya
+  configurado en `config.yml`.
 
 ---
 
-# Qué falta (acción externa, no código)
+# Cómo entrar al panel y editar contenido
 
-## 1. ~~Crear el repositorio real en GitHub~~ ✅ Listo
+## 1. Generar un Personal Access Token de GitHub
 
-Repo: `gasparbrignone/atp-platform` (rama `main`), ya con el código pusheado.
-`config.yml` ya tiene el `repo:` real completado.
+1. En GitHub: foto de perfil → **Settings** →, al final del menú izquierdo,
+   **Developer settings** → **Personal access tokens** → **Fine-grained
+   tokens** → **Generate new token**.
+2. **Repository access**: "Only select repositories" → elegir
+   `atp-platform`.
+3. **Permissions** → **Repository permissions** → **Contents**: `Read and
+   write`.
+4. Generar y copiar el token. Vale solo para vos: no compartirlo por chat ni
+   email. Se puede revocar en cualquier momento desde la misma pantalla de
+   GitHub.
 
-## 2. Crear una GitHub OAuth App
+## 2. Entrar al panel
 
-GitHub → Settings → Developer settings → OAuth Apps → New OAuth App.
-
-## 3. Elegir un proveedor de autenticación
-
-El hosting del sitio es GitHub Pages (sin backend propio), así que Decap
-necesita un proveedor externo que haga el intercambio OAuth. La opción
-recomendada, sin escribir ni mantener código de servidor:
-
-- Crear un sitio gratuito en **Netlify**, conectado al mismo repo, usado
-  **solo** como proveedor de autenticación (Site settings → Access control →
-  OAuth) — el sitio real sigue sirviéndose desde GitHub Pages, Netlify no lo
-  hostea.
-- Cargar ahí el Client ID/Secret de la OAuth App creada en el paso 2.
-- La URL de ese sitio Netlify es el `base_url` que va en `config.yml`.
-
-## 4. ~~Completar el placeholder restante de `public/admin/config.yml`~~ ✅ Listo
-
-`base_url: https://mellifluous-cat-9cd28e.netlify.app` (el sitio Netlify del
-paso 3). `config.yml` ya no tiene placeholders pendientes.
-
-Para que el login funcione de punta a punta todavía hace falta que el paso 2
-(OAuth App) esté conectado en ese mismo sitio Netlify (paso 3, Access control
-→ OAuth, con el Client ID/Secret de la OAuth App) — eso sigue siendo una
-acción manual en las cuentas de GitHub/Netlify, no un cambio de código.
+1. Abrir `/admin/` del sitio publicado (o `http://localhost:4321/admin/` en
+   local, con `npm run dev` corriendo).
+2. Botón **"Sign In with Token"** → pegar el token del paso 1.
+3. Ya se puede editar cualquiera de las 4 colecciones; al guardar, Sveltia
+   crea un commit real en `gasparbrignone/atp-platform`.
 
 ---
 
-# Probar todo ahora mismo, sin nada de lo anterior
+# Probar en local sin publicar nada
 
-`config.yml` ya tiene `local_backend: true`, que permite usar el panel contra
-el filesystem local sin necesitar git ni OAuth:
+`npm run dev` y abrir `http://localhost:4321/admin/` alcanza — el login con
+token funciona igual en local que en producción, porque habla directo con la
+API de GitHub (no depende de dónde esté alojado el panel).
 
-1. Terminal 1: `npm run dev`
-2. Terminal 2: `npx decap-server`
-3. Abrir `http://localhost:4321/admin/index.html` (con `index.html` explícito:
-   el servidor de desarrollo de Astro no resuelve `/admin/` a su índice como
-   sí hace cualquier hosting estático en producción — en GitHub Pages
-   `/admin/` funciona sin el sufijo).
-4. Editar cualquier entrada (por ejemplo, una actividad) y guardar.
-5. Confirmar que el JSON correspondiente en `src/content/activities/` cambió
-   en disco, y que `/actividades` refleja el cambio.
+Sveltia CMS no usa `decap-server` ni `local_backend` (eso era específico de
+Decap) — si en algún momento se quiere editar contra el filesystem local sin
+tocar GitHub, Sveltia tiene su propio flujo ("Work with Local Repository",
+usando la API de archivos del navegador) documentado en
+[sveltiacms.app](https://sveltiacms.app).
 
-Esta es la verificación funcional del CMS hasta que existan el repo real y el
-proveedor de auth.
+---
+
+# Alternativa a futuro: login con botón (sin token manual)
+
+Si más adelante se prefiere un botón de "Iniciar sesión con GitHub" en vez de
+pegar un token a mano, Sveltia CMS mantiene su propio proxy de OAuth
+desplegable en Cloudflare Workers (gratis): `sveltia/sveltia-cms-auth` en
+GitHub. Es opcional — el método de token ya es completamente funcional y no
+requiere esto.

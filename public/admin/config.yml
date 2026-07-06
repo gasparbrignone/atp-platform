@@ -1,14 +1,13 @@
-# Panel de edición de contenido (Decap CMS). Ver docs/CMS_SETUP.md para el
-# estado de la puesta en marcha (repo + OAuth) y cómo probar esto en local
-# ahora mismo con `npx decap-server`, sin necesitar nada de eso.
+# Panel de edición de contenido (Sveltia CMS, sucesor de Decap CMS — ver
+# docs/CMS_SETUP.md sobre por qué). Login con un Personal Access Token de
+# GitHub (botón "Sign In with Token" en /admin): no hace falta OAuth App,
+# Netlify ni ningún proxy propio. Ver docs/CMS_SETUP.md para cómo generarlo
+# y cómo probar esto en local sin necesitar nada de eso.
 
 backend:
   name: github
   repo: gasparbrignone/atp-platform
   branch: main
-  base_url: https://mellifluous-cat-9cd28e.netlify.app
-
-local_backend: true
 
 media_folder: public/uploads
 public_folder: /uploads
@@ -26,7 +25,7 @@ collections:
   # CREAR la entrada (a partir del título). Editar el título después NO
   # renombra el archivo ni cambia `entry.id` en Astro — el slug y el título
   # quedan desacoplados una vez creada la entrada. Es el comportamiento por
-  # default de Decap, documentado acá para que quede explícito.
+  # default del CMS, documentado acá para que quede explícito.
   - name: activities
     label: Actividades
     folder: src/content/activities

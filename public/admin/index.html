@@ -3,11 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
     <title>Panel de contenido — ATP</title>
   </head>
   <body>
-    <!-- Sin dependencia npm a propósito: Decap CMS se carga vía CDN, este
-         panel no participa del build de Astro. Ver docs/CMS_SETUP.md. -->
-    <script src="https://unpkg.com/decap-cms@^3.0.0/dist/decap-cms.js"></script>
+    <!-- Sin dependencia npm a propósito: Sveltia CMS se carga vía CDN, este
+         panel no participa del build de Astro. Sucesor de Decap CMS, mismo
+         config.yml — ver docs/CMS_SETUP.md sobre por qué se cambió. -->
+    <script src="https://unpkg.com/@sveltia/cms/dist/sveltia-cms.js"></script>
   </body>
 </html>

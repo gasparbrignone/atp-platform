@@ -139,7 +139,11 @@ Los administradores no deberían modificar componentes para actualizar:
 
 Utilizar un CMS compatible con una arquitectura estática y GitHub Pages.
 
-La opción preferida actualmente es **Decap CMS**.
+La opción utilizada es **Sveltia CMS** (sucesor de facto de Decap CMS, mismo
+`config.yml`). Se empezó con Decap CMS; se migró a Sveltia porque el login
+vía Netlify (Netlify Identity) quedó discontinuado por Netlify — ver
+`docs/CMS_SETUP.md` para el detalle. Sveltia además permite login con un
+Personal Access Token de GitHub, sin depender de ningún proveedor externo.
 
 ## Motivos
 
