@@ -1,8 +1,160 @@
 ---
+/**
+ * Home. Assembles only existing components — no new UI, no CMS/backend
+ * logic. Simplified (identity/UX pass): section titles carry the meaning,
+ * card copy stays to name + action, no explanatory paragraphs. "Actividades"
+ * sources featured activities from src/content/activities.ts — same data
+ * src/pages/actividades.astro uses, no hardcoded duplicate.
+ */
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import Hero from '@/components/Hero.astro';
+import Section from '@/components/Section.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import Container from '@/components/Container.astro';
+import Grid from '@/components/Grid.astro';
+import Card from '@/components/Card.astro';
+import Button from '@/components/Button.astro';
+import Carousel from '@/components/Carousel.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import SocialLinks from '@/components/SocialLinks.astro';
+import BookOpen from '@lucide/astro/icons/book-open';
+import CalendarCheck from '@lucide/astro/icons/calendar-check';
+import GraduationCap from '@lucide/astro/icons/graduation-cap';
+import Wrench from '@lucide/astro/icons/wrench';
+import Stethoscope from '@lucide/astro/icons/stethoscope';
+import HeartPulse from '@lucide/astro/icons/heart-pulse';
+import Ear from '@lucide/astro/icons/ear';
+import HandHeart from '@lucide/astro/icons/hand-heart';
+import { activities } from '@/content/activities';
+
+const quickLinks = [
+  { icon: BookOpen, title: 'Biblioteca', href: '/biblioteca' },
+  { icon: CalendarCheck, title: 'Actividades', href: '/actividades' },
+  { icon: GraduationCap, title: 'Carreras', href: '#carreras' },
+  { icon: Wrench, title: 'Herramientas', href: '/herramientas' },
+];
+
+const featuredActivities = activities.filter((activity) => activity.published && activity.featured);
+
+const careers = [
+  { icon: Stethoscope, name: 'Medicina', href: '/carreras/medicina' },
+  { icon: HeartPulse, name: 'Enfermería', href: '/carreras/enfermeria' },
+  { icon: Ear, name: 'Fonoaudiología', href: '/carreras/fonoaudiologia' },
+  { icon: HandHeart, name: 'Terapia Ocupacional', href: '/carreras/terapia-ocupacional' },
+];
 ---
 
 <BaseLayout
   title="Inicio"
-  description="Plataforma digital de ATP, Agrupación de Trabajos Prácticos de la Facultad de Ciencias Médicas (UNR)."
-/>
+  description="ATP es la agrupación estudiantil de Ciencias Médicas (UNR): actividades, recursos y comunidad para toda la carrera."
+>
+  <Hero
+    title="ATP"
+    primaryAction={{ label: 'Sumate a ATP', href: '#sumate' }}
+    secondaryAction={{ label: 'Ver actividades', href: '/actividades' }}
+  />
+
+  <Section spacing="md" background="surface-alt">
+    <Container>
+      <Grid cols={4} gap="md">
+        {
+          quickLinks.map(({ icon: Icon, title, href }) => (
+            <Card>
+              <div slot="image" class="p-6 pb-0">
+                <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 items-center justify-center rounded-full">
+                  <Icon class="size-6" aria-hidden="true" />
+                </div>
+              </div>
+              <h3 slot="title" class="text-h4 text-text font-bold">
+                {title}
+              </h3>
+              <div slot="actions">
+                <Button href={href} variant="outline" size="sm">
+                  Explorar
+                </Button>
+              </div>
+            </Card>
+          ))
+        }
+      </Grid>
+    </Container>
+  </Section>
+
+  <Section id="actividades" spacing="md">
+    <Container class="flex flex-col gap-10">
+      <SectionHeader title="Actividades" />
+      {
+        featuredActivities.length > 0 ? (
+          <Carousel label="Actividades">
+            {featuredActivities.map((activity) => (
+              <Card class="w-[85%] shrink-0 snap-center sm:w-[45%] lg:w-[30%]">
+                <h3 slot="title" class="text-h4 text-text font-bold">
+                  {activity.title}
+                </h3>
+                <p class="text-body-sm text-text-secondary font-semibold">
+                  {[activity.date, activity.time, activity.location].filter(Boolean).join(' · ')}
+                </p>
+                <p class="mt-2">{activity.summary}</p>
+                <div slot="actions" class="flex flex-wrap items-center gap-2">
+                  <Button href={`/actividades/${activity.slug}`} variant="outline" size="sm">
+                    Ver más
+                  </Button>
+                  {activity.registrationUrl && (
+                    <Button
+                      href={activity.registrationUrl}
+                      target="_blank"
+                      size="sm"
+                      disabled={activity.status === 'finalizada'}
+                    >
+                      Inscribirse
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </Carousel>
+        ) : (
+          <EmptyState
+            title="Todavía no hay actividades destacadas"
+            description="Muy pronto vas a encontrar acá las próximas propuestas de ATP."
+          />
+        )
+      }
+    </Container>
+  </Section>
+
+  <Section id="carreras" spacing="md">
+    <Container class="flex flex-col gap-10">
+      <SectionHeader title="Nuestras carreras" />
+      <Grid cols={4} gap="md">
+        {
+          careers.map(({ icon: Icon, name, href }) => (
+            <Card>
+              <div slot="image" class="p-6 pb-0">
+                <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 items-center justify-center rounded-full">
+                  <Icon class="size-6" aria-hidden="true" />
+                </div>
+              </div>
+              <h3 slot="title" class="text-h4 text-text font-bold">
+                {name}
+              </h3>
+              <div slot="actions">
+                <Button href={href} variant="outline" size="sm">
+                  Entrar
+                </Button>
+              </div>
+            </Card>
+          ))
+        }
+      </Grid>
+    </Container>
+  </Section>
+
+  <Section id="sumate" spacing="lg" background="surface-alt">
+    <Container class="flex flex-col items-center gap-6 text-center">
+      <SectionHeader title="Sumate a transformar la facultad" alignment="center" />
+      <Button href="#" size="lg">Sumate a ATP</Button>
+      <SocialLinks />
+    </Container>
+  </Section>
+</BaseLayout>

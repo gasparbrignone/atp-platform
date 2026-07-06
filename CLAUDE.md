@@ -12,7 +12,7 @@ These instructions have higher priority than temporary prompts unless explicitly
 
 # General Objective
 
-Build and maintain a modern, high-performance digital platform for ATP (Agrupación de Trabajos Prácticos), a student organization of the Facultad de Ciencias Médicas of the Universidad Nacional de Rosario.
+Build and maintain a modern, high-performance digital platform for ATP, a student organization (not an academic institution) at the Facultad de Ciencias Médicas of the Universidad Nacional de Rosario.
 
 The platform must be:
 

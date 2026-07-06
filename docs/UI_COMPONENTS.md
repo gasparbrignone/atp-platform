@@ -99,9 +99,10 @@ Funciones:
 
 * navegación entre secciones;
 * acceso rápido;
-* cambio de tema;
 * acceso a "Sumate a ATP";
 * menú móvil.
+
+El modo oscuro no tiene toggle manual: sigue únicamente la preferencia del sistema (`prefers-color-scheme`).
 
 Características:
 

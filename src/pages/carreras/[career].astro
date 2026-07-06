@@ -1,0 +1,135 @@
+---
+/**
+ * Career pages (Fase 4). One Astro dynamic route generates the four static
+ * pages instead of four near-identical files — plain Astro routing, not a
+ * new component or content type. Data comes from src/content/careers.ts
+ * (see that file for why it isn't declared inline here).
+ *
+ * Medicina has real tools/resources per docs/PROJECT.md ("Medicine
+ * currently contains the largest amount of content"). The other three
+ * careers don't have real tool content yet, so their Herramientas section
+ * uses EmptyState instead of inventing placeholder tools — their Recursos
+ * section still points to the real Biblioteca, since that content already
+ * exists for every career.
+ */
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Section from '@/components/Section.astro';
+import Container from '@/components/Container.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import Grid from '@/components/Grid.astro';
+import Card from '@/components/Card.astro';
+import Button from '@/components/Button.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import BookOpen from '@lucide/astro/icons/book-open';
+import Microscope from '@lucide/astro/icons/microscope';
+import CalendarCheck from '@lucide/astro/icons/calendar-check';
+import ExternalLink from '@lucide/astro/icons/external-link';
+import { careers, type Career, type ToolIconKey } from '@/content/careers';
+
+const toolIcons: Record<ToolIconKey, typeof BookOpen> = {
+  'book-open': BookOpen,
+  microscope: Microscope,
+  'calendar-check': CalendarCheck,
+};
+
+export const getStaticPaths: GetStaticPaths = () => {
+  return careers.map((career) => ({ params: { career: career.slug }, props: { career } }));
+};
+
+const { career } = Astro.props as { career: Career };
+---
+
+<BaseLayout
+  title={career.name}
+  description={`Recursos, herramientas y actividades de ATP para estudiantes de ${career.name}.`}
+>
+  <Section spacing="lg">
+    <Container class="flex flex-col gap-10">
+      <SectionHeader as="h1" title={career.name} description={career.description} />
+
+      <div class="flex flex-col gap-6">
+        <SectionHeader title="Herramientas útiles" as="h2" />
+        {
+          career.tools.length > 0 ? (
+            <Grid cols={3} gap="md">
+              {career.tools.map((tool) => {
+                const Icon = toolIcons[tool.icon];
+                return (
+                  <Card>
+                    <div slot="image" class="p-6 pb-0">
+                      <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 items-center justify-center rounded-full">
+                        <Icon class="size-6" aria-hidden="true" />
+                      </div>
+                    </div>
+                    <h3 slot="title" class="text-h4 text-text font-bold">
+                      {tool.name}
+                    </h3>
+                    <p>{tool.description}</p>
+                    <div slot="actions">
+                      {tool.href ? (
+                        <Button href={tool.href} variant="outline" size="sm">
+                          Acceder
+                        </Button>
+                      ) : (
+                        <Button disabled variant="outline" size="sm">
+                          Próximamente
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </Grid>
+          ) : (
+            <EmptyState
+              title="Próximamente herramientas para esta carrera"
+              description="Estamos trabajando para sumar recursos propios de esta carrera."
+            />
+          )
+        }
+      </div>
+
+      <div class="flex flex-col gap-6">
+        <SectionHeader title="Recursos" as="h2" />
+        {
+          career.resources.length > 0 ? (
+            <Grid cols={2} gap="md">
+              {career.resources.map((resource) => (
+                <Card>
+                  <h3 slot="title" class="text-h4 text-text font-bold">
+                    {resource.label}
+                  </h3>
+                  <div slot="actions">
+                    <Button
+                      href={resource.href}
+                      target={resource.external ? '_blank' : undefined}
+                      variant="outline"
+                      size="sm"
+                    >
+                      {resource.external && <ExternalLink slot="icon-start" class="size-4" />}
+                      Ver
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </Grid>
+          ) : (
+            <EmptyState
+              title="Todavía no hay recursos publicados"
+              description="Muy pronto vas a encontrar acá material específico de esta carrera."
+            />
+          )
+        }
+      </div>
+
+      <div class="border-border flex flex-col items-center gap-4 border-t pt-10 text-center">
+        <p class="text-h4 text-text font-bold">¿Querés participar de ATP?</p>
+        <div class="flex flex-col gap-3 sm:flex-row">
+          <Button href="/actividades" variant="outline"> Ver actividades </Button>
+          <Button href="/#sumate">Sumate a ATP</Button>
+        </div>
+      </div>
+    </Container>
+  </Section>
+</BaseLayout>

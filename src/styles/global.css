@@ -12,6 +12,7 @@
   --color-primary-strong: var(--color-primary-strong);
   --color-secondary: var(--color-secondary);
   --color-secondary-foreground: var(--color-secondary-foreground);
+  --color-secondary-strong: var(--color-secondary-strong);
 
   --color-success: var(--color-success);
   --color-success-foreground: var(--color-success-foreground);
@@ -201,7 +202,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-primary-strong);
+    outline: 2px solid var(--color-secondary-strong);
     outline-offset: 2px;
   }
 }

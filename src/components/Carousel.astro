@@ -141,7 +141,7 @@ const { label, autoplay = false, interval = 6000, class: className, ...rest }: P
     function setActive(index: number, announce = true) {
       activeIndex = index;
       dots.forEach((dot, i) => {
-        dot.classList.toggle('bg-primary', i === index);
+        dot.classList.toggle('bg-secondary-strong', i === index);
         dot.classList.toggle('bg-border', i !== index);
         dot.setAttribute('aria-current', String(i === index));
       });

@@ -20,7 +20,7 @@ const { value, label, class: className, ...rest }: Props = Astro.props;
 <span
   data-filter-chip={value}
   class:list={[
-    'bg-primary/10 text-primary-strong text-body-sm inline-flex items-center gap-1.5 rounded-full py-1 pr-1.5 pl-3 font-semibold',
+    'bg-secondary/10 text-secondary-strong text-body-sm inline-flex items-center gap-1.5 rounded-full py-1 pr-1.5 pl-3 font-semibold',
     className,
   ]}
   {...rest}
@@ -30,7 +30,7 @@ const { value, label, class: className, ...rest }: Props = Astro.props;
     type="button"
     data-filter-chip-remove
     aria-label={`Quitar filtro ${label}`}
-    class="ease-standard hover:bg-primary/20 inline-flex size-5 items-center justify-center rounded-full transition-colors duration-150"
+    class="ease-standard hover:bg-secondary/20 inline-flex size-5 items-center justify-center rounded-full transition-colors duration-150"
   >
     <X class="size-3.5" aria-hidden="true" />
   </button>

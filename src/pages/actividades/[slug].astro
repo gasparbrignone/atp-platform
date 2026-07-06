@@ -1,0 +1,62 @@
+---
+/**
+ * Activity detail. Same dynamic-route pattern as
+ * src/pages/carreras/[career].astro: one Astro route + getStaticPaths
+ * generates a static page per published activity from
+ * src/content/activities.ts, no new component or content type.
+ *
+ * Simplified (identity/UX pass): title, date/time/location, full
+ * description (falls back to the listing's short summary when a longer
+ * one isn't set) and the registration CTA — no status/category shown, same
+ * as the listing page. No gallery/speakers/capacity fields from
+ * docs/CONTENT_SCHEMA.md are wired in since nothing here needs them.
+ */
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Section from '@/components/Section.astro';
+import Container from '@/components/Container.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import Button from '@/components/Button.astro';
+import { activities, type Activity } from '@/content/activities';
+
+export const getStaticPaths: GetStaticPaths = () => {
+  return activities
+    .filter((activity) => activity.published)
+    .map((activity) => ({ params: { slug: activity.slug }, props: { activity } }));
+};
+
+const { activity } = Astro.props as { activity: Activity };
+const meta = [activity.date, activity.time, activity.location].filter(Boolean).join(' · ');
+---
+
+<BaseLayout title={activity.title} description={activity.description ?? activity.summary}>
+  <Section spacing="lg">
+    <Container class="flex flex-col gap-8">
+      <Button href="/actividades" variant="ghost" size="sm" class="self-start">
+        ← Volver a actividades
+      </Button>
+
+      <SectionHeader as="h1" title={activity.title} description={meta} />
+
+      <p class="text-body-lg text-text-secondary max-w-2xl">
+        {activity.description ?? activity.summary}
+      </p>
+
+      <div class="flex flex-wrap gap-3">
+        {
+          activity.registrationUrl ? (
+            <Button
+              href={activity.registrationUrl}
+              target="_blank"
+              disabled={activity.status === 'finalizada'}
+            >
+              Inscribirse
+            </Button>
+          ) : (
+            <Button disabled>Inscripción no disponible</Button>
+          )
+        }
+      </div>
+    </Container>
+  </Section>
+</BaseLayout>

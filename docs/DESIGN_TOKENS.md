@@ -100,17 +100,21 @@ Importante: `--color-primary-foreground` es un gris oscuro, no blanco. El rosa d
 
 ```text
 --color-primary-strong
+--color-secondary-strong
 --color-error-strong
 ```
 
-Existen solo donde hacen falta: el rosa de marca y el rojo de error, usados como texto/borde/ícono/anillo de foco *sin relleno detrás* (ej. un botón `outline`, el borde de un input inválido, el anillo de foco global), no alcanzan 3:1 (borde) ni 4.5:1 (texto) contra el fondo de la página en al menos uno de los dos temas.
+Existen solo donde hacen falta: usados como texto/borde/ícono/anillo de foco *sin relleno detrás* (ej. un botón `outline`, el borde de un input inválido, el anillo de foco global), estos colores no alcanzan 3:1 (borde) ni 4.5:1 (texto) contra el fondo de la página en al menos uno de los dos temas.
 
 Por eso `-strong` **sí está temizado a propósito** (ver `tokens.css`, no es una inversión automática):
 
 * `primary-strong`: más oscuro en modo claro (`#C6299E`), y el rosa de marca original en modo oscuro (donde sí contrasta bien).
+* `secondary-strong`: igual al `secondary` base en modo claro (`#2E5699`, ya accesible ahí); en modo oscuro sube a `#8AB4FF` porque el azul base cae a ~2.5:1 contra los fondos oscuros del proyecto.
 * `error-strong`: igual al `error` base en modo claro, más claro en modo oscuro (`#FF6B6B`).
 
-`secondary`, `success` e `info` no tienen variante `-strong` porque, calculado el contraste, funcionan correctamente como borde/texto en ambos temas sin necesitar un valor alternativo.
+`success` e `info` no tienen variante `-strong` porque, calculado el contraste, funcionan correctamente como borde/texto en ambos temas sin necesitar un valor alternativo.
+
+**Regla de identidad de marca:** el rosa (`primary`/`primary-strong`) se reserva para CTAs y elementos realmente destacados (botón `primary`, badge `primary`, el eyebrow de `SectionHeader`). Toda la UI secundaria/utilitaria — botones `outline`/`ghost`, íconos decorativos, filtros, anillo de foco global — usa `secondary-strong` (azul institucional). Esto es intencional: en modo oscuro, un uso extendido del rosa contra fondos oscuros con tinte azulado se percibe como violeta y compite con la identidad de ATP.
 
 ### Regla de uso
 

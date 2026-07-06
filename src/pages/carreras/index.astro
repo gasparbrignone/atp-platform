@@ -1,0 +1,67 @@
+---
+/**
+ * Careers hub (Fase 4 iteration). Lists the 4 careers from
+ * src/content/careers.ts — same data source as the [career].astro dynamic
+ * route, no duplication. Icons are mapped locally by slug (not stored in
+ * careers.ts) for the same reason [career].astro keeps icon components out
+ * of that module: Astro components mixed into data referenced by
+ * getStaticPaths can silently break its extraction (this page doesn't use
+ * getStaticPaths, but keeping the pattern consistent avoids reintroducing
+ * that risk if this file ever needs one).
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Section from '@/components/Section.astro';
+import Container from '@/components/Container.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import Grid from '@/components/Grid.astro';
+import Card from '@/components/Card.astro';
+import Button from '@/components/Button.astro';
+import Stethoscope from '@lucide/astro/icons/stethoscope';
+import HeartPulse from '@lucide/astro/icons/heart-pulse';
+import Ear from '@lucide/astro/icons/ear';
+import HandHeart from '@lucide/astro/icons/hand-heart';
+import { careers } from '@/content/careers';
+
+const careerIcons: Record<string, typeof Stethoscope> = {
+  medicina: Stethoscope,
+  enfermeria: HeartPulse,
+  fonoaudiologia: Ear,
+  'terapia-ocupacional': HandHeart,
+};
+---
+
+<BaseLayout
+  title="Carreras"
+  description="Recursos, herramientas y actividades de ATP organizados por carrera."
+>
+  <Section spacing="lg">
+    <Container class="flex flex-col gap-10">
+      <SectionHeader as="h1" title="Carreras" />
+
+      <Grid cols={2} gap="md">
+        {
+          careers.map((career) => {
+            const Icon = careerIcons[career.slug];
+            return (
+              <Card>
+                <div slot="image" class="p-6 pb-0">
+                  <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 items-center justify-center rounded-full">
+                    <Icon class="size-6" aria-hidden="true" />
+                  </div>
+                </div>
+                <h3 slot="title" class="text-h4 text-text font-bold">
+                  {career.name}
+                </h3>
+                <div slot="actions">
+                  <Button href={`/carreras/${career.slug}`} variant="outline" size="sm">
+                    Entrar
+                  </Button>
+                </div>
+              </Card>
+            );
+          })
+        }
+      </Grid>
+    </Container>
+  </Section>
+</BaseLayout>

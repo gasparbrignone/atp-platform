@@ -5,21 +5,20 @@
  * The mobile drawer itself lives in MobileMenu.astro; this component only
  * renders the trigger button that opens it.
  *
- * Nav links are placeholder content (no real pages exist yet outside "/").
+ * All nav links now point to real pages (see docs/ROADMAP.md for the
+ * remaining phases still ahead, e.g. institutional pages).
  */
 import Menu from '@lucide/astro/icons/menu';
-import Sun from '@lucide/astro/icons/sun';
-import Moon from '@lucide/astro/icons/moon';
 import Container from './Container.astro';
 import Button from './Button.astro';
 import MobileMenu from './MobileMenu.astro';
 
 const navLinks = [
   { label: 'Inicio', href: '/' },
-  { label: 'Biblioteca', href: '#' },
-  { label: 'Actividades', href: '#' },
-  { label: 'Noticias', href: '#' },
-  { label: 'Carreras', href: '#' },
+  { label: 'Biblioteca', href: '/biblioteca' },
+  { label: 'Actividades', href: '/actividades' },
+  { label: 'Carreras', href: '/carreras' },
+  { label: 'Herramientas', href: '/herramientas' },
 ];
 ---
 
@@ -28,9 +27,8 @@ const navLinks = [
   class="z-sticky bg-surface/70 ease-standard data-scrolled:border-border data-scrolled:bg-surface/90 sticky top-0 w-full border-b border-transparent backdrop-blur-md transition-[background-color,box-shadow,border-color] duration-200 data-scrolled:shadow-sm"
 >
   <Container as="nav" aria-label="Principal" class="flex h-16 items-center justify-between">
-    <a href="/" class="text-h4 text-text flex items-center gap-2 font-extrabold">
-      <img src="/branding/logo.svg" alt="" class="h-8 w-auto" />
-      ATP
+    <a href="/" class="flex items-center">
+      <img src="/branding/logo.svg" alt="ATP" class="h-8 w-auto" />
     </a>
 
     <ul class="hidden items-center gap-8 md:flex">
@@ -49,17 +47,6 @@ const navLinks = [
     </ul>
 
     <div class="flex items-center gap-2">
-      <button
-        type="button"
-        id="theme-toggle"
-        aria-pressed="false"
-        class="text-text-secondary ease-standard hover:bg-surface-alt inline-flex size-10 items-center justify-center rounded-full transition-colors duration-150"
-      >
-        <span class="sr-only">Cambiar tema</span>
-        <Sun id="theme-toggle-sun" class="size-5" aria-hidden="true" />
-        <Moon id="theme-toggle-moon" class="hidden size-5" aria-hidden="true" />
-      </button>
-
       <Button href="#" size="sm" class="hidden md:inline-flex">Sumate a ATP</Button>
 
       <button
@@ -78,34 +65,6 @@ const navLinks = [
 </header>
 
 <MobileMenu links={navLinks} />
-
-<script>
-  const STORAGE_KEY = 'atp-theme';
-  const toggle = document.querySelector<HTMLElement>('#theme-toggle');
-  const sunIcon = document.querySelector<HTMLElement>('#theme-toggle-sun');
-  const moonIcon = document.querySelector<HTMLElement>('#theme-toggle-moon');
-
-  function getEffectiveTheme(): 'light' | 'dark' {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'light' || stored === 'dark') return stored;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-
-  function applyIcon(theme: 'light' | 'dark') {
-    sunIcon?.classList.toggle('hidden', theme === 'dark');
-    moonIcon?.classList.toggle('hidden', theme !== 'dark');
-    toggle?.setAttribute('aria-pressed', String(theme === 'dark'));
-  }
-
-  applyIcon(getEffectiveTheme());
-
-  toggle?.addEventListener('click', () => {
-    const next = getEffectiveTheme() === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem(STORAGE_KEY, next);
-    applyIcon(next);
-  });
-</script>
 
 <script>
   const header = document.querySelector<HTMLElement>('[data-navbar]');

@@ -28,6 +28,19 @@
    */
   --color-primary-strong: #c6299e;
 
+  /*
+   * `secondary` (#2E5699) is dark enough to pass WCAG AA as bare text/
+   * borders in light mode, but against this project's dark-mode surfaces
+   * it drops to ~2.5:1 — well under the 4.5:1 (text) / 3:1 (UI) floor.
+   * `-strong` fixes that the same way --color-primary-strong does: a
+   * per-theme accessible stand-in for text, icons, outlines and focus
+   * rings, not a solid fill (see --color-secondary-foreground for that).
+   * It's also the token used to pull secondary/utility UI (icons, filter
+   * chips, outline/ghost buttons, focus rings) toward institutional blue
+   * instead of the brand pink, so pink stays reserved for primary CTAs.
+   */
+  --color-secondary-strong: #2e5699;
+
   /* ---------------------------------------------------------------- */
   /* Neutral scale (warm-tinted, never pure black/white)               */
   /* ---------------------------------------------------------------- */
@@ -175,12 +188,11 @@
 
 /*
  * Dark mode is designed on purpose, not inverted automatically.
- * It applies when the OS prefers dark AND no explicit choice was made
- * ([data-theme] unset), or when [data-theme="dark"] is set explicitly
- * (the future theme toggle owns that attribute — see Fase 2).
+ * It follows the OS/browser preference only — there is no manual toggle,
+ * so no [data-theme] override is needed here.
  */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
+  :root {
     --color-background: #16141c;
     --color-surface: #1e1b26;
     --color-surface-alt: #262230;
@@ -189,16 +201,12 @@
     --color-border: #362f44;
     --color-primary-strong: #f969d7;
     --color-error-strong: #ff6b6b;
+    /*
+     * #2E5699 drops to ~2.5:1 against these dark surfaces (see the
+     * definition above) — lightened here so it stays clearly blue and
+     * readable, instead of leaning on the brand pink for secondary/utility
+     * UI (which is what made dark mode read as pink/violet-dominant).
+     */
+    --color-secondary-strong: #8ab4ff;
   }
-}
-
-:root[data-theme='dark'] {
-  --color-background: #16141c;
-  --color-surface: #1e1b26;
-  --color-surface-alt: #262230;
-  --color-text: #f5f3f7;
-  --color-text-secondary: var(--gray-400);
-  --color-border: #362f44;
-  --color-primary-strong: #f969d7;
-  --color-error-strong: #ff6b6b;
 }

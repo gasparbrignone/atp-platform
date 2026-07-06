@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-ATP Platform is the official digital platform of **ATP (Agrupación de Trabajos Prácticos)**, a student organization of the **Facultad de Ciencias Médicas** at the **Universidad Nacional de Rosario (UNR), Argentina**.
+ATP Platform is the official digital platform of **ATP**, a student organization at the **Facultad de Ciencias Médicas** at the **Universidad Nacional de Rosario (UNR), Argentina**.
 
 This platform is designed to centralize academic resources, student activities, institutional information, and digital tools into a single, modern, intuitive, and highly maintainable website.
 

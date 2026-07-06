@@ -12,11 +12,16 @@ import { getSpinnerClasses } from '@/lib/spinnerClasses';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
+export type ButtonTarget = '_self' | '_blank' | '_parent' | '_top';
 
 interface Props extends HTMLAttributes<'button'> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   href?: string;
+  /** Only applied when `href` is set. Ignored on the `<button>` render path. */
+  target?: ButtonTarget;
+  /** Only applied when `href` is set. Defaults to `noopener noreferrer` when `target="_blank"` and no `rel` is given. */
+  rel?: string;
   type?: 'button' | 'submit' | 'reset';
   disabled?: boolean;
   loading?: boolean;
@@ -26,12 +31,16 @@ const {
   variant = 'primary',
   size = 'md',
   href,
+  target,
+  rel,
   type = 'button',
   disabled = false,
   loading = false,
   class: className,
   ...rest
 }: Props = Astro.props;
+
+const resolvedRel = target === '_blank' ? (rel ?? 'noopener noreferrer') : rel;
 
 const isDisabled = disabled || loading;
 
@@ -42,17 +51,21 @@ const sizeClasses: Record<ButtonSize, string> = {
 };
 
 /*
- * Outline/ghost use `primary-strong`, not `primary`: the brand pink is too
- * light to pass WCAG AA as bare text/border against a page background (see
- * tokens.css). Solid fills (primary/secondary/danger) pair with their
- * `-foreground` token instead, since a fill's contrast is self-contained.
+ * Outline/ghost are secondary actions ("Ver más", "Explorar"...), not CTAs
+ * — they use `secondary-strong` (institutional blue) so the brand pink
+ * stays reserved for `primary` (the actual call to action). `-strong`
+ * variants exist because their base tokens are too light/dark to pass
+ * WCAG AA as bare text/border against a page background in one theme or
+ * the other (see tokens.css). Solid fills (primary/secondary/danger) pair
+ * with their `-foreground` token instead, since a fill's contrast is
+ * self-contained.
  */
 const variantClasses: Record<ButtonVariant, string> = {
   primary: 'bg-primary text-primary-foreground hover:brightness-95 active:brightness-90',
   secondary: 'bg-secondary text-secondary-foreground hover:brightness-95 active:brightness-90',
   outline:
-    'border border-primary-strong bg-transparent text-primary-strong hover:bg-primary/10 active:bg-primary/20',
-  ghost: 'bg-transparent text-primary-strong hover:bg-primary/10 active:bg-primary/20',
+    'border border-secondary-strong bg-transparent text-secondary-strong hover:bg-secondary/10 active:bg-secondary/20',
+  ghost: 'bg-transparent text-secondary-strong hover:bg-secondary/10 active:bg-secondary/20',
   danger: 'bg-error text-error-foreground hover:brightness-95 active:brightness-90',
 };
 
@@ -70,6 +83,8 @@ const Tag = href ? 'a' : 'button';
 <Tag
   class:list={classes}
   href={href && !disabled ? href : undefined}
+  target={href ? target : undefined}
+  rel={href ? resolvedRel : undefined}
   type={href ? undefined : type}
   disabled={href ? undefined : isDisabled}
   aria-disabled={href && isDisabled ? true : undefined}

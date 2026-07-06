@@ -33,19 +33,6 @@ const seo = resolveSeo(Astro.props, Astro.site);
     <link rel="icon" href="/favicon.ico" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#f969d7" />
-
-    <script is:inline>
-      (function () {
-        try {
-          const stored = localStorage.getItem('atp-theme');
-          if (stored === 'light' || stored === 'dark') {
-            document.documentElement.setAttribute('data-theme', stored);
-          }
-        } catch {
-          /* localStorage unavailable (privacy mode, etc.) — fall back to system preference. */
-        }
-      })();
-    </script>
   </head>
   <body>
     <a

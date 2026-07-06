@@ -8,7 +8,7 @@ export function getFieldClasses(hasError = false): string {
     'w-full rounded-xs border bg-surface text-body text-text transition-colors duration-150 ease-standard placeholder:text-text-secondary disabled:cursor-not-allowed disabled:opacity-40';
   const state = hasError
     ? 'border-error-strong focus:border-error-strong'
-    : 'border-border focus:border-primary-strong';
+    : 'border-border focus:border-secondary-strong';
 
   return `${base} ${state}`;
 }

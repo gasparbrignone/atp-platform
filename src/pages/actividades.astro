@@ -1,0 +1,109 @@
+---
+/**
+ * Actividades. Existing components only, static/local data
+ * (src/content/activities.ts), no CMS or backend.
+ *
+ * Simplified (identity/UX pass): no filters at all — the category filter
+ * was removed along with the earlier status filter, so this is now a plain
+ * listing. `status` still exists in the data (it disables "Inscribirse"
+ * once an activity is `finalizada`) but isn't shown as a public badge —
+ * date/time/location/description are the fields a student actually needs.
+ *
+ * Each card always links to its detail page (src/pages/actividades/[slug].astro)
+ * via "Ver más"; "Inscribirse" only renders when `registrationUrl` exists.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Section from '@/components/Section.astro';
+import Container from '@/components/Container.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import Grid from '@/components/Grid.astro';
+import Card from '@/components/Card.astro';
+import Button from '@/components/Button.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import { activities } from '@/content/activities';
+
+const publishedActivities = activities.filter((activity) => activity.published);
+const featuredActivities = publishedActivities.filter((activity) => activity.featured);
+---
+
+<BaseLayout title="Actividades" description="Talleres, cursos y encuentros que armamos en ATP.">
+  <Section spacing="lg">
+    <Container class="flex flex-col gap-10">
+      <SectionHeader title="Actividades" />
+
+      {
+        featuredActivities.length > 0 && (
+          <div class="flex flex-col gap-6">
+            <SectionHeader title="Próximas actividades" as="h3" />
+            <Grid cols={3} gap="md">
+              {featuredActivities.map((activity) => (
+                <Card>
+                  <h3 slot="title" class="text-h4 text-text font-bold">
+                    {activity.title}
+                  </h3>
+                  <p class="text-body-sm text-text-secondary font-semibold">
+                    {[activity.date, activity.time, activity.location].filter(Boolean).join(' · ')}
+                  </p>
+                  <p class="mt-2">{activity.summary}</p>
+                  <div slot="actions" class="flex flex-wrap items-center gap-2">
+                    <Button href={`/actividades/${activity.slug}`} variant="outline" size="sm">
+                      Ver más
+                    </Button>
+                    {activity.registrationUrl && (
+                      <Button
+                        href={activity.registrationUrl}
+                        target="_blank"
+                        size="sm"
+                        disabled={activity.status === 'finalizada'}
+                      >
+                        Inscribirse
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </Grid>
+          </div>
+        )
+      }
+
+      {
+        publishedActivities.length > 0 ? (
+          <Grid cols={3} gap="md">
+            {publishedActivities.map((activity) => (
+              <Card>
+                <h3 slot="title" class="text-h4 text-text font-bold">
+                  {activity.title}
+                </h3>
+                <p class="text-body-sm text-text-secondary font-semibold">
+                  {[activity.date, activity.time, activity.location].filter(Boolean).join(' · ')}
+                </p>
+                <p class="mt-2">{activity.summary}</p>
+                <div slot="actions" class="flex flex-wrap items-center gap-2">
+                  <Button href={`/actividades/${activity.slug}`} variant="outline" size="sm">
+                    Ver más
+                  </Button>
+                  {activity.registrationUrl && (
+                    <Button
+                      href={activity.registrationUrl}
+                      target="_blank"
+                      size="sm"
+                      disabled={activity.status === 'finalizada'}
+                    >
+                      Inscribirse
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </Grid>
+        ) : (
+          <EmptyState
+            title="Todavía no hay actividades publicadas"
+            description="Muy pronto vas a encontrar acá las próximas propuestas de ATP."
+          />
+        )
+      }
+    </Container>
+  </Section>
+</BaseLayout>

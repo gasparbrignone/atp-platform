@@ -1,0 +1,75 @@
+---
+/**
+ * Herramientas. Existing components only, static/local data
+ * (src/content/tools.ts), no CMS or backend. Simple catalog — no filters,
+ * consistent with the current identity/UX pass (Biblioteca/Actividades
+ * dropped their multi-filter setups too).
+ *
+ * Tools without a real destination yet render a disabled "Próximamente"
+ * button instead of a fake "#" link — same rule already applied to
+ * Carreras' tool cards.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Section from '@/components/Section.astro';
+import Container from '@/components/Container.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import Grid from '@/components/Grid.astro';
+import Card from '@/components/Card.astro';
+import Button from '@/components/Button.astro';
+import BookOpen from '@lucide/astro/icons/book-open';
+import Microscope from '@lucide/astro/icons/microscope';
+import Calculator from '@lucide/astro/icons/calculator';
+import Activity from '@lucide/astro/icons/activity';
+import Link from '@lucide/astro/icons/link';
+import { tools, type ToolIconKey } from '@/content/tools';
+
+const toolIcons: Record<ToolIconKey, typeof BookOpen> = {
+  'book-open': BookOpen,
+  microscope: Microscope,
+  calculator: Calculator,
+  activity: Activity,
+  link: Link,
+};
+
+const publishedTools = tools.filter((tool) => tool.published);
+---
+
+<BaseLayout title="Herramientas" description="Atlas, simuladores y accesos útiles para estudiar.">
+  <Section spacing="lg">
+    <Container class="flex flex-col gap-10">
+      <SectionHeader as="h1" title="Herramientas" />
+
+      <Grid cols={3} gap="md">
+        {
+          publishedTools.map((tool) => {
+            const Icon = toolIcons[tool.icon];
+            return (
+              <Card>
+                <div slot="image" class="p-6 pb-0">
+                  <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 items-center justify-center rounded-full">
+                    <Icon class="size-6" aria-hidden="true" />
+                  </div>
+                </div>
+                <h3 slot="title" class="text-h4 text-text font-bold">
+                  {tool.name}
+                </h3>
+                <p>{tool.description}</p>
+                <div slot="actions">
+                  {tool.url ? (
+                    <Button href={tool.url} target="_blank" variant="outline" size="sm">
+                      Acceder
+                    </Button>
+                  ) : (
+                    <Button disabled variant="outline" size="sm">
+                      Próximamente
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            );
+          })
+        }
+      </Grid>
+    </Container>
+  </Section>
+</BaseLayout>
