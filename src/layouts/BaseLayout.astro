@@ -72,6 +72,13 @@ const websiteJsonLd = {
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#f969d7" />
 
+    <!-- Fase 15 (PWA): iOS no lee manifest.webmanifest para el ícono ni el
+         modo standalone, necesita estas etiquetas propias. -->
+    <link rel="apple-touch-icon" href="/branding/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content={siteConfig.name} />
+
     <script is:inline type="application/ld+json" set:html={JSON.stringify(organizationJsonLd)} />
     <script is:inline type="application/ld+json" set:html={JSON.stringify(websiteJsonLd)} />
 
@@ -87,6 +94,15 @@ const websiteJsonLd = {
       data-goatcounter={`https://${siteConfig.goatcounterSite}.goatcounter.com/count`}
       async
       src="//gc.zgo.at/count.js"></script>
+
+    <!-- Fase 15 (PWA): habilita instalación y uso offline básico. -->
+    <script is:inline>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js');
+        });
+      }
+    </script>
   </head>
   <body>
     <a

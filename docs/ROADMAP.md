@@ -444,6 +444,21 @@ Iconos.
 
 Pantalla de carga.
 
+Hecha (2026-07-06). Manifest con íconos PNG reales (192, 512, 512 maskable)
+generados a partir de la marca (`favicon.svg`) sobre el color de fondo de
+marca, más apple-touch-icon y meta tags de iOS (BaseLayout.astro) — antes
+solo había SVG e ico de 32×32, insuficiente para que el navegador ofrezca
+instalar. Service worker (`public/sw.js`): network-first con fallback a
+caché para navegación, stale-while-revalidate para el resto de assets
+propios; sin dependencias externas (sin Workbox) ni lista de precache
+generada en build, para no acoplarse a los nombres hasheados de Vite.
+Página `/offline.html` autocontenida (estilos inline, sin depender de
+otros assets) como fallback cuando no hay red. Pantalla de carga: decisión
+de producto de apoyarse en la splash automática de Android (a partir de
+íconos + colores del manifest) sin fabricar imágenes de splash específicas
+para iOS — evita ~10-30 imágenes por tamaño de dispositivo, de alto
+mantenimiento y práctica cada vez más obsoleta.
+
 ---
 
 # Fase 16 — QA

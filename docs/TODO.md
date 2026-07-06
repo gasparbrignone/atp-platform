@@ -63,10 +63,10 @@ Estas tareas son indispensables para publicar la primera versión.
 * ✅ Configurar ESLint.
 * ✅ Configurar Prettier.
 * ✅ Configurar aliases.
-* ⬜ Configurar GitHub Pages. (deploy real diferido a Fase 17; `site` ya configurado en astro.config.mjs)
-* 🟨 Configurar dominio personalizado. (decidido: atpfcm.com.ar, comprado en nic.ar; falta DNS/CNAME, ver Fase 17)
-* ⬜ Configurar HTTPS.
-* 🟨 Configurar PWA. (`manifest.webmanifest` listo; Service Worker/offline quedan para Fase 15)
+* ✅ Configurar GitHub Pages. (deploy automático vía GitHub Actions en cada push a main)
+* ✅ Configurar dominio personalizado. (atpfcm.com.ar, DNS delegado a Cloudflare, CNAME en public/CNAME)
+* ✅ Configurar HTTPS. (certificado Let's Encrypt emitido por GitHub Pages, Enforce HTTPS activo)
+* ✅ Configurar PWA. (manifest con íconos PNG reales, apple-touch-icon, Service Worker con offline fallback — Fase 15)
 * ✅ Configurar sitemap.
 * ✅ Configurar robots.txt.
 
