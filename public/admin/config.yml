@@ -12,6 +12,12 @@ backend:
 media_folder: public/uploads
 public_folder: /uploads
 
+# Sin esto, un campo opcional vacío se guarda como `null` — y nuestros
+# schemas Zod son `.optional()` (aceptan que falte la clave), no `.nullable()`
+# (no aceptan `null` explícito). Con esto, un campo opcional vacío
+# directamente no se escribe, que es lo que ya esperan los schemas.
+omit_empty_optional_fields: true
+
 # Config global de generación de slugs (solo aplica al crear una entrada
 # nueva — ver nota en cada colección de abajo). Sin acentos/espacios para que
 # el nombre de archivo quede estable y portable.
@@ -32,6 +38,8 @@ collections:
     create: true
     delete: true
     slug: '{{slug}}'
+    extension: json
+    format: json
     fields:
       - { label: Título, name: title, widget: string }
       - { label: Resumen, name: summary, widget: text }
@@ -70,6 +78,8 @@ collections:
     create: true
     delete: true
     slug: '{{slug}}'
+    extension: json
+    format: json
     fields:
       - { label: Título, name: title, widget: string }
       - { label: Autor, name: author, widget: string }
@@ -104,6 +114,8 @@ collections:
     folder: src/content/careers
     create: false
     delete: false
+    extension: json
+    format: json
     fields:
       - { label: Nombre, name: name, widget: string }
       - { label: Descripción, name: description, widget: text }
@@ -143,6 +155,8 @@ collections:
     create: true
     delete: true
     slug: '{{slug}}'
+    extension: json
+    format: json
     fields:
       - { label: Nombre, name: name, widget: string }
       - { label: Descripción, name: description, widget: text }
