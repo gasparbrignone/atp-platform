@@ -319,23 +319,23 @@ Estas tareas son indispensables para publicar la primera versión.
 
 ## Funcionales
 
-* ⬜ Navegación.
-* ⬜ Formularios.
-* ⬜ Descargas.
-* ⬜ Buscador.
-* ⬜ CMS.
+* ✅ Navegación. (crawler propio sobre producción: 0 links internos rotos en las 16 páginas)
+* 🟨 Formularios. (el de Sumate a ATP sigue con el placeholder `forms.gle/ejemplo-sumate-atp`; falta el link real de Google Forms)
+* ✅ Descargas. (verificado `Content-Disposition: attachment` en los assets de Biblioteca — descarga directa, sin salir de la página)
+* ✅ Buscador. (tolerante a tildes y errores de tipeo, Fase 16)
+* ✅ CMS. (panel funcionando en producción, verificado con ediciones reales)
 
 ## Responsive
 
-* ⬜ Móviles pequeños.
-* ⬜ Móviles grandes.
-* ⬜ Tablets.
-* ⬜ Notebooks.
-* ⬜ Escritorio.
+* ✅ Móviles pequeños. (320px, sin overflow horizontal)
+* ✅ Móviles grandes. (375/390/430px)
+* ✅ Tablets. (768px)
+* ✅ Notebooks. (1024/1280px)
+* ✅ Escritorio. (1536px)
 
 ## Navegadores
 
-* ⬜ Chrome.
+* ✅ Chrome. (Chromium, vía Playwright)
 * ⬜ Edge.
 * ⬜ Firefox.
 * ⬜ Safari.

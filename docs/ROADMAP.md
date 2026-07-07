@@ -487,6 +487,26 @@ Buscador.
 
 CMS.
 
+Hecha (2026-07-07). Auditoría real contra producción (enlaces con
+crawler propio, responsive 320-1536px, modo oscuro, accesibilidad con
+axe-core, rendimiento con Lighthouse). Bugs reales encontrados y
+corregidos: Herramientas sin EmptyState con cero elementos; jerarquía
+de encabezados rota en Biblioteca/Actividades/Home/Carreras (ninguna
+tenía `<h1>`, varias grillas saltaban de h1/h2 a h3) — 0 violaciones de
+axe-core en las 7 páginas después del fix; logo sin width/height
+explícitos (layout shift); fuente ExtraBold del `<h1>` (elemento LCP en
+Lighthouse) sin precargar. Lighthouse pasó de 88/98/100/100 a
+94/100/100/100 (rendimiento/accesibilidad/best practices/SEO). El
+rendimiento no llegó al 95 porque lo que resta (cache headers de
+GitHub Pages, CSS crítico inline) requiere cambios de arquitectura
+para una ganancia marginal — no se justifica en un sitio estático
+gratuito de este tamaño.
+
+También se detectó (no relacionado al QA en sí) que gran parte del
+contenido de Actividades, Herramientas y Biblioteca fue borrado
+manualmente vía el panel de administración el mismo día — confirmado
+como intencional por el usuario, no se restauró.
+
 ---
 
 # Fase 17 — Despliegue
