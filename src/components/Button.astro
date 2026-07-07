@@ -67,9 +67,15 @@ const sizeClasses: Record<ButtonSize, string> = {
  * the other (see tokens.css). Solid fills (primary/secondary/danger) pair
  * with their `-foreground` token instead, since a fill's contrast is
  * self-contained.
+ *
+ * `primary` uses `primary-fill` (not the bare `--color-primary` brand
+ * pink) because white text on the brand pink is only 2.6:1 — fails WCAG
+ * AA. `primary-fill` is a deliberately darker, fixed-across-themes pink
+ * that clears 4.99:1 with white (see tokens.css).
  */
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: 'bg-primary text-primary-foreground hover:brightness-95 active:brightness-90',
+  primary:
+    'bg-primary-fill text-primary-fill-foreground hover:brightness-110 active:brightness-125',
   secondary: 'bg-secondary text-secondary-foreground hover:brightness-95 active:brightness-90',
   outline:
     'border border-secondary-strong bg-transparent text-secondary-strong hover:bg-secondary/10 active:bg-secondary/20',

@@ -12,6 +12,7 @@ import Menu from '@lucide/astro/icons/menu';
 import Container from './Container.astro';
 import Button from './Button.astro';
 import MobileMenu from './MobileMenu.astro';
+import AtpMark from './icons/AtpMark.astro';
 
 const navLinks = [
   { label: 'Inicio', href: '/' },
@@ -47,7 +48,10 @@ const navLinks = [
     </ul>
 
     <div class="flex items-center gap-2">
-      <Button href="/sumate" size="sm" class="hidden md:inline-flex">Sumate a ATP</Button>
+      <Button href="/sumate" size="sm" class="hidden md:inline-flex">
+        <AtpMark slot="icon-start" class="size-4" />
+        Sumate a ATP
+      </Button>
 
       <button
         type="button"

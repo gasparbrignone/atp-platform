@@ -17,6 +17,8 @@ import Button from '@/components/Button.astro';
 import Carousel from '@/components/Carousel.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import SocialLinks from '@/components/SocialLinks.astro';
+import AtpMark from '@/components/icons/AtpMark.astro';
+import homeHero from '@/assets/hero/home-hero.jpg';
 import BookOpen from '@lucide/astro/icons/book-open';
 import CalendarCheck from '@lucide/astro/icons/calendar-check';
 import GraduationCap from '@lucide/astro/icons/graduation-cap';
@@ -54,7 +56,9 @@ const careers = [
 >
   <Hero
     title="ATP"
-    primaryAction={{ label: 'Sumate a ATP', href: '/sumate' }}
+    subtitle="De estudiantes para estudiantes"
+    backgroundImage={homeHero}
+    primaryAction={{ label: 'Sumate a ATP', href: '/sumate', icon: AtpMark }}
     secondaryAction={{ label: 'Ver actividades', href: '/actividades' }}
   />
 
@@ -160,7 +164,10 @@ const careers = [
   <Section id="sumate" spacing="lg" background="surface-alt">
     <Container class="flex flex-col items-center gap-6 text-center">
       <SectionHeader title="Sumate a transformar la facultad" alignment="center" />
-      <Button href="/sumate" size="lg">Sumate a ATP</Button>
+      <Button href="/sumate" size="lg">
+        <AtpMark slot="icon-start" class="size-4" />
+        Sumate a ATP
+      </Button>
       <SocialLinks />
     </Container>
   </Section>

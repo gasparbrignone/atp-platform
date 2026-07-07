@@ -119,6 +119,13 @@ collections:
     fields:
       - { label: Nombre, name: name, widget: string }
       - { label: Descripción, name: description, widget: text }
+      - {
+          label: Instagram,
+          name: instagram,
+          widget: string,
+          required: false,
+          pattern: ['^https?://', 'Debe empezar con http:// o https://'],
+        }
       - label: Herramientas
         name: tools
         widget: list

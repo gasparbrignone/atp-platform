@@ -22,3 +22,7 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# fotos sin editar/elegir todavía, esperando revisión — no son assets del
+# sitio (eso vive en src/assets/), solo material crudo para elegir de ahí
+raw-photos/

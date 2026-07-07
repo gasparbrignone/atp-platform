@@ -5,6 +5,9 @@
  * Never occupies excessive height on mobile: it sizes to its content
  * (no min-h-screen), only Section's padding scale controls its spacing.
  */
+import type { AstroComponentFactory } from 'astro/runtime/server/index.js';
+import type { ImageMetadata } from 'astro';
+import { Image } from 'astro:assets';
 import Section from './Section.astro';
 import Container from './Container.astro';
 import Button from './Button.astro';
@@ -15,6 +18,8 @@ export type HeroAlignment = 'left' | 'center';
 interface HeroAction {
   label: string;
   href: string;
+  /** Optional icon component rendered before the label (e.g. a brand mark). */
+  icon?: AstroComponentFactory;
 }
 
 interface HeroImage {
@@ -31,6 +36,17 @@ interface Props {
   primaryAction?: HeroAction;
   secondaryAction?: HeroAction;
   image?: HeroImage;
+  /**
+   * Full-bleed photo behind the whole Hero, with a dark overlay for text
+   * contrast — distinct from `image`, which sits beside the text instead of
+   * behind it. Always a local, build-time-optimized asset (imported via
+   * `import photo from '@/assets/...'`), never a raw path — that's what lets
+   * `<Image>` generate a right-sized, modern-format file instead of shipping
+   * the original multi-MB photo. Rendered with `alt=""` since it's
+   * decorative: the heading and description already carry the Hero's
+   * meaning.
+   */
+  backgroundImage?: ImageMetadata;
   alignment?: HeroAlignment;
   backgroundVariant?: SectionBackground;
   /** Heading tag for `title`. Defaults to h1 — override to h2 if this Hero isn't the page's main heading. */
@@ -44,6 +60,7 @@ const {
   primaryAction,
   secondaryAction,
   image,
+  backgroundImage,
   alignment = 'center',
   backgroundVariant = 'background',
   as: Heading = 'h1',
@@ -52,7 +69,28 @@ const {
 const isCentered = alignment === 'center';
 ---
 
-<Section spacing="lg" background={backgroundVariant}>
+<Section
+  spacing="lg"
+  background={backgroundVariant}
+  class:list={backgroundImage && 'relative isolate overflow-hidden'}
+>
+  {
+    backgroundImage && (
+      <>
+        <Image
+          src={backgroundImage}
+          alt=""
+          aria-hidden="true"
+          loading="eager"
+          widths={[640, 1024, 1536, 1920]}
+          sizes="100vw"
+          quality="high"
+          class="absolute inset-0 -z-20 size-full object-cover"
+        />
+        <div class="absolute inset-0 -z-10 bg-black/55" />
+      </>
+    )
+  }
   <Container
     class:list={[
       'flex flex-col items-center gap-10 text-center',
@@ -62,14 +100,38 @@ const isCentered = alignment === 'center';
     <div
       class:list={['flex max-w-2xl flex-col items-center gap-4', !isCentered && 'lg:items-start']}
     >
-      <Heading class="text-h1 text-text font-extrabold">{title}</Heading>
-      {subtitle && <p class="text-h4 text-text-secondary font-semibold">{subtitle}</p>}
-      {description && <p class="text-body-lg text-text-secondary">{description}</p>}
+      <Heading
+        class:list={['text-h1 font-extrabold', backgroundImage ? 'text-white' : 'text-text']}
+      >
+        {title}
+      </Heading>
+      {
+        subtitle && (
+          <p
+            class:list={[
+              'text-h4 font-semibold',
+              backgroundImage ? 'text-white' : 'text-text-secondary',
+            ]}
+          >
+            {subtitle}
+          </p>
+        )
+      }
+      {
+        description && (
+          <p
+            class:list={['text-body-lg', backgroundImage ? 'text-white/90' : 'text-text-secondary']}
+          >
+            {description}
+          </p>
+        )
+      }
       {
         (primaryAction || secondaryAction) && (
           <div class="mt-2 flex flex-col gap-3 sm:flex-row">
             {primaryAction && (
               <Button href={primaryAction.href} size="lg">
+                {primaryAction.icon && <primaryAction.icon slot="icon-start" class="size-4" />}
                 {primaryAction.label}
               </Button>
             )}

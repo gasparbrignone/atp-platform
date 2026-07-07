@@ -17,7 +17,7 @@ const { variant = 'neutral', class: className, ...rest }: Props = Astro.props;
 
 const variantClasses: Record<BadgeVariant, string> = {
   neutral: 'bg-gray-100 text-gray-700',
-  primary: 'bg-primary text-primary-foreground',
+  primary: 'bg-primary-fill text-primary-fill-foreground',
   secondary: 'bg-secondary text-secondary-foreground',
   success: 'bg-success text-success-foreground',
   warning: 'bg-warning text-warning-foreground',

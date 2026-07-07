@@ -9,6 +9,7 @@
 import X from '@lucide/astro/icons/x';
 import Button from './Button.astro';
 import SocialLinks from './SocialLinks.astro';
+import AtpMark from './icons/AtpMark.astro';
 
 interface NavLink {
   label: string;
@@ -60,7 +61,10 @@ const { links }: Props = Astro.props;
       </ul>
     </nav>
 
-    <Button href="/sumate" class="mt-auto">Sumate a ATP</Button>
+    <Button href="/sumate" class="mt-auto">
+      <AtpMark slot="icon-start" class="size-4" />
+      Sumate a ATP
+    </Button>
 
     <SocialLinks />
   </div>

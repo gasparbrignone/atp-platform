@@ -25,6 +25,8 @@ import BookOpen from '@lucide/astro/icons/book-open';
 import Microscope from '@lucide/astro/icons/microscope';
 import CalendarCheck from '@lucide/astro/icons/calendar-check';
 import ExternalLink from '@lucide/astro/icons/external-link';
+import AtpMark from '@/components/icons/AtpMark.astro';
+import InstagramMark from '@/components/icons/InstagramMark.astro';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import type { CareerToolIconKey } from '@/lib/labels';
 
@@ -40,6 +42,10 @@ export const getStaticPaths: GetStaticPaths = async () => {
 };
 
 const { career } = Astro.props as { career: CollectionEntry<'careers'> };
+
+const instagramHandle = career.data.instagram
+  ? `@${new URL(career.data.instagram).pathname.replace(/\//g, '')}`
+  : null;
 ---
 
 <BaseLayout
@@ -50,6 +56,20 @@ const { career } = Astro.props as { career: CollectionEntry<'careers'> };
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
       <SectionHeader as="h1" title={career.data.name} description={career.data.description} />
+
+      {
+        career.data.instagram && (
+          <a
+            href={career.data.instagram}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-text-secondary ease-standard hover:text-text inline-flex w-fit items-center gap-2 text-sm transition-colors duration-150"
+          >
+            <InstagramMark class="size-5" />
+            Seguinos en Instagram {instagramHandle}
+          </a>
+        )
+      }
 
       <div class="flex flex-col gap-6">
         <SectionHeader title="Herramientas útiles" as="h2" />
@@ -130,7 +150,10 @@ const { career } = Astro.props as { career: CollectionEntry<'careers'> };
         <p class="text-h4 text-text font-bold">¿Querés participar de ATP?</p>
         <div class="flex flex-col gap-3 sm:flex-row">
           <Button href="/actividades" variant="outline"> Ver actividades </Button>
-          <Button href="/sumate">Sumate a ATP</Button>
+          <Button href="/sumate">
+            <AtpMark slot="icon-start" class="size-4" />
+            Sumate a ATP
+          </Button>
         </div>
       </div>
     </Container>

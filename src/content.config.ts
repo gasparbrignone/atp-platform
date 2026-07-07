@@ -57,6 +57,10 @@ const careers = defineCollection({
   schema: z.object({
     name: z.string(),
     description: z.string(),
+    // Cada carrera tiene su propia cuenta de Instagram salvo Medicina, que
+    // usa la general @atp.fcm (ver SocialLinks.astro) — por eso es nullish
+    // en vez de requerido.
+    instagram: z.httpUrl().nullish(),
     tools: z.array(
       z.object({
         name: z.string(),

@@ -41,6 +41,17 @@
    */
   --color-secondary-strong: #2e5699;
 
+  /*
+   * Fill rosa sólido para botones/badges con texto BLANCO encima (a
+   * diferencia de --color-primary, que solo pasa WCAG con texto oscuro
+   * — ver más abajo). Deliberadamente fijo entre temas (no como
+   * --color-primary-strong, que sí cambia con el tema porque se usa como
+   * texto sobre el fondo de la página, no como fill): #F969D7 en modo
+   * oscuro es la MISMA marca clara, blanco encima seguiría fallando.
+   */
+  --color-primary-fill: #c6299e;
+  --color-primary-fill-foreground: #ffffff;
+
   /* ---------------------------------------------------------------- */
   /* Neutral scale (warm-tinted, never pure black/white)               */
   /* ---------------------------------------------------------------- */
@@ -76,8 +87,16 @@
   --color-background: #fffdfe;
   --color-surface: #ffffff;
   --color-surface-alt: var(--gray-50);
-  --color-text: var(--gray-900);
-  --color-text-secondary: var(--gray-600);
+  /*
+   * Decisión de identidad (2026-07-07): todo el texto pasa a azul
+   * institucional en vez de gris neutro — el rosa queda reservado para
+   * texto que ya era rosa a propósito (eyebrows, énfasis) y para texto
+   * blanco sobre fill rosa. La jerarquía entre texto principal y
+   * secundario se marca con el peso de fuente (font-semibold/bold), no
+   * con un tono más apagado — por eso ambos usan el mismo azul.
+   */
+  --color-text: var(--color-secondary-strong);
+  --color-text-secondary: var(--color-secondary-strong);
   --color-border: var(--gray-200);
 
   /*
