@@ -1,11 +1,14 @@
 ---
 /**
- * Self-moving Pinterest-style photo wall: a tight 3-row grid of portrait
- * tiles (no gaps to the background, just a small gutter between photos)
- * that endlessly slides in from the left and off to the right as one
- * block. Pure CSS (translateX keyframes on a doubled grid) — no JS, and it
- * stops outright for prefers-reduced-motion instead of just slowing down,
- * since the motion itself isn't essential to the content.
+ * Pinterest-style photo wall: a dense masonry grid (mixed tile heights,
+ * fitted together with no holes via `grid-flow-col-dense`) doubled
+ * side by side inside a native horizontally-scrollable track.
+ *
+ * Auto-advances on its own (rAF incrementing `scrollLeft`, wrapping at the
+ * halfway point for a seamless loop) but it's real scroll, so the visitor
+ * can drag/swipe it left or right at any time — dragging just pauses the
+ * automatic advance for a bit. Falls back to manual-only (no autoplay) for
+ * prefers-reduced-motion, since the motion itself isn't essential.
  */
 import type { ImageMetadata } from 'astro';
 import { Image } from 'astro:assets';
@@ -21,34 +24,43 @@ interface Props {
 
 const { photos }: Props = Astro.props;
 
-const rows = 3;
-// Padded to a multiple of `rows` so every column is fully filled — a
-// partial last column would leave a blank hole in the grid.
-const columns = Math.ceil(photos.length / rows);
-const tiles = Array.from({ length: columns * rows }, (_, i) => photos[i % photos.length]);
-
-// Doubled so the grid can loop seamlessly: at the halfway point the second
-// copy lines up exactly where the first one started.
-const track = [...tiles, ...tiles];
+// Row-span cycle is what gives tiles their Pinterest-style size variation
+// (some tall, some short) — `grid-flow-col-dense` then packs them together
+// with no gaps, like a masonry board.
+const spanCycle = [2, 1, 3, 1, 2, 3, 1, 2, 1];
+const tileCount = Math.max(photos.length * 2, spanCycle.length);
+const tiles = Array.from({ length: tileCount }, (_, i) => ({
+  ...photos[i % photos.length],
+  span: spanCycle[i % spanCycle.length],
+}));
 ---
 
-<div class="marquee-viewport overflow-hidden">
+<div class="marquee-viewport" data-marquee>
   <div
-    class="marquee-track grid h-[600px] auto-cols-[140px] grid-flow-col grid-rows-3 gap-3 sm:h-[750px] sm:auto-cols-[170px] sm:gap-4 lg:h-[900px] lg:auto-cols-[200px]"
+    data-marquee-track
+    class="marquee-track flex gap-3 overflow-x-auto sm:gap-4"
   >
     {
-      track.map(({ image, alt }, index) => (
-        <div class="overflow-hidden rounded-lg">
-          <Image
-            src={image}
-            alt={alt}
-            loading={index < tiles.length ? 'eager' : 'lazy'}
-            aria-hidden={index >= tiles.length ? 'true' : undefined}
-            widths={[240, 340, 400]}
-            sizes="200px"
-            quality="high"
-            class="size-full object-cover"
-          />
+      [tiles, tiles].map((block, blockIndex) => (
+        <div
+          data-marquee-block
+          aria-hidden={blockIndex === 1 ? 'true' : undefined}
+          class="grid h-[600px] auto-cols-[140px] grid-flow-col-dense grid-rows-3 gap-3 sm:h-[750px] sm:auto-cols-[170px] sm:gap-4 lg:h-[900px] lg:auto-cols-[200px]"
+        >
+          {block.map(({ image, alt, span }, index) => (
+            <div class="overflow-hidden rounded-lg" style={`grid-row: span ${span}`}>
+              <Image
+                src={image}
+                alt={alt}
+                loading={blockIndex === 0 && index < 6 ? 'eager' : 'lazy'}
+                widths={[240, 340, 400]}
+                sizes="200px"
+                quality="high"
+                class="size-full object-cover"
+                draggable="false"
+              />
+            </div>
+          ))}
         </div>
       ))
     }
@@ -57,26 +69,100 @@ const track = [...tiles, ...tiles];
 
 <style>
   .marquee-track {
-    animation: marquee-right 32s linear infinite;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    touch-action: pan-x;
+    cursor: grab;
+    scroll-snap-type: none;
   }
 
-  .marquee-viewport:hover .marquee-track,
-  .marquee-viewport:focus-within .marquee-track {
-    animation-play-state: paused;
+  .marquee-track::-webkit-scrollbar {
+    display: none;
   }
 
-  @keyframes marquee-right {
-    from {
-      transform: translateX(-50%);
-    }
-    to {
-      transform: translateX(0%);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .marquee-track {
-      animation: none;
-    }
+  .marquee-track:active {
+    cursor: grabbing;
   }
 </style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-marquee]').forEach((root) => {
+    const track = root.querySelector<HTMLElement>('[data-marquee-track]');
+    const blocks = root.querySelectorAll<HTMLElement>('[data-marquee-block]');
+    const firstBlock = blocks[0];
+    if (!track || !firstBlock) return;
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const SPEED_PX_PER_FRAME = 0.6;
+    const RESUME_DELAY_MS = 1500;
+
+    let paused = false;
+    let resumeTimer: ReturnType<typeof setTimeout> | undefined;
+
+    function loopWidth() {
+      const trackGap = parseFloat(getComputedStyle(track!).columnGap || '0');
+      return firstBlock!.getBoundingClientRect().width + trackGap;
+    }
+
+    function pause() {
+      paused = true;
+    }
+
+    function scheduleResume() {
+      clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(() => {
+        paused = false;
+      }, RESUME_DELAY_MS);
+    }
+
+    // Native drag-to-scroll for mouse pointers (touch/trackpad already get
+    // this for free from `overflow-x-auto`).
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartScroll = 0;
+
+    track.addEventListener('pointerdown', (event) => {
+      if (event.pointerType !== 'mouse') return;
+      isDragging = true;
+      dragStartX = event.clientX;
+      dragStartScroll = track!.scrollLeft;
+      pause();
+    });
+
+    track.addEventListener('pointermove', (event) => {
+      if (!isDragging) return;
+      track!.scrollLeft = dragStartScroll - (event.clientX - dragStartX);
+    });
+
+    function endDrag() {
+      if (!isDragging) return;
+      isDragging = false;
+      scheduleResume();
+    }
+
+    track.addEventListener('pointerup', endDrag);
+    track.addEventListener('pointercancel', endDrag);
+    track.addEventListener('touchstart', pause, { passive: true });
+    track.addEventListener('touchend', scheduleResume);
+    track.addEventListener('wheel', () => scheduleResume(), { passive: true });
+    track.addEventListener('mouseenter', pause);
+    track.addEventListener('mouseleave', () => {
+      if (!isDragging) scheduleResume();
+    });
+    track.addEventListener('focusin', pause);
+    track.addEventListener('focusout', scheduleResume);
+
+    function tick() {
+      if (!paused && !prefersReducedMotion) {
+        track!.scrollLeft += SPEED_PX_PER_FRAME;
+      }
+      const width = loopWidth();
+      if (width > 0 && track!.scrollLeft >= width) {
+        track!.scrollLeft -= width;
+      }
+      requestAnimationFrame(tick);
+    }
+
+    requestAnimationFrame(tick);
+  });
+</script>
