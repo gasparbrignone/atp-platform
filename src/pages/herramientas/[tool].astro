@@ -1,0 +1,120 @@
+---
+/**
+ * +info detail. Same dynamic-route pattern as
+ * src/pages/actividades/[slug].astro: one Astro route + getStaticPaths
+ * generates a static page per published `tools` entry.
+ *
+ * `content`, `images` and `resources` are all optional — an entry with
+ * none of them still gets a working detail page (name, description, and
+ * the external "Acceder" link if set), it just won't have much to show
+ * beyond that.
+ */
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Section from '@/components/Section.astro';
+import Container from '@/components/Container.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import Button from '@/components/Button.astro';
+import Grid from '@/components/Grid.astro';
+import BookOpen from '@lucide/astro/icons/book-open';
+import Microscope from '@lucide/astro/icons/microscope';
+import Calculator from '@lucide/astro/icons/calculator';
+import Activity from '@lucide/astro/icons/activity';
+import Link from '@lucide/astro/icons/link';
+import { getCollection, type CollectionEntry } from 'astro:content';
+import type { ToolIconKey } from '@/lib/labels';
+
+const toolIcons: Record<ToolIconKey, typeof BookOpen> = {
+  'book-open': BookOpen,
+  microscope: Microscope,
+  calculator: Calculator,
+  activity: Activity,
+  link: Link,
+};
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  const tools = await getCollection('tools', ({ data }) => data.published);
+  return tools.map((tool) => ({
+    params: { tool: tool.id },
+    props: { tool },
+  }));
+};
+
+const { tool } = Astro.props as { tool: CollectionEntry<'tools'> };
+const Icon = toolIcons[tool.data.icon];
+---
+
+<BaseLayout
+  title={tool.data.name}
+  description={tool.data.description}
+  canonicalPath={`/herramientas/${tool.id}`}
+>
+  <Section spacing="lg">
+    <Container class="flex flex-col gap-8">
+      <Button href="/herramientas" variant="ghost" size="sm" class="self-start">
+        ← Volver a +info
+      </Button>
+
+      <div class="flex items-center gap-4">
+        <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 shrink-0 items-center justify-center rounded-full">
+          <Icon class="size-6" aria-hidden="true" />
+        </div>
+        <SectionHeader as="h1" title={tool.data.name} />
+      </div>
+
+      <p class="text-body-lg text-text-secondary max-w-2xl">{tool.data.description}</p>
+
+      {
+        tool.data.content && (
+          <p class="text-body max-w-2xl whitespace-pre-line">{tool.data.content}</p>
+        )
+      }
+
+      {
+        tool.data.images && tool.data.images.length > 0 && (
+          <Grid cols={2} gap="md">
+            {tool.data.images.map(({ src, alt }) => (
+              <img
+                src={src}
+                alt={alt}
+                loading="lazy"
+                decoding="async"
+                class="aspect-video w-full rounded-md object-cover"
+              />
+            ))}
+          </Grid>
+        )
+      }
+
+      {
+        tool.data.resources && tool.data.resources.length > 0 && (
+          <div class="flex flex-col gap-3">
+            <h2 class="text-h4 text-text font-bold">Recursos</h2>
+            <ul class="flex flex-col gap-2">
+              {tool.data.resources.map((resource) => (
+                <li>
+                  <a
+                    href={resource.href}
+                    target={resource.external ? '_blank' : undefined}
+                    rel={resource.external ? 'noopener noreferrer' : undefined}
+                    class="text-secondary-strong text-body font-semibold underline-offset-4 hover:underline"
+                  >
+                    {resource.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      }
+
+      <div class="flex flex-wrap gap-3">
+        {tool.data.url && (
+          <Button href={tool.data.url} target="_blank" trackId={`herramienta:${tool.id}`}>
+            Acceder
+          </Button>
+        )}
+      </div>
+    </Container>
+  </Section>
+</BaseLayout>

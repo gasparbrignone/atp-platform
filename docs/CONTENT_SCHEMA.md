@@ -183,6 +183,9 @@ Ejemplos:
 ## Campos opcionales
 
 * icon
+* content (texto extendido para la sub-página de detalle)
+* images (lista de { src, alt })
+* resources (lista de { label, href, external })
 * coverImage
 * tags
 * career

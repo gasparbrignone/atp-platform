@@ -1,13 +1,13 @@
 ---
 /**
- * Herramientas. Existing components only, static/local data
- * (src/content/tools.ts), no CMS or backend. Simple catalog — no filters,
- * consistent with the current identity/UX pass (Biblioteca/Actividades
- * dropped their multi-filter setups too).
+ * +info (listing). Simple catalog — no filters, consistent with the
+ * current identity/UX pass (Biblioteca/Actividades dropped their
+ * multi-filter setups too).
  *
- * Tools without a real destination yet render a disabled "Próximamente"
- * button instead of a fake "#" link — same rule already applied to
- * Carreras' tool cards.
+ * Every card links to its own detail page (src/pages/herramientas/[tool].astro)
+ * via "Ver más" — same pattern as Actividades — since an entry can now carry
+ * a longer body, photos and extra resource links, not just a name and an
+ * external link. "Acceder" (the external `url`) only renders when set.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Section from '@/components/Section.astro';
@@ -61,20 +61,18 @@ const publishedTools = await getCollection('tools', ({ data }) => data.published
                     {tool.data.name}
                   </h3>
                   <p>{tool.data.description}</p>
-                  <div slot="actions">
-                    {tool.data.url ? (
+                  <div slot="actions" class="flex flex-wrap items-center gap-2">
+                    <Button href={`/herramientas/${tool.id}`} variant="outline" size="sm">
+                      Ver más
+                    </Button>
+                    {tool.data.url && (
                       <Button
                         href={tool.data.url}
                         target="_blank"
-                        variant="outline"
                         size="sm"
                         trackId={`herramienta:${tool.id}`}
                       >
                         Acceder
-                      </Button>
-                    ) : (
-                      <Button disabled variant="outline" size="sm">
-                        Próximamente
                       </Button>
                     )}
                   </div>

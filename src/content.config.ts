@@ -92,6 +92,39 @@ const tools = defineCollection({
     icon: z.enum(['book-open', 'microscope', 'calculator', 'activity', 'link']),
     published: z.boolean(),
     order: z.number().nullish(),
+    // Everything below is optional so an entry can stay a simple card (name
+    // + description + link) or grow into its own detail page
+    // (/herramientas/{slug}) with a longer body, photos and extra links —
+    // whichever the person loading content actually has to give it.
+    // Plain text, not Markdown (see docs/STACK_DECISIONS.md → CMS: "JSON
+    // plano, no Markdown"): rendered with `whitespace-pre-line` so blank
+    // lines from the CMS's multiline text widget still read as paragraphs.
+    content: z.string().nullish(),
+    // Plain upload paths (e.g. `/uploads/xyz.jpg`), same treatment as
+    // `books.cover` — not Astro's `image()` helper, which requires the file
+    // to exist at build time and would break for anything uploaded later
+    // through the CMS media library. `alt` is required (not nullish): every
+    // content image needs real alt text per CLAUDE.md, so the CMS field is
+    // marked required rather than letting it silently fall back to "".
+    images: z
+      .array(
+        z.object({
+          src: z.string(),
+          alt: z.string(),
+        }),
+      )
+      .nullish(),
+    resources: z
+      .array(
+        z.object({
+          label: z.string(),
+          // Not restricted to http(s), same reasoning as careers.resources:
+          // this also carries internal site links (e.g. "/biblioteca").
+          href: z.string(),
+          external: z.boolean(),
+        }),
+      )
+      .nullish(),
   }),
 });
 

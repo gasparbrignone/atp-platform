@@ -180,5 +180,30 @@ collections:
           widget: select,
           options: [book-open, microscope, calculator, activity, link],
         }
+      - {
+          label: Contenido extendido,
+          name: content,
+          widget: text,
+          required: false,
+          hint: 'Texto libre para la sub-página de esta entrada (podés dejar líneas en blanco entre párrafos).',
+        }
+      - label: Imágenes
+        name: images
+        widget: list
+        required: false
+        fields:
+          - { label: Imagen, name: src, widget: image }
+          - { label: Texto alternativo, name: alt, widget: string, hint: 'Describí la imagen para lectores de pantalla.' }
+      - label: Recursos
+        name: resources
+        widget: list
+        required: false
+        fields:
+          - { label: Título, name: label, widget: string }
+          # A diferencia de otros links, este también admite rutas internas
+          # del sitio (p. ej. "/biblioteca", ver el flag "Es externo") — no
+          # se restringe a http(s) para no romper esos casos.
+          - { label: Link, name: href, widget: string }
+          - { label: Es externo, name: external, widget: boolean, default: false }
       - { label: Publicada, name: published, widget: boolean, default: true }
       - { label: Orden, name: order, widget: number, required: false, value_type: int }
