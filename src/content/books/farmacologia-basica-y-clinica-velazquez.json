@@ -6,5 +6,6 @@
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/velazquez-farmacologia-basica-y-clinica.pdf",
   "description": "Farmacología básica y clínica: mecanismos de acción, indicaciones y efectos de los principales fármacos.",
-  "published": true
+  "published": true,
+  "cover": "https://covers.openlibrary.org/b/id/3330877-M.jpg"
 }

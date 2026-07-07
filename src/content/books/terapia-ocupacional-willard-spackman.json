@@ -6,5 +6,6 @@
   "resourceType": "libro",
   "downloadUrl": "https://drive.google.com/drive/folders/ejemplo-terapia-ocupacional",
   "description": "Marco teórico y práctico central de la disciplina.",
-  "published": true
+  "published": true,
+  "cover": "https://covers.openlibrary.org/b/id/12326075-M.jpg"
 }

@@ -6,5 +6,6 @@
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/rouviere-anatomia-tomo-2.pdf",
   "description": "Tratado de anatomía humana descriptiva, topográfica y funcional, segundo tomo (tronco).",
-  "published": true
+  "published": true,
+  "cover": "https://covers.openlibrary.org/b/id/5267498-M.jpg"
 }

@@ -6,5 +6,6 @@
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/tortora-anatomia-y-fisiologia.pdf",
   "description": "Introducción integrada a la anatomía y fisiología humana con enfoque didáctico.",
-  "published": true
+  "published": true,
+  "cover": "https://covers.openlibrary.org/b/id/12326006-M.jpg"
 }

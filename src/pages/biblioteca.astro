@@ -75,9 +75,21 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
               <Badge slot="badge" variant="secondary">
                 {resourceTypeLabels[book.data.resourceType]}
               </Badge>
-              <h3 slot="title" class="text-h4 text-text font-bold">
-                {book.data.author} - {book.data.title}
-              </h3>
+              <div slot="title" class="flex items-start gap-3">
+                {book.data.cover && (
+                  <img
+                    src={book.data.cover}
+                    alt=""
+                    loading="lazy"
+                    width="40"
+                    height="56"
+                    class="border-border h-14 w-10 flex-shrink-0 rounded-sm border object-cover"
+                  />
+                )}
+                <h3 class="text-h4 text-text font-bold">
+                  {book.data.author} - {book.data.title}
+                </h3>
+              </div>
               <p class="text-body-sm text-text-secondary font-semibold">{book.data.subject}</p>
               <div slot="actions" class="flex items-center justify-between gap-4">
                 <span class="text-caption text-text-secondary">

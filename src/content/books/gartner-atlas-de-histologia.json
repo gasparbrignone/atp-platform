@@ -6,5 +6,6 @@
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/atlas-de-histologia-gartner.pdf",
   "description": "Atlas de histología con imágenes de microscopía óptica y electrónica de los tejidos.",
-  "published": true
+  "published": true,
+  "cover": "https://covers.openlibrary.org/b/id/7900790-M.jpg"
 }

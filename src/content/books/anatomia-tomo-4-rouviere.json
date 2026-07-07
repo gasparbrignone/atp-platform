@@ -6,5 +6,6 @@
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/rouviere-anatomia-tomo-4.pdf",
   "description": "Tratado de anatomía humana descriptiva, topográfica y funcional, cuarto tomo (sistema nervioso central).",
-  "published": true
+  "published": true,
+  "cover": "https://covers.openlibrary.org/b/id/13684238-M.jpg"
 }

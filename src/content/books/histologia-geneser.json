@@ -6,5 +6,6 @@
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/geneser-histologia.pdf",
   "description": "Histología general y especial con correlación entre estructura microscópica y función.",
-  "published": true
+  "published": true,
+  "cover": "https://covers.openlibrary.org/b/id/8074936-M.jpg"
 }
