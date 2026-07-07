@@ -1,14 +1,18 @@
 ---
 /**
- * Pinterest-style photo wall: a dense masonry grid (mixed tile heights,
- * fitted together with no holes via `grid-flow-col-dense`) doubled
- * side by side inside a native horizontally-scrollable track.
+ * Pinterest-style photo wall: a bento grid (mostly small square tiles with
+ * occasional big ones — same aspect either way, never a tall sliver) fitted
+ * together with no holes via `grid-flow-col-dense`, doubled side by side
+ * inside a native horizontally-scrollable track.
  *
  * Auto-advances on its own (rAF incrementing `scrollLeft`, wrapping at the
  * halfway point for a seamless loop) but it's real scroll, so the visitor
  * can drag/swipe it left or right at any time — dragging just pauses the
- * automatic advance for a bit. Falls back to manual-only (no autoplay) for
- * prefers-reduced-motion, since the motion itself isn't essential.
+ * automatic advance for a bit. A watchdog forces it back on after a few
+ * idle seconds regardless, so a missed browser event (e.g. `touchcancel`
+ * instead of `touchend`) can never leave it stuck paused. Falls back to
+ * manual-only (no autoplay) for prefers-reduced-motion, since the motion
+ * itself isn't essential.
  */
 import type { ImageMetadata } from 'astro';
 import { Image } from 'astro:assets';
@@ -24,37 +28,39 @@ interface Props {
 
 const { photos }: Props = Astro.props;
 
-// Row-span cycle is what gives tiles their Pinterest-style size variation
-// (some tall, some short) — `grid-flow-col-dense` then packs them together
-// with no gaps, like a masonry board.
-const spanCycle = [2, 1, 3, 1, 2, 3, 1, 2, 1];
-const tileCount = Math.max(photos.length * 2, spanCycle.length);
+// Mostly small (1x1) tiles with the occasional big one (2x2) — always
+// square, just two sizes of it, like a real Pinterest/bento board instead
+// of tall, narrow slivers.
+const sizeCycle: Array<'sm' | 'lg'> = ['sm', 'sm', 'lg', 'sm', 'lg', 'sm', 'sm', 'lg', 'sm'];
+const sizeSpanClasses: Record<'sm' | 'lg', string> = {
+  sm: 'col-span-1 row-span-1',
+  lg: 'col-span-2 row-span-2',
+};
+
+const tileCount = Math.max(photos.length * 2, sizeCycle.length);
 const tiles = Array.from({ length: tileCount }, (_, i) => ({
   ...photos[i % photos.length],
-  span: spanCycle[i % spanCycle.length],
+  size: sizeCycle[i % sizeCycle.length],
 }));
 ---
 
 <div class="marquee-viewport" data-marquee>
-  <div
-    data-marquee-track
-    class="marquee-track flex gap-3 overflow-x-auto sm:gap-4"
-  >
+  <div data-marquee-track class="marquee-track flex gap-3 overflow-x-auto sm:gap-4">
     {
       [tiles, tiles].map((block, blockIndex) => (
         <div
           data-marquee-block
           aria-hidden={blockIndex === 1 ? 'true' : undefined}
-          class="grid h-[600px] auto-cols-[140px] grid-flow-col-dense grid-rows-3 gap-3 sm:h-[750px] sm:auto-cols-[170px] sm:gap-4 lg:h-[900px] lg:auto-cols-[200px]"
+          class="grid h-[414px] auto-cols-[130px] grid-flow-col-dense grid-rows-3 gap-3 sm:h-[512px] sm:auto-cols-[160px] sm:gap-4 lg:h-[602px] lg:auto-cols-[190px]"
         >
-          {block.map(({ image, alt, span }, index) => (
-            <div class="overflow-hidden rounded-lg" style={`grid-row: span ${span}`}>
+          {block.map(({ image, alt, size }, index) => (
+            <div class:list={['overflow-hidden rounded-lg', sizeSpanClasses[size]]}>
               <Image
                 src={image}
                 alt={alt}
                 loading={blockIndex === 0 && index < 6 ? 'eager' : 'lazy'}
-                widths={[240, 340, 400]}
-                sizes="200px"
+                widths={[260, 380, 460]}
+                sizes="190px"
                 quality="high"
                 class="size-full object-cover"
                 draggable="false"
@@ -95,16 +101,23 @@ const tiles = Array.from({ length: tileCount }, (_, i) => ({
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const SPEED_PX_PER_FRAME = 0.6;
     const RESUME_DELAY_MS = 1500;
+    // Safety ceiling: if some interaction's "end" event never fires (seen
+    // on iOS Safari when a vertical page-scroll gesture starting on the
+    // track ends in a touchcancel instead of touchend), never stay paused
+    // longer than this.
+    const WATCHDOG_MS = 4000;
 
     let paused = false;
+    let pausedAt = 0;
     let resumeTimer: ReturnType<typeof setTimeout> | undefined;
 
     function loopWidth() {
-      const trackGap = parseFloat(getComputedStyle(track!).columnGap || '0');
+      const trackGap = parseFloat(getComputedStyle(track!).columnGap || '0') || 0;
       return firstBlock!.getBoundingClientRect().width + trackGap;
     }
 
     function pause() {
+      if (!paused) pausedAt = performance.now();
       paused = true;
     }
 
@@ -144,6 +157,7 @@ const tiles = Array.from({ length: tileCount }, (_, i) => ({
     track.addEventListener('pointercancel', endDrag);
     track.addEventListener('touchstart', pause, { passive: true });
     track.addEventListener('touchend', scheduleResume);
+    track.addEventListener('touchcancel', scheduleResume);
     track.addEventListener('wheel', () => scheduleResume(), { passive: true });
     track.addEventListener('mouseenter', pause);
     track.addEventListener('mouseleave', () => {
@@ -153,6 +167,9 @@ const tiles = Array.from({ length: tileCount }, (_, i) => ({
     track.addEventListener('focusout', scheduleResume);
 
     function tick() {
+      if (paused && performance.now() - pausedAt > WATCHDOG_MS) {
+        paused = false;
+      }
       if (!paused && !prefersReducedMotion) {
         track!.scrollLeft += SPEED_PX_PER_FRAME;
       }
