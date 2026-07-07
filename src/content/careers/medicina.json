@@ -8,6 +8,12 @@
       "description": "Atlas de anatomía 3D.",
       "href": "https://anatomylearning.com/",
       "icon": "book-open"
+    },
+    {
+      "name": "Anatomía Humana 3D UACH",
+      "description": "Preparados anatómicos cadavéricos",
+      "href": "https://anatomiahumana3d.com/muestras3d/",
+      "icon": "book-open"
     }
   ],
   "resources": [
