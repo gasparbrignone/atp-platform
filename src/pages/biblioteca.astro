@@ -67,7 +67,11 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
       <Grid data-library-grid cols={3} gap="md">
         {
           publishedBooks.map((book) => (
-            <Card data-book-card data-career={book.data.career.join(' ')}>
+            <Card
+              data-book-card
+              data-career={book.data.career.join(' ')}
+              data-search={`${book.data.author} ${book.data.title} ${book.data.subject}`}
+            >
               <Badge slot="badge" variant="secondary">
                 {resourceTypeLabels[book.data.resourceType]}
               </Badge>
@@ -121,16 +125,61 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
   const grid = document.querySelector<HTMLElement>('[data-library-grid]');
   const emptyState = document.querySelector<HTMLElement>('[data-library-empty]');
 
+  // Búsqueda tolerante a errores de tipeo y tildes: "neter"/"more"/"pro" deben
+  // encontrar "Netter"/"Moore"/"Pró". Se normaliza (sin acentos) y se compara
+  // por palabra con distancia de edición, no con includes() exacto.
+  function normalize(text: string) {
+    return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  }
+
+  function levenshtein(a: string, b: string) {
+    const dp: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [
+      i,
+      ...Array(b.length).fill(0),
+    ]);
+    for (let j = 0; j <= b.length; j += 1) dp[0][j] = j;
+    for (let i = 1; i <= a.length; i += 1) {
+      for (let j = 1; j <= b.length; j += 1) {
+        dp[i][j] =
+          a[i - 1] === b[j - 1]
+            ? dp[i - 1][j - 1]
+            : 1 + Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]);
+      }
+    }
+    return dp[a.length][b.length];
+  }
+
+  function wordMatches(queryWord: string, cardWord: string) {
+    if (cardWord.includes(queryWord)) return true;
+    const maxDistance = queryWord.length <= 4 ? 1 : 2;
+    return levenshtein(queryWord, cardWord) <= maxDistance;
+  }
+
+  const cardWords = new Map<HTMLElement, string[]>();
+  cards.forEach((card) => {
+    cardWords.set(
+      card,
+      normalize(card.dataset.search ?? '')
+        .split(/[^a-z0-9]+/)
+        .filter(Boolean),
+    );
+  });
+
   function applyFilters() {
     const career = careerSelect?.value ?? 'all';
-    const query = (searchInput?.value ?? '').trim().toLowerCase();
+    const queryWords = normalize(searchInput?.value ?? '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
     let visibleCount = 0;
 
     cards.forEach((card) => {
       const cardCareers = (card.dataset.career ?? '').split(' ');
       const matchesCareer = career === 'all' || cardCareers.includes(career);
+      const words = cardWords.get(card) ?? [];
       const matchesQuery =
-        query === '' || (card.textContent?.toLowerCase().includes(query) ?? false);
+        queryWords.length === 0 ||
+        queryWords.every((queryWord) => words.some((word) => wordMatches(queryWord, word)));
       const matches = matchesCareer && matchesQuery;
       card.classList.toggle('hidden', !matches);
       if (matches) visibleCount += 1;
