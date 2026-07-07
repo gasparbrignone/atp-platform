@@ -7,12 +7,16 @@
  *
  * Auto-advances on its own (rAF incrementing `scrollLeft`, wrapping at the
  * halfway point for a seamless loop) but it's real scroll, so the visitor
- * can drag/swipe it left or right at any time — dragging just pauses the
- * automatic advance for a bit. A watchdog forces it back on after a few
- * idle seconds regardless, so a missed browser event (e.g. `touchcancel`
- * instead of `touchend`) can never leave it stuck paused. Falls back to
- * manual-only (no autoplay) for prefers-reduced-motion, since the motion
- * itself isn't essential.
+ * can drag/swipe it left or right at any time. Pausing is derived purely
+ * from the track's native `scroll` event (our own programmatic scrolling
+ * is flagged so it doesn't count) instead of pairing up hover/pointer/touch
+ * start-and-end events — hovering the mouse over it or touching it to
+ * scroll the *page* must never pause it, only actually moving it should.
+ * That start/end pairing was the previous approach and could get stuck
+ * paused forever if an "end" event didn't fire (e.g. iOS sometimes sends
+ * `touchcancel` instead of `touchend` for a scroll-through gesture).
+ * Falls back to manual-only (no autoplay) for prefers-reduced-motion,
+ * since the motion itself isn't essential.
  */
 import type { ImageMetadata } from 'astro';
 import { Image } from 'astro:assets';
@@ -100,36 +104,34 @@ const tiles = Array.from({ length: tileCount }, (_, i) => ({
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const SPEED_PX_PER_FRAME = 0.6;
-    const RESUME_DELAY_MS = 1500;
-    // Safety ceiling: if some interaction's "end" event never fires (seen
-    // on iOS Safari when a vertical page-scroll gesture starting on the
-    // track ends in a touchcancel instead of touchend), never stay paused
-    // longer than this.
-    const WATCHDOG_MS = 4000;
-
-    let paused = false;
-    let pausedAt = 0;
-    let resumeTimer: ReturnType<typeof setTimeout> | undefined;
+    const RESUME_DELAY_MS = 1200;
 
     function loopWidth() {
       const trackGap = parseFloat(getComputedStyle(track!).columnGap || '0') || 0;
       return firstBlock!.getBoundingClientRect().width + trackGap;
     }
 
-    function pause() {
-      if (!paused) pausedAt = performance.now();
-      paused = true;
-    }
+    // Starts already "idle" so autoplay kicks in immediately on load.
+    let lastUserScrollAt = -Infinity;
+    // Capped so a run of coalesced/dropped scroll events can't make this
+    // drift upward forever and start swallowing real user scrolls.
+    let ignoreNextScrollEvents = 0;
 
-    function scheduleResume() {
-      clearTimeout(resumeTimer);
-      resumeTimer = setTimeout(() => {
-        paused = false;
-      }, RESUME_DELAY_MS);
-    }
+    track.addEventListener(
+      'scroll',
+      () => {
+        if (ignoreNextScrollEvents > 0) {
+          ignoreNextScrollEvents--;
+          return;
+        }
+        lastUserScrollAt = performance.now();
+      },
+      { passive: true },
+    );
 
-    // Native drag-to-scroll for mouse pointers (touch/trackpad already get
-    // this for free from `overflow-x-auto`).
+    // Mouse-drag-to-scroll: native `overflow-x-auto` already gives touch and
+    // trackpad users a drag/swipe gesture for free, but a mouse needs this
+    // wired up by hand.
     let isDragging = false;
     let dragStartX = 0;
     let dragStartScroll = 0;
@@ -139,7 +141,6 @@ const tiles = Array.from({ length: tileCount }, (_, i) => ({
       isDragging = true;
       dragStartX = event.clientX;
       dragStartScroll = track!.scrollLeft;
-      pause();
     });
 
     track.addEventListener('pointermove', (event) => {
@@ -148,35 +149,31 @@ const tiles = Array.from({ length: tileCount }, (_, i) => ({
     });
 
     function endDrag() {
-      if (!isDragging) return;
       isDragging = false;
-      scheduleResume();
     }
 
     track.addEventListener('pointerup', endDrag);
     track.addEventListener('pointercancel', endDrag);
-    track.addEventListener('touchstart', pause, { passive: true });
-    track.addEventListener('touchend', scheduleResume);
-    track.addEventListener('touchcancel', scheduleResume);
-    track.addEventListener('wheel', () => scheduleResume(), { passive: true });
-    track.addEventListener('mouseenter', pause);
-    track.addEventListener('mouseleave', () => {
-      if (!isDragging) scheduleResume();
-    });
-    track.addEventListener('focusin', pause);
-    track.addEventListener('focusout', scheduleResume);
 
     function tick() {
-      if (paused && performance.now() - pausedAt > WATCHDOG_MS) {
-        paused = false;
-      }
-      if (!paused && !prefersReducedMotion) {
+      const idle = performance.now() - lastUserScrollAt > RESUME_DELAY_MS;
+      let scrolledProgrammatically = false;
+
+      if (idle && !prefersReducedMotion) {
         track!.scrollLeft += SPEED_PX_PER_FRAME;
+        scrolledProgrammatically = true;
       }
+
       const width = loopWidth();
       if (width > 0 && track!.scrollLeft >= width) {
         track!.scrollLeft -= width;
+        scrolledProgrammatically = true;
       }
+
+      if (scrolledProgrammatically) {
+        ignoreNextScrollEvents = Math.min(ignoreNextScrollEvents + 1, 3);
+      }
+
       requestAnimationFrame(tick);
     }
 
