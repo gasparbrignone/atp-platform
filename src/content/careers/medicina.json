@@ -20,6 +20,30 @@
       "description": "Microscopio virtual",
       "href": "http://histomap.ar/slides.htm",
       "icon": "microscope"
+    },
+    {
+      "name": "Microscopio virtual - Universidad Uruguay",
+      "description": "Microscopio virtual",
+      "href": "https://microscopiovirtual.fmed.edu.uy/",
+      "icon": "microscope"
+    },
+    {
+      "name": "Digital histology",
+      "description": "Microscopio virtual",
+      "href": "https://digitalhistology.org/",
+      "icon": "microscope"
+    },
+    {
+      "name": "Histology Guide",
+      "description": "Microscopio virtual",
+      "href": "https://histologyguide.com/",
+      "icon": "microscope"
+    },
+    {
+      "name": "Atlas de Histologia em cores da PUCRS",
+      "description": "Microscopio virtual",
+      "href": "https://editora.pucrs.br/edipucrs/acessolivre/livros/atlas-de-histologia/",
+      "icon": "microscope"
     }
   ],
   "resources": [
