@@ -14,6 +14,12 @@
       "description": "Preparados anatómicos cadavéricos",
       "href": "https://anatomiahumana3d.com/muestras3d/",
       "icon": "book-open"
+    },
+    {
+      "name": "Histomap - UBA",
+      "description": "Microscopio virtual",
+      "href": "http://histomap.ar/slides.htm",
+      "icon": "microscope"
     }
   ],
   "resources": [
