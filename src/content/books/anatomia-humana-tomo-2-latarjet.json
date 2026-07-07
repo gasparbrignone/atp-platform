@@ -2,10 +2,13 @@
   "title": "Anatomia Humana Tomo 2",
   "author": "Latarjet",
   "subject": "Anatomía normal",
-  "career": ["medicina"],
+  "career": [
+    "medicina"
+  ],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/latarjet-anatomia-humana-tomo-2.pdf",
   "description": "Tratado clásico de anatomía humana con enfoque descriptivo y aplicación clínica, segundo tomo.",
   "published": true,
-  "cover": "https://covers.openlibrary.org/b/id/3344922-M.jpg"
+  "cover": "/uploads/external-content.duckduckgo.com_.png2_.png",
+  "order": null
 }
