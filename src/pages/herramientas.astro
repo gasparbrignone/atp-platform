@@ -37,13 +37,13 @@ const publishedTools = await getCollection('tools', ({ data }) => data.published
 ---
 
 <BaseLayout
-  title="Herramientas"
+  title="+info"
   description="Atlas, simuladores y accesos útiles para estudiar."
   canonicalPath="/herramientas"
 >
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
-      <SectionHeader as="h1" title="Herramientas" />
+      <SectionHeader as="h1" title="+info" />
 
       {
         publishedTools.length > 0 ? (
