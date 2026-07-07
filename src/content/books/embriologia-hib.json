@@ -2,9 +2,7 @@
   "title": "Embriología",
   "author": "HIB",
   "subject": "Embriología",
-  "career": [
-    "medicina"
-  ],
+  "career": ["medicina"],
   "resourceType": "resumen",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/hib-embriologia.pdf",
   "description": "Resumen de los conceptos centrales de embriología humana para el estudio de la materia.",

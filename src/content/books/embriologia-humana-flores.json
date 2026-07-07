@@ -2,9 +2,7 @@
   "title": "Embriología Humana",
   "author": "Flores",
   "subject": "Embriología",
-  "career": [
-    "medicina"
-  ],
+  "career": ["medicina"],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/flores-embriologia-humana.pdf",
   "description": "Fundamentos del desarrollo embrionario humano, de la fecundación a la organogénesis.",

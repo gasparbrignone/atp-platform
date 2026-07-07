@@ -2,9 +2,7 @@
   "title": "Anatomía Clínica",
   "author": "Pró",
   "subject": "Anatomía normal",
-  "career": [
-    "medicina"
-  ],
+  "career": ["medicina"],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/pro-anatomia-clinica.pdf",
   "description": "Anatomía humana orientada a la correlación clínica y su aplicación en la práctica médica.",

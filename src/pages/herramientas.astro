@@ -16,6 +16,7 @@ import SectionHeader from '@/components/SectionHeader.astro';
 import Grid from '@/components/Grid.astro';
 import Card from '@/components/Card.astro';
 import Button from '@/components/Button.astro';
+import EmptyState from '@/components/EmptyState.astro';
 import BookOpen from '@lucide/astro/icons/book-open';
 import Microscope from '@lucide/astro/icons/microscope';
 import Calculator from '@lucide/astro/icons/calculator';
@@ -44,43 +45,50 @@ const publishedTools = await getCollection('tools', ({ data }) => data.published
     <Container class="flex flex-col gap-10">
       <SectionHeader as="h1" title="Herramientas" />
 
-      <Grid cols={3} gap="md">
-        {
-          publishedTools.map((tool) => {
-            const Icon = toolIcons[tool.data.icon];
-            return (
-              <Card>
-                <div slot="image" class="p-6 pb-0">
-                  <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 items-center justify-center rounded-full">
-                    <Icon class="size-6" aria-hidden="true" />
+      {
+        publishedTools.length > 0 ? (
+          <Grid cols={3} gap="md">
+            {publishedTools.map((tool) => {
+              const Icon = toolIcons[tool.data.icon];
+              return (
+                <Card>
+                  <div slot="image" class="p-6 pb-0">
+                    <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 items-center justify-center rounded-full">
+                      <Icon class="size-6" aria-hidden="true" />
+                    </div>
                   </div>
-                </div>
-                <h3 slot="title" class="text-h4 text-text font-bold">
-                  {tool.data.name}
-                </h3>
-                <p>{tool.data.description}</p>
-                <div slot="actions">
-                  {tool.data.url ? (
-                    <Button
-                      href={tool.data.url}
-                      target="_blank"
-                      variant="outline"
-                      size="sm"
-                      trackId={`herramienta:${tool.id}`}
-                    >
-                      Acceder
-                    </Button>
-                  ) : (
-                    <Button disabled variant="outline" size="sm">
-                      Próximamente
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            );
-          })
-        }
-      </Grid>
+                  <h3 slot="title" class="text-h4 text-text font-bold">
+                    {tool.data.name}
+                  </h3>
+                  <p>{tool.data.description}</p>
+                  <div slot="actions">
+                    {tool.data.url ? (
+                      <Button
+                        href={tool.data.url}
+                        target="_blank"
+                        variant="outline"
+                        size="sm"
+                        trackId={`herramienta:${tool.id}`}
+                      >
+                        Acceder
+                      </Button>
+                    ) : (
+                      <Button disabled variant="outline" size="sm">
+                        Próximamente
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </Grid>
+        ) : (
+          <EmptyState
+            title="Todavía no hay herramientas publicadas"
+            description="Muy pronto vas a encontrar acá atlas, simuladores y accesos útiles para estudiar."
+          />
+        )
+      }
     </Container>
   </Section>
 </BaseLayout>

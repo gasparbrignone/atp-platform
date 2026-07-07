@@ -17,7 +17,7 @@ const { title = 'Filtros', class: className, ...rest }: Props = Astro.props;
 
 <div data-filter-panel class:list={['flex flex-col gap-4', className]} {...rest}>
   <div class="flex items-center justify-between gap-4">
-    <h3 class="text-h4 text-text font-bold">{title}</h3>
+    <h2 class="text-h4 text-text font-bold">{title}</h2>
     <button
       type="button"
       data-filter-panel-clear

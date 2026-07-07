@@ -52,6 +52,18 @@ const websiteJsonLd = {
       crossorigin
     />
 
+    <!-- Fase 16 (QA): Lighthouse marcó el H1 (font-extrabold) como elemento
+         LCP en casi todas las páginas — sin precarga, el navegador recién
+         descubre este peso al parsear el CSS, encadenando la descarga
+         después de la hoja de estilos en vez de en paralelo con el HTML. -->
+    <link
+      rel="preload"
+      href="/branding/Montserrat-ExtraBold.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
     <title>{seo.title}</title>
     <meta name="description" content={seo.description} />
     {seo.canonicalUrl && <link rel="canonical" href={seo.canonicalUrl} />}

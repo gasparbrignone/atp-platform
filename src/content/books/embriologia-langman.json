@@ -2,9 +2,7 @@
   "title": "Embriología",
   "author": "Langman",
   "subject": "Embriología",
-  "career": [
-    "medicina"
-  ],
+  "career": ["medicina"],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/langman-embriologia.pdf",
   "description": "Texto clásico de embriología médica con énfasis en el desarrollo normal y sus alteraciones.",

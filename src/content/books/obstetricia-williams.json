@@ -2,9 +2,7 @@
   "title": "Obstetricia",
   "author": "Williams",
   "subject": "Ginecología y Obstetricia",
-  "career": [
-    "medicina"
-  ],
+  "career": ["medicina"],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/williams-obstetricia.pdf",
   "description": "Tratado de referencia en obstetricia: embarazo, parto y puerperio normal y patológico.",

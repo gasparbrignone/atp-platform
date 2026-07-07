@@ -33,12 +33,12 @@ const featuredActivities = publishedActivities.filter((activity) => activity.dat
 >
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
-      <SectionHeader title="Actividades" />
+      <SectionHeader as="h1" title="Actividades" />
 
       {
         featuredActivities.length > 0 && (
           <div class="flex flex-col gap-6">
-            <SectionHeader title="Próximas actividades" as="h3" />
+            <SectionHeader title="Próximas actividades" as="h2" />
             <Grid cols={3} gap="md">
               {featuredActivities.map((activity) => (
                 <Card>
@@ -79,9 +79,9 @@ const featuredActivities = publishedActivities.filter((activity) => activity.dat
           <Grid cols={3} gap="md">
             {publishedActivities.map((activity) => (
               <Card>
-                <h3 slot="title" class="text-h4 text-text font-bold">
+                <h2 slot="title" class="text-h4 text-text font-bold">
                   {activity.data.title}
-                </h3>
+                </h2>
                 <p class="text-body-sm text-text-secondary font-semibold">
                   {[activity.data.date, activity.data.time, activity.data.location]
                     .filter(Boolean)
