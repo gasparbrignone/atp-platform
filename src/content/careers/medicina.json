@@ -48,13 +48,28 @@
   ],
   "resources": [
     {
-      "label": "Materiales de Medicina en la Biblioteca",
-      "href": "/biblioteca",
-      "external": false
+      "label": "Calendario académico 2026-2007",
+      "href": "https://jolly-gelato-503b05.netlify.app/",
+      "external": true
     },
     {
-      "label": "Guías de estudio de ATP",
-      "href": "https://drive.google.com/drive/folders/ejemplo-guias-medicina",
+      "label": "Transparente Virtual",
+      "href": "https://fcm.unr.edu.ar/transparente-medicina/",
+      "external": true
+    },
+    {
+      "label": "SIU Guaraní",
+      "href": "https://autogestion-guarani.unr.edu.ar/acceso/login?ref=https://autogestion-guarani.unr.edu.ar/inicio_alumno",
+      "external": true
+    },
+    {
+      "label": "Campus Virtual - Comunidades",
+      "href": "https://comunidades2.campusvirtualunr.edu.ar/",
+      "external": true
+    },
+    {
+      "label": "Mails secretarías",
+      "href": "https://docs.google.com/document/d/1-GMiqWuzwCSLR4GEk90pOFJR6yt7pxm4MBfiajZ8xXk/edit?tab=t.0",
       "external": true
     }
   ]
