@@ -203,17 +203,19 @@ Si aparecen funcionalidades que realmente requieran persistencia dinámica (usua
 
 ## Decisión
 
-Continuar utilizando Google Forms.
+El formulario de "Sumate a ATP" (src/pages/sumate.astro) es un `<form>` nativo del sitio (Nombre y apellido, Teléfono, Año, Carrera, Mensaje) que envía sus respuestas a Formspree, sin backend propio. Formspree reenvía cada respuesta por mail a ATP y las deja listadas en su panel web.
+
+Decisión anterior (superada 2026-07-07): usar Google Forms embebido/enlazado para este formulario. Se reemplazó porque el pedido explícito era que el formulario viviera en el sitio (misma identidad visual, sin salir a otro dominio) y no solo un link de salida.
 
 ## Motivos
 
-Es una herramienta conocida por ATP.
+No requiere infraestructura adicional propia (Formspree es un servicio de terceros, no un backend que ATP deba mantener).
 
-Permite administrar inscripciones rápidamente.
+Mantiene la identidad visual del sitio en vez de redirigir a un dominio externo.
 
-No requiere infraestructura adicional.
+Las respuestas llegan por mail y quedan accesibles en el panel de Formspree sin que ATP tenga que administrar una base de datos.
 
-La arquitectura deberá permitir reemplazarla en el futuro sin modificar la interfaz.
+La arquitectura debe permitir reemplazar el proveedor de envío en el futuro sin modificar la interfaz del formulario (el `<form>` HTML nativo es agnóstico del backend receptor).
 
 ---
 

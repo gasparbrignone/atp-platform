@@ -22,7 +22,11 @@ import Container from '@/components/Container.astro';
 import Grid from '@/components/Grid.astro';
 import Card from '@/components/Card.astro';
 import Button from '@/components/Button.astro';
+import Input from '@/components/Input.astro';
+import Select from '@/components/Select.astro';
+import Textarea from '@/components/Textarea.astro';
 import PhotoMarquee from '@/components/PhotoMarquee.astro';
+import { careerLabels } from '@/lib/labels';
 import facultadRemera from '@/assets/sumate/facultad-remera.jpg';
 import standRemera from '@/assets/sumate/stand-remera.jpg';
 import acreditacionesRemera from '@/assets/sumate/acreditaciones-remera.jpg';
@@ -37,7 +41,15 @@ import BookOpen from '@lucide/astro/icons/book-open';
 import Sparkles from '@lucide/astro/icons/sparkles';
 import Handshake from '@lucide/astro/icons/handshake';
 
-const JOIN_FORM_URL = 'https://forms.gle/ejemplo-sumate-atp';
+/**
+ * Formspree recibe el POST del formulario nativo de abajo (sin backend
+ * propio: ver docs/STACK_DECISIONS.md, sección "Formularios", actualizada
+ * al pasar de Google Forms a esto) y reenvía cada respuesta al mail de ATP
+ * más un panel web con el historial.
+ */
+const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xwvdjvyz';
+
+const yearOptions = ['1° año', '2° año', '3° año', '4° año', '5° año', '6° año'];
 
 const galleryPhotos = [
   { image: facultadRemera, alt: 'Integrantes de ATP con la remera oficial frente a la Facultad de Ciencias Médicas.' },
@@ -174,18 +186,123 @@ const reasons = [
       <div class="text-body-lg text-text-secondary flex max-w-2xl flex-col gap-4">
         <p>Si te gusta esta forma de vivir la facultad, nos encantaría conocerte.</p>
         <p>
-          Completá el formulario y te vamos a escribir para coordinar un encuentro, contarte un poco
-          más sobre ATP y responder todas las dudas que tengas. Sin compromiso.
+          Completá tus datos y te vamos a escribir para coordinar un encuentro, contarte un poco más
+          sobre ATP y responder todas las dudas que tengas. Sin compromiso.
         </p>
         <p>
           Capaz encontrás un grupo para estudiar. Capaz hacés nuevos amigos. O capaz descubrís un
           lugar desde donde transformar la facultad.
         </p>
       </div>
-      <Button href={JOIN_FORM_URL} target="_blank" size="lg" trackId="sumate-formulario">
-        Completar formulario
-      </Button>
+
+      <form
+        data-sumate-form
+        action={FORMSPREE_ENDPOINT}
+        method="POST"
+        novalidate
+        class="flex w-full max-w-xl flex-col gap-4 text-left"
+      >
+        <input type="hidden" name="_subject" value="Nuevo interesado en sumarse a ATP" />
+
+        <div class="flex flex-col gap-2">
+          <label for="sumate-name" class="text-caption text-text-secondary font-semibold">
+            Nombre y apellido
+          </label>
+          <Input id="sumate-name" name="name" autocomplete="name" required />
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label for="sumate-phone" class="text-caption text-text-secondary font-semibold">
+            Teléfono
+          </label>
+          <Input id="sumate-phone" name="phone" type="tel" autocomplete="tel" required />
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="flex flex-col gap-2">
+            <label for="sumate-year" class="text-caption text-text-secondary font-semibold">
+              Año
+            </label>
+            <Select id="sumate-year" name="year" required>
+              <option value="" selected disabled>
+                Elegí un año
+              </option>
+              {yearOptions.map((year) => <option value={year}>{year}</option>)}
+            </Select>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="sumate-career" class="text-caption text-text-secondary font-semibold">
+              Carrera
+            </label>
+            <Select id="sumate-career" name="career" required>
+              <option value="" selected disabled>
+                Elegí tu carrera
+              </option>
+              {Object.values(careerLabels).map((label) => <option value={label}>{label}</option>)}
+            </Select>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label for="sumate-message" class="text-caption text-text-secondary font-semibold">
+            Contanos lo que quieras (opcional)
+          </label>
+          <Textarea
+            id="sumate-message"
+            name="message"
+            placeholder="¿Algo que quieras contarnos antes de que te escribamos?"
+          />
+        </div>
+
+        <Button type="submit" size="lg" data-sumate-submit class="mt-2 self-center" trackId="sumate-formulario">
+          Enviar
+        </Button>
+      </form>
+
       <p class="text-body-lg text-text font-semibold">Te esperamos. 💙</p>
     </Container>
   </Section>
 </BaseLayout>
+
+<script>
+  import { showToast } from '@/lib/toast';
+
+  const form = document.querySelector<HTMLFormElement>('[data-sumate-form]');
+  const submitButton = form?.querySelector<HTMLButtonElement>('[data-sumate-submit]');
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!submitButton || submitButton.disabled) return;
+
+    if (!form.reportValidity()) return;
+
+    const originalLabel = submitButton.textContent;
+    submitButton.disabled = true;
+    submitButton.textContent = 'Enviando…';
+
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { Accept: 'application/json' },
+      });
+
+      if (!response.ok) throw new Error('Formspree request failed');
+
+      showToast({
+        message: 'Listo, recibimos tus datos. Te vamos a escribir pronto.',
+        variant: 'success',
+      });
+      form.reset();
+    } catch {
+      showToast({
+        message: 'No pudimos enviar el formulario. Probá de nuevo en un rato.',
+        variant: 'error',
+      });
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = originalLabel;
+    }
+  });
+</script>
