@@ -23,6 +23,12 @@ import Container from '@/components/Container.astro';
 import Grid from '@/components/Grid.astro';
 import Card from '@/components/Card.astro';
 import Button from '@/components/Button.astro';
+import PhotoGallery from '@/components/PhotoGallery.astro';
+import facultadRemera from '@/assets/sumate/facultad-remera.jpg';
+import standRemera from '@/assets/sumate/stand-remera.jpg';
+import acreditacionesRemera from '@/assets/sumate/acreditaciones-remera.jpg';
+import escaleraRemera from '@/assets/sumate/escalera-remera.jpg';
+import charlaRemera from '@/assets/sumate/charla-remera.jpg';
 import Landmark from '@lucide/astro/icons/landmark';
 import HeartPulse from '@lucide/astro/icons/heart-pulse';
 import Users from '@lucide/astro/icons/users';
@@ -31,6 +37,14 @@ import Sparkles from '@lucide/astro/icons/sparkles';
 import Handshake from '@lucide/astro/icons/handshake';
 
 const JOIN_FORM_URL = 'https://forms.gle/ejemplo-sumate-atp';
+
+const galleryPhotos = [
+  { image: facultadRemera, alt: 'Integrantes de ATP con la remera oficial frente a la Facultad de Ciencias Médicas.' },
+  { image: standRemera, alt: 'Integrantes de ATP en un stand informativo en la calle.' },
+  { image: acreditacionesRemera, alt: 'Integrantes de ATP en la mesa de acreditaciones de un encuentro.' },
+  { image: escaleraRemera, alt: 'Integrantes de ATP reunidos en la escalinata de la facultad.' },
+  { image: charlaRemera, alt: 'Integrante de ATP dando una charla con material didáctico proyectado.' },
+];
 
 const beliefs = [
   {
@@ -85,6 +99,17 @@ const reasons = [
     description="Somos estudiantes de la Facultad de Ciencias Médicas que un día decidimos involucrarnos un poco más para hacer que la cursada sea mejor para todos. No hace falta haber militado antes ni tener experiencia: alcanza con tener ganas de participar, conocer gente y aportar desde el lugar que más te guste."
     primaryAction={{ label: 'Completar formulario', href: '#sumate-cta' }}
   />
+
+  <Section spacing="md">
+    <Container class="flex flex-col gap-10">
+      <SectionHeader
+        title="Así somos"
+        description="Estudiantes de la Facultad de Ciencias Médicas que un día se sumaron y se quedaron."
+        alignment="center"
+      />
+      <PhotoGallery photos={galleryPhotos} />
+    </Container>
+  </Section>
 
   <Section spacing="md" background="surface-alt">
     <Container class="flex flex-col gap-10">

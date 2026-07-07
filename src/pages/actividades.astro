@@ -20,10 +20,24 @@ import Grid from '@/components/Grid.astro';
 import Card from '@/components/Card.astro';
 import Button from '@/components/Button.astro';
 import EmptyState from '@/components/EmptyState.astro';
+import PhotoGallery from '@/components/PhotoGallery.astro';
+import charlaRcp from '@/assets/actividades/charla-rcp.jpg';
+import aulaHistologia from '@/assets/actividades/aula-histologia.jpg';
+import aulaIntegracion from '@/assets/actividades/aula-integracion.jpg';
+import aulaMapa from '@/assets/actividades/aula-mapa.jpg';
+import auditorioAtp from '@/assets/actividades/auditorio-atp.jpg';
 import { getCollection } from 'astro:content';
 
 const publishedActivities = await getCollection('activities', ({ data }) => data.published);
 const featuredActivities = publishedActivities.filter((activity) => activity.data.featured);
+
+const galleryPhotos = [
+  { image: aulaHistologia, alt: 'Estudiantes en un aula siguiendo una clase de histología organizada por ATP.' },
+  { image: charlaRcp, alt: 'Charla de RCP dictada en un salón de la facultad.' },
+  { image: aulaIntegracion, alt: 'Clase de integración de sistemas proyectada en un aula llena de estudiantes.' },
+  { image: aulaMapa, alt: 'Estudiantes en un aula durante una actividad de ATP.' },
+  { image: auditorioAtp, alt: 'Grupo de integrantes de ATP con la remera oficial en un auditorio de la facultad.' },
+];
 ---
 
 <BaseLayout
@@ -34,6 +48,15 @@ const featuredActivities = publishedActivities.filter((activity) => activity.dat
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
       <SectionHeader as="h1" title="Actividades" />
+
+      <div class="flex flex-col gap-6">
+        <SectionHeader
+          title="Así son nuestras actividades"
+          description="Un vistazo a los talleres, charlas y encuentros que armamos entre todos."
+          as="h2"
+        />
+        <PhotoGallery photos={galleryPhotos} />
+      </div>
 
       {
         featuredActivities.length > 0 && (
