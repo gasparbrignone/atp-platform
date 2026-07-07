@@ -38,6 +38,12 @@ const websiteJsonLd = {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Scroll-reveal progressive enhancement (see global.css): must run
+         before paint so `[data-reveal]` never flashes visible-then-hidden. -->
+    <script is:inline>
+      document.documentElement.classList.add('js');
+    </script>
     <meta name="generator" content={Astro.generator} />
 
     <!-- Fase 13: precargar solo el peso que se usa para texto de cuerpo en
@@ -129,5 +135,10 @@ const websiteJsonLd = {
     </main>
     <Footer />
     <Toast />
+    <script>
+      import { initScrollReveal } from '@/lib/scrollReveal';
+
+      initScrollReveal();
+    </script>
   </body>
 </html>

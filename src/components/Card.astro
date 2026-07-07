@@ -19,7 +19,17 @@ const { as: Tag = 'div', class: className, ...rest }: Props = Astro.props;
 
 <Tag
   class:list={[
-    'border-border bg-surface ease-standard flex flex-col overflow-hidden rounded-md border shadow-sm transition-shadow duration-200',
+    /*
+     * Soft layered depth (inspired by Cult UI's MinimalCard shadow recipe,
+     * ported to plain Tailwind + our own warm near-black instead of their
+     * hardcoded rgba(0,0,0,...)) plus a gentle lift on hover — the site's
+     * "premium, calm" cards should feel closer to an Apple product card
+     * than a flat bordered box. Kept to a translate + shadow swap only:
+     * no scale, no color change, so it stays subtle per CLAUDE.md.
+     */
+    'border-border bg-surface ease-standard flex flex-col overflow-hidden rounded-md border transition-[transform,box-shadow] duration-200',
+    'shadow-[0_1px_2px_rgba(28,25,38,0.06),0_1px_1px_rgba(28,25,38,0.04)]',
+    'hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(28,25,38,0.12),0_2px_8px_rgba(28,25,38,0.06)]',
     className,
   ]}
   {...rest}

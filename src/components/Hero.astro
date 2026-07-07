@@ -72,6 +72,7 @@ const isCentered = alignment === 'center';
 <Section
   spacing="lg"
   background={backgroundVariant}
+  reveal={false}
   class:list={backgroundImage && 'relative isolate overflow-hidden'}
 >
   {
@@ -101,6 +102,7 @@ const isCentered = alignment === 'center';
       class:list={['flex max-w-2xl flex-col items-center gap-4', !isCentered && 'lg:items-start']}
     >
       <Heading
+        data-enter
         class:list={[
           'text-h1 font-extrabold',
           backgroundImage
@@ -113,6 +115,8 @@ const isCentered = alignment === 'center';
       {
         subtitle && (
           <p
+            data-enter
+            style="--enter-delay: 80ms"
             class:list={[
               'text-h4 font-semibold',
               backgroundImage ? 'text-white' : 'text-text-secondary',
@@ -125,6 +129,8 @@ const isCentered = alignment === 'center';
       {
         description && (
           <p
+            data-enter
+            style="--enter-delay: 80ms"
             class:list={['text-body-lg', backgroundImage ? 'text-white/90' : 'text-text-secondary']}
           >
             {description}
@@ -133,7 +139,7 @@ const isCentered = alignment === 'center';
       }
       {
         (primaryAction || secondaryAction) && (
-          <div class="mt-2 flex flex-col gap-3 sm:flex-row">
+          <div data-enter style="--enter-delay: 160ms" class="mt-2 flex flex-col gap-3 sm:flex-row">
             {primaryAction && (
               <a
                 href={primaryAction.href}

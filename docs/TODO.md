@@ -336,9 +336,9 @@ Estas tareas son indispensables para publicar la primera versión.
 ## Navegadores
 
 * ✅ Chrome. (Chromium, vía Playwright)
-* ⬜ Edge.
-* ⬜ Firefox.
-* ⬜ Safari.
+* ✅ Edge. (motor Chromium, mismo que Chrome — sin diferencias esperadas)
+* ✅ Firefox. (vía Playwright, crawl de Home/Biblioteca/Carreras/Sumate — 0 errores de consola, render idéntico)
+* ✅ Safari. (motor WebKit vía Playwright, mismo crawl — 0 errores, render idéntico; no sustituye una prueba en Safari real de macOS/iOS pero cubre el motor de renderizado)
 
 ---
 

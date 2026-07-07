@@ -253,6 +253,48 @@
   }
 }
 
+/*
+ * Scroll-reveal (progressive enhancement): `html.js` is only added by an
+ * inline script at the very top of <head> (see BaseLayout.astro) — if JS
+ * is disabled or fails, that class never appears, `[data-reveal]` keeps
+ * its default (fully visible, no transform) styling below, and no content
+ * is ever permanently hidden. When JS *is* active, elements start faded/
+ * offset and a tiny IntersectionObserver (also in BaseLayout.astro) adds
+ * `.is-visible` the first time each one scrolls into view.
+ */
+[data-reveal] {
+  transition:
+    opacity var(--duration-slow) var(--ease-standard),
+    transform var(--duration-slow) var(--ease-standard);
+}
+
+html.js [data-reveal]:not(.is-visible) {
+  opacity: 0;
+  transform: translateY(1.25rem);
+}
+
+/*
+ * Hero content plays this once on load instead of on scroll (it's already
+ * in the initial viewport — see Hero.astro's `reveal={false}`). Pure CSS,
+ * no JS: each `[data-enter]` element fades + rises, `--enter-delay` staggers
+ * siblings (title first, then subtitle/description, then actions).
+ */
+@keyframes hero-enter {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-enter] {
+  animation: hero-enter var(--duration-slow) var(--ease-emphasized) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
@@ -261,6 +303,24 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  html.js [data-reveal]:not(.is-visible) {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Print/PDF export never fires scroll or IntersectionObserver — without
+ * this, anything not yet revealed on-screen would print as a blank gap.
+ */
+@media print {
+  [data-reveal],
+  [data-enter] {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
   }
 }
 
@@ -286,4 +346,8 @@
   --border: var(--color-border);
   --input: var(--color-border);
   --ring: var(--color-secondary-strong);
+  /* Some Cult UI components read --radius directly via calc() instead of a
+     Tailwind rounded-* utility — alias it to our own scale so those don't
+     silently fall back to 0. */
+  --radius: var(--radius-lg);
 }

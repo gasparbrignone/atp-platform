@@ -12,12 +12,20 @@ interface Props extends HTMLAttributes<'section'> {
   as?: keyof HTMLElementTagNameMap;
   spacing?: SectionSpacing;
   background?: SectionBackground;
+  /**
+   * Fades + rises the whole section in as it scrolls into view (see
+   * global.css / src/lib/scrollReveal.ts). Defaults on since most Sections
+   * sit below the fold; Hero opts out explicitly — it's already in the
+   * initial viewport, so a scroll-triggered reveal would just delay it.
+   */
+  reveal?: boolean;
 }
 
 const {
   as: Tag = 'section',
   spacing = 'md',
   background = 'background',
+  reveal = true,
   class: className,
   ...rest
 }: Props = Astro.props;
@@ -35,6 +43,10 @@ const backgroundClasses: Record<SectionBackground, string> = {
 };
 ---
 
-<Tag class:list={[spacingClasses[spacing], backgroundClasses[background], className]} {...rest}>
+<Tag
+  class:list={[spacingClasses[spacing], backgroundClasses[background], className]}
+  data-reveal={reveal ? '' : undefined}
+  {...rest}
+>
   <slot />
 </Tag>
