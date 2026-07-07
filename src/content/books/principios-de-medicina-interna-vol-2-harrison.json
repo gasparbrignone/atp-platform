@@ -2,10 +2,13 @@
   "title": "Principios de Medicina Interna Vol. 2",
   "author": "Harrison",
   "subject": "Medicina Interna",
-  "career": ["medicina"],
+  "career": [
+    "medicina"
+  ],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/harrison-principios-de-medicina-interna-vol-2.pdf",
   "description": "Tratado de referencia en medicina interna a nivel internacional, segundo volumen.",
   "published": true,
-  "cover": "https://covers.openlibrary.org/b/id/7901165-M.jpg"
+  "cover": "/uploads/images (3).jpg",
+  "order": null
 }
