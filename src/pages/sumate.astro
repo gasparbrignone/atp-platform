@@ -15,7 +15,6 @@
  * El formulario es un placeholder de ejemplo (forms.gle/ejemplo-...), igual
  * al patrón ya usado en src/content/activities.ts para registrationUrl.
  */
-import { Image } from 'astro:assets';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Section from '@/components/Section.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
@@ -23,12 +22,14 @@ import Container from '@/components/Container.astro';
 import Grid from '@/components/Grid.astro';
 import Card from '@/components/Card.astro';
 import Button from '@/components/Button.astro';
-import Carousel from '@/components/Carousel.astro';
+import PhotoMarquee from '@/components/PhotoMarquee.astro';
 import facultadRemera from '@/assets/sumate/facultad-remera.jpg';
 import standRemera from '@/assets/sumate/stand-remera.jpg';
 import acreditacionesRemera from '@/assets/sumate/acreditaciones-remera.jpg';
 import escaleraRemera from '@/assets/sumate/escalera-remera.jpg';
 import charlaRemera from '@/assets/sumate/charla-remera.jpg';
+import bannerRemera from '@/assets/sumate/banner-remera.jpg';
+import retratoRemera from '@/assets/sumate/retrato-remera.jpg';
 import Landmark from '@lucide/astro/icons/landmark';
 import HeartPulse from '@lucide/astro/icons/heart-pulse';
 import Users from '@lucide/astro/icons/users';
@@ -44,6 +45,8 @@ const galleryPhotos = [
   { image: acreditacionesRemera, alt: 'Integrantes de ATP en la mesa de acreditaciones de un encuentro.' },
   { image: escaleraRemera, alt: 'Integrantes de ATP reunidos en la escalinata de la facultad.' },
   { image: charlaRemera, alt: 'Integrante de ATP dando una charla con material didáctico proyectado.' },
+  { image: bannerRemera, alt: 'Integrantes de ATP en la escalinata de la facultad bajo el cartel de ATP FCM UNR.' },
+  { image: retratoRemera, alt: 'Dos integrantes de ATP con la remera oficial durante una movilización.' },
 ];
 
 const beliefs = [
@@ -96,35 +99,9 @@ const reasons = [
 >
   <Section spacing="lg" reveal={false}>
     <Container class="flex flex-col items-center gap-10">
-      <Carousel
-        label="Fotos de integrantes de ATP"
-        autoplay
-        interval={4500}
-        data-enter
-        class="w-full max-w-3xl"
-      >
-        {
-          galleryPhotos.map(({ image, alt }, index) => (
-            <div class="w-full shrink-0 snap-center">
-              <Image
-                src={image}
-                alt={alt}
-                loading={index === 0 ? 'eager' : 'lazy'}
-                widths={[480, 768, 1024, 1536]}
-                sizes="(min-width: 768px) 768px, 100vw"
-                quality="high"
-                class="aspect-[4/5] w-full rounded-md object-cover sm:aspect-video"
-              />
-            </div>
-          ))
-        }
-      </Carousel>
-
       <div class="flex max-w-2xl flex-col items-center gap-4 text-center">
-        <h1 data-enter style="--enter-delay: 80ms" class="text-h1 text-text font-extrabold">
-          Sumate a ATP
-        </h1>
-        <p data-enter style="--enter-delay: 140ms" class="text-body-lg text-text-secondary">
+        <h1 data-enter class="text-h1 text-text font-extrabold">Sumate a ATP</h1>
+        <p data-enter style="--enter-delay: 80ms" class="text-body-lg text-text-secondary">
           Somos estudiantes de la Facultad de Ciencias Médicas que un día decidimos involucrarnos
           un poco más para hacer que la cursada sea mejor para todos. No hace falta haber militado
           antes ni tener experiencia: alcanza con tener ganas de participar, conocer gente y
@@ -133,6 +110,10 @@ const reasons = [
         <Button href="#sumate-cta" size="lg" class="mt-2">
           Completar formulario
         </Button>
+      </div>
+
+      <div data-enter style="--enter-delay: 140ms" class="w-full">
+        <PhotoMarquee photos={galleryPhotos} />
       </div>
     </Container>
   </Section>
