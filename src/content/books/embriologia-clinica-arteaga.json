@@ -2,9 +2,13 @@
   "title": "Embriología Clínica",
   "author": "Arteaga",
   "subject": "Embriología",
-  "career": ["medicina"],
+  "career": [
+    "medicina"
+  ],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/arteaga-embriologia-clinica.pdf",
   "description": "Desarrollo embrionario humano con correlación clínica de malformaciones frecuentes.",
-  "published": true
+  "published": true,
+  "cover": "/uploads/pasted-image-1783389240128.png",
+  "order": null
 }
