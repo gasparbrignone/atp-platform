@@ -15,15 +15,15 @@
  * El formulario es un placeholder de ejemplo (forms.gle/ejemplo-...), igual
  * al patrón ya usado en src/content/activities.ts para registrationUrl.
  */
+import { Image } from 'astro:assets';
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import Hero from '@/components/Hero.astro';
 import Section from '@/components/Section.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
 import Container from '@/components/Container.astro';
 import Grid from '@/components/Grid.astro';
 import Card from '@/components/Card.astro';
 import Button from '@/components/Button.astro';
-import PhotoGallery from '@/components/PhotoGallery.astro';
+import Carousel from '@/components/Carousel.astro';
 import facultadRemera from '@/assets/sumate/facultad-remera.jpg';
 import standRemera from '@/assets/sumate/stand-remera.jpg';
 import acreditacionesRemera from '@/assets/sumate/acreditaciones-remera.jpg';
@@ -94,20 +94,46 @@ const reasons = [
   description="ATP es la agrupación estudiantil de la Facultad de Ciencias Médicas (UNR). Conocé quiénes somos, qué pensamos y sumate a construir la facultad que queremos."
   canonicalPath="/sumate"
 >
-  <Hero
-    title="Sumate a ATP"
-    description="Somos estudiantes de la Facultad de Ciencias Médicas que un día decidimos involucrarnos un poco más para hacer que la cursada sea mejor para todos. No hace falta haber militado antes ni tener experiencia: alcanza con tener ganas de participar, conocer gente y aportar desde el lugar que más te guste."
-    primaryAction={{ label: 'Completar formulario', href: '#sumate-cta' }}
-  />
+  <Section spacing="lg" reveal={false}>
+    <Container class="flex flex-col items-center gap-10">
+      <Carousel
+        label="Fotos de integrantes de ATP"
+        autoplay
+        interval={4500}
+        data-enter
+        class="w-full max-w-3xl"
+      >
+        {
+          galleryPhotos.map(({ image, alt }, index) => (
+            <div class="w-full shrink-0 snap-center">
+              <Image
+                src={image}
+                alt={alt}
+                loading={index === 0 ? 'eager' : 'lazy'}
+                widths={[480, 768, 1024, 1536]}
+                sizes="(min-width: 768px) 768px, 100vw"
+                quality="high"
+                class="aspect-[4/5] w-full rounded-md object-cover sm:aspect-video"
+              />
+            </div>
+          ))
+        }
+      </Carousel>
 
-  <Section spacing="md">
-    <Container class="flex flex-col gap-10">
-      <SectionHeader
-        title="Así somos"
-        description="Estudiantes de la Facultad de Ciencias Médicas que un día se sumaron y se quedaron."
-        alignment="center"
-      />
-      <PhotoGallery photos={galleryPhotos} />
+      <div class="flex max-w-2xl flex-col items-center gap-4 text-center">
+        <h1 data-enter style="--enter-delay: 80ms" class="text-h1 text-text font-extrabold">
+          Sumate a ATP
+        </h1>
+        <p data-enter style="--enter-delay: 140ms" class="text-body-lg text-text-secondary">
+          Somos estudiantes de la Facultad de Ciencias Médicas que un día decidimos involucrarnos
+          un poco más para hacer que la cursada sea mejor para todos. No hace falta haber militado
+          antes ni tener experiencia: alcanza con tener ganas de participar, conocer gente y
+          aportar desde el lugar que más te guste.
+        </p>
+        <Button href="#sumate-cta" size="lg" class="mt-2">
+          Completar formulario
+        </Button>
+      </div>
     </Container>
   </Section>
 
