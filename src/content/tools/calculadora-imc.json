@@ -1,6 +1,0 @@
-{
-  "name": "Calculadora de IMC",
-  "description": "Calculá el índice de masa corporal a partir de peso y altura.",
-  "icon": "calculator",
-  "published": true
-}
