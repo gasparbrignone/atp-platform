@@ -72,11 +72,9 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
                 {resourceTypeLabels[book.data.resourceType]}
               </Badge>
               <h3 slot="title" class="text-h4 text-text font-bold">
-                {book.data.title}
+                {book.data.author} - {book.data.title}
               </h3>
-              <p class="text-body-sm text-text-secondary font-semibold">
-                {book.data.author} · {book.data.subject}
-              </p>
+              <p class="text-body-sm text-text-secondary font-semibold">{book.data.subject}</p>
               <div slot="actions" class="flex items-center justify-between gap-4">
                 <span class="text-caption text-text-secondary">
                   {book.data.career.map((slug) => careerLabels[slug]).join(', ')}
