@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 import sitemap from '@astrojs/sitemap';
+import react from '@astrojs/react';
 
 // https://astro.build/config
 // Dominio propio confirmado (atpfcm.com.ar, comprado en nic.ar) — sin `base`:
@@ -11,7 +12,7 @@ import sitemap from '@astrojs/sitemap';
 // GitHub Pages sirva este dominio queda para la Fase 17 (Despliegue).
 export default defineConfig({
   site: 'https://atpfcm.com.ar',
-  integrations: [sitemap()],
+  integrations: [sitemap(), react()],
   vite: {
     plugins: [tailwindcss()],
   },

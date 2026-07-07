@@ -11,8 +11,11 @@
       "@/styles/*": ["src/styles/*"],
       "@/types/*": ["src/types/*"],
       "@/config/*": ["src/config/*"],
-      "@/assets/*": ["src/assets/*"]
-    }
+      "@/assets/*": ["src/assets/*"],
+      "@/hooks/*": ["src/hooks/*"]
+    },
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   },
   "include": [".astro/types.d.ts", "**/*"],
   "exclude": ["dist"]

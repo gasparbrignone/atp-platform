@@ -1,5 +1,18 @@
 @import 'tailwindcss';
 @import './tokens.css';
+/*
+ * shadcn/cult-ui components rely on ARIA/data-state variants
+ * (data-open, data-checked...) and entrance-animation utilities
+ * (animate-in, fade-in...) that Tailwind doesn't ship by default —
+ * these two imports are pure CSS (custom variants + keyframes), no JS.
+ * No `@custom-variant dark` override here on purpose: this project has
+ * no theme toggle, so Tailwind's default media-query-based `dark:`
+ * (prefers-color-scheme) already matches how tokens.css itself switches
+ * — a class-based override would silently break every `dark:` utility
+ * shadcn/cult-ui components ship with.
+ */
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 /*
  * Tailwind v4 theme mapping.
@@ -111,6 +124,32 @@
   --z-modal: var(--z-modal);
   --z-toast: var(--z-toast);
   --z-tooltip: var(--z-tooltip);
+
+  /*
+   * shadcn/cult-ui vocabulary. These components (installed via the shadcn
+   * CLI + the @cult-ui registry, see components.json) expect this exact
+   * set of theme keys — `card`, `popover`, `muted`, `accent`, `destructive`,
+   * `ring`, `input`. Every one of them aliases straight to an existing ATP
+   * token below (see the `:root` block further down): no new raw color is
+   * introduced, and dark mode "just works" because those ATP tokens
+   * already flip under `prefers-color-scheme: dark` in tokens.css.
+   * `sidebar`/`chart` keys are intentionally omitted — add them only if a
+   * component that actually needs them gets installed. `background` isn't
+   * repeated here — it's already mapped above, straight to the ATP token.
+   */
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
 }
 
 /*
@@ -223,4 +262,28 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/*
+ * shadcn/cult-ui vocabulary → ATP tokens. Every value here is a straight
+ * alias to a token already defined in tokens.css — no new raw color, no
+ * duplicate `.dark` block: since the ATP tokens on the right already flip
+ * under `prefers-color-scheme: dark` (see tokens.css), these aliases
+ * follow automatically.
+ */
+:root {
+  --foreground: var(--color-text);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-text);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-text);
+  --muted: var(--color-surface-alt);
+  --muted-foreground: var(--color-text-secondary);
+  --accent: var(--color-surface-alt);
+  --accent-foreground: var(--color-text);
+  --destructive: var(--color-error);
+  --destructive-foreground: var(--color-error-foreground);
+  --border: var(--color-border);
+  --input: var(--color-border);
+  --ring: var(--color-secondary-strong);
 }

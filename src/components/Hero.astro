@@ -101,7 +101,12 @@ const isCentered = alignment === 'center';
       class:list={['flex max-w-2xl flex-col items-center gap-4', !isCentered && 'lg:items-start']}
     >
       <Heading
-        class:list={['text-h1 font-extrabold', backgroundImage ? 'text-white' : 'text-text']}
+        class:list={[
+          'text-h1 font-extrabold',
+          backgroundImage
+            ? 'text-white'
+            : 'from-primary-fill to-primary-strong bg-gradient-to-t bg-clip-text text-transparent',
+        ]}
       >
         {title}
       </Heading>
@@ -130,10 +135,25 @@ const isCentered = alignment === 'center';
         (primaryAction || secondaryAction) && (
           <div class="mt-2 flex flex-col gap-3 sm:flex-row">
             {primaryAction && (
-              <Button href={primaryAction.href} size="lg">
-                {primaryAction.icon && <primaryAction.icon slot="icon-start" class="size-4" />}
-                {primaryAction.label}
-              </Button>
+              <a
+                href={primaryAction.href}
+                class="ease-standard group relative inline-flex items-center justify-center overflow-hidden rounded-full p-[1.5px] transition-transform duration-150 hover:scale-[1.02]"
+              >
+                {/* Cult UI's "bg-animate-button" ring technique, hand-ported
+                    to plain Astro/CSS (no React/JS needed for a link — see
+                    src/components/ui/bg-animate-button.tsx for the original,
+                    kept for future non-link/button use cases). The oversized
+                    inset span rotates slowly behind a solid pill, giving a
+                    soft animated glow ring in the ATP brand colors. */}
+                <span
+                  class="absolute inset-[-1000%] animate-[spin_6s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,var(--color-primary)_0%,var(--color-secondary)_50%,var(--color-primary)_100%)]"
+                  aria-hidden="true"
+                />
+                <span class="bg-primary-fill text-primary-fill-foreground text-body-lg relative inline-flex h-12 items-center justify-center gap-3 rounded-full px-6 font-semibold">
+                  {primaryAction.icon && <primaryAction.icon class="size-4" />}
+                  {primaryAction.label}
+                </span>
+              </a>
             )}
             {secondaryAction && (
               <Button href={secondaryAction.href} size="lg" variant="outline">
