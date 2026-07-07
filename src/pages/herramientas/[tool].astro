@@ -23,6 +23,7 @@ import Activity from '@lucide/astro/icons/activity';
 import Link from '@lucide/astro/icons/link';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import type { ToolIconKey } from '@/lib/labels';
+import { renderInlineMarkdown } from '@/lib/markdown';
 
 const toolIcons: Record<ToolIconKey, typeof BookOpen> = {
   'book-open': BookOpen,
@@ -62,7 +63,10 @@ const Icon = toolIcons[tool.data.icon];
         <SectionHeader as="h1" title={tool.data.name} />
       </div>
 
-      <p class="text-body-lg text-text-secondary max-w-2xl">{tool.data.description}</p>
+      <p
+        class="text-body-lg text-text-secondary max-w-2xl"
+        set:html={renderInlineMarkdown(tool.data.description)}
+      />
 
       {
         tool.data.content && (

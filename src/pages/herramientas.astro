@@ -24,6 +24,7 @@ import Activity from '@lucide/astro/icons/activity';
 import Link from '@lucide/astro/icons/link';
 import { getCollection } from 'astro:content';
 import type { ToolIconKey } from '@/lib/labels';
+import { renderInlineMarkdown } from '@/lib/markdown';
 
 const toolIcons: Record<ToolIconKey, typeof BookOpen> = {
   'book-open': BookOpen,
@@ -60,7 +61,7 @@ const publishedTools = await getCollection('tools', ({ data }) => data.published
                   <h3 slot="title" class="text-h4 text-text font-bold">
                     {tool.data.name}
                   </h3>
-                  <p>{tool.data.description}</p>
+                  <p set:html={renderInlineMarkdown(tool.data.description)} />
                   <div slot="actions" class="flex flex-wrap items-center gap-2">
                     <Button href={`/herramientas/${tool.id}`} variant="outline" size="sm">
                       Ver más

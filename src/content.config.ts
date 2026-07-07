@@ -87,6 +87,11 @@ const tools = defineCollection({
   loader: glob({ pattern: '**/*.json', base: './src/content/tools' }),
   schema: z.object({
     name: z.string(),
+    // Inline Markdown (bold/italics/links) — rendered via
+    // src/lib/markdown.ts, not plain text like the other collections'
+    // `description`. Doesn't reopen "JSON plano, no Markdown" below: that
+    // decision is about the entry file format, this is just syntax inside
+    // one string field of it.
     description: z.string(),
     url: z.httpUrl().nullish(),
     icon: z.enum(['book-open', 'microscope', 'calculator', 'activity', 'link']),
