@@ -1,0 +1,10 @@
+{
+  "title": "Anatomía con Orientación Clínica",
+  "author": "Moore",
+  "subject": "Anatomía normal",
+  "career": ["medicina"],
+  "resourceType": "libro",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/moore-anatomia-con-orientacion-clinica.pdf",
+  "description": "Anatomía humana con correlaciones clínicas y casos de aplicación práctica.",
+  "published": true
+}

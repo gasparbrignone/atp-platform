@@ -1,0 +1,10 @@
+{
+  "title": "Inmunología",
+  "author": "Manuales CTO",
+  "subject": "Inmunología",
+  "career": ["medicina"],
+  "resourceType": "resumen",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/manuales-cto-inmunologia.pdf",
+  "description": "Manual CTO de inmunología: resumen compacto orientado a la preparación de exámenes.",
+  "published": true
+}

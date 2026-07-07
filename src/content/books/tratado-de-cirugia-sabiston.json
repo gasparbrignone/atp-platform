@@ -1,0 +1,10 @@
+{
+  "title": "Tratado de Cirugia",
+  "author": "Sabiston",
+  "subject": "Cirugía",
+  "career": ["medicina"],
+  "resourceType": "libro",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/sabiston-tratado-de-cirugia.pdf",
+  "description": "Tratado de referencia en cirugía general con fundamentos y técnicas quirúrgicas.",
+  "published": true
+}

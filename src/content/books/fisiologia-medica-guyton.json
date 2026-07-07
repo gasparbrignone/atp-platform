@@ -4,7 +4,7 @@
   "subject": "Fisiología",
   "career": ["medicina"],
   "resourceType": "libro",
-  "downloadUrl": "https://drive.google.com/drive/folders/ejemplo-fisiologia-guyton",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/guyton-fisiologia-medica.pdf",
   "description": "Texto clásico de fisiología humana con enfoque clínico integrado.",
   "published": true
 }

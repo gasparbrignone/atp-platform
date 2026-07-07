@@ -1,0 +1,10 @@
+{
+  "title": "Psiquiatría",
+  "author": "Manuales CTO",
+  "subject": "Psiquiatría",
+  "career": ["medicina"],
+  "resourceType": "resumen",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/manuales-cto-psiquiatria.pdf",
+  "description": "Manual CTO de psiquiatría: resumen compacto orientado a la preparación de exámenes.",
+  "published": true
+}

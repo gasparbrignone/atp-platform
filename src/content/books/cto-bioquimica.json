@@ -1,0 +1,10 @@
+{
+  "title": "Bioquímica",
+  "author": "Manuales CTO",
+  "subject": "Bioquímica",
+  "career": ["medicina"],
+  "resourceType": "resumen",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/manuales-cto-bioquimica.pdf",
+  "description": "Manual CTO de bioquímica: resumen compacto orientado a la preparación de exámenes.",
+  "published": true
+}

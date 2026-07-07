@@ -1,0 +1,10 @@
+{
+  "title": "Reumatología",
+  "author": "Manuales CTO",
+  "subject": "Reumatología",
+  "career": ["medicina"],
+  "resourceType": "resumen",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/manuales-cto-reumatologia.pdf",
+  "description": "Manual CTO de reumatología: resumen compacto orientado a la preparación de exámenes.",
+  "published": true
+}

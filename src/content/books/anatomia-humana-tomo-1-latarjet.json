@@ -1,0 +1,10 @@
+{
+  "title": "Anatomia Humana Tomo 1",
+  "author": "Latarjet",
+  "subject": "Anatomía normal",
+  "career": ["medicina"],
+  "resourceType": "libro",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/latarjet-anatomia-humana-tomo-1.pdf",
+  "description": "Tratado clásico de anatomía humana con enfoque descriptivo y aplicación clínica, primer tomo.",
+  "published": true
+}

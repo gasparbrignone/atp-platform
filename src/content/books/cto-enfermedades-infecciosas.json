@@ -1,0 +1,10 @@
+{
+  "title": "Enfermedades infecciosas",
+  "author": "Manuales CTO",
+  "subject": "Enfermedades infecciosas",
+  "career": ["medicina"],
+  "resourceType": "resumen",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/manuales-cto-enfermedades-infecciosas.pdf",
+  "description": "Manual CTO de enfermedades infecciosas: resumen compacto orientado a la preparación de exámenes.",
+  "published": true
+}

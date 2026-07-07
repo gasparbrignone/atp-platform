@@ -1,0 +1,10 @@
+{
+  "title": "Biología",
+  "author": "Curtis",
+  "subject": "Biología",
+  "career": ["medicina"],
+  "resourceType": "libro",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/curtis-biologia.pdf",
+  "description": "Texto de referencia de biología general: célula, genética, evolución y diversidad de los seres vivos.",
+  "published": true
+}

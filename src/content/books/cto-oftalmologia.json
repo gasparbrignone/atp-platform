@@ -1,0 +1,10 @@
+{
+  "title": "Oftalmología",
+  "author": "Manuales CTO",
+  "subject": "Oftalmología",
+  "career": ["medicina"],
+  "resourceType": "resumen",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/manuales-cto-oftalmologia.pdf",
+  "description": "Manual CTO de oftalmología: resumen compacto orientado a la preparación de exámenes.",
+  "published": true
+}

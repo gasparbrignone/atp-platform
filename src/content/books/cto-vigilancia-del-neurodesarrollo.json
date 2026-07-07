@@ -1,0 +1,10 @@
+{
+  "title": "Vigilancia del neurodesarrollo",
+  "author": "Manuales CTO",
+  "subject": "Vigilancia del neurodesarrollo",
+  "career": ["medicina"],
+  "resourceType": "guia",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/manuales-cto-vigilancia-del-neurodesarrollo.pdf",
+  "description": "Guía de seguimiento y pautas de alarma del neurodesarrollo infantil.",
+  "published": true
+}

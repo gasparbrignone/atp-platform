@@ -1,0 +1,10 @@
+{
+  "title": "Neonatologia Practica",
+  "author": "Manuales CTO",
+  "subject": "Neonatologia Practica",
+  "career": ["medicina"],
+  "resourceType": "libro",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/manuales-cto-neonatologia-practica.pdf",
+  "description": "Manejo práctico del recién nacido sano y patológico en la etapa neonatal.",
+  "published": true
+}

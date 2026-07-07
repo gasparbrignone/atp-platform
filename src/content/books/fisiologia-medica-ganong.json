@@ -1,0 +1,10 @@
+{
+  "title": "Fisiología Médica",
+  "author": "Ganong",
+  "subject": "Fisiología",
+  "career": ["medicina"],
+  "resourceType": "libro",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/ganong-fisiologia-medica.pdf",
+  "description": "Fisiología médica integrada con enfoque en los mecanismos moleculares y de sistemas.",
+  "published": true
+}

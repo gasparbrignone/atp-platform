@@ -1,0 +1,10 @@
+{
+  "title": "Genética",
+  "author": "Manuales CTO",
+  "subject": "Genética",
+  "career": ["medicina"],
+  "resourceType": "resumen",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/manuales-cto-genetica.pdf",
+  "description": "Manual CTO de genética: resumen compacto orientado a la preparación de exámenes.",
+  "published": true
+}

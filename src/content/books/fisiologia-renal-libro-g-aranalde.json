@@ -1,0 +1,10 @@
+{
+  "title": "Fisiología Renal",
+  "author": "Libro. G. Aranalde",
+  "subject": "Fisiología",
+  "career": ["medicina"],
+  "resourceType": "libro",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/libro-g-aranalde-fisiologia-renal.pdf",
+  "description": "Fisiología renal: filtración glomerular, regulación hidroelectrolítica y equilibrio ácido-base.",
+  "published": true
+}

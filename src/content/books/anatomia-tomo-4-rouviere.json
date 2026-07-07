@@ -1,0 +1,10 @@
+{
+  "title": "Anatomía Tomo 4",
+  "author": "Rouviere",
+  "subject": "Anatomía normal",
+  "career": ["medicina"],
+  "resourceType": "libro",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/rouviere-anatomia-tomo-4.pdf",
+  "description": "Tratado de anatomía humana descriptiva, topográfica y funcional, cuarto tomo (sistema nervioso central).",
+  "published": true
+}

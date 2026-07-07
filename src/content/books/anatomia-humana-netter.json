@@ -4,7 +4,7 @@
   "subject": "Anatomía",
   "career": ["medicina"],
   "resourceType": "libro",
-  "downloadUrl": "https://drive.google.com/drive/folders/ejemplo-anatomia-netter",
+  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/netter-atlas-de-anatomia.pdf",
   "description": "Atlas de referencia con ilustraciones detalladas de todos los sistemas del cuerpo.",
   "published": true
 }
