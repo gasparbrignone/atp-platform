@@ -1,0 +1,34 @@
+---
+/**
+ * Embed responsivo de la playlist de "Subidas" del canal de YouTube de ATP
+ * (ver siteConfig.youtubeUploadsPlaylistId) — YouTube arma esa lista sola
+ * con cada video nuevo, así que esto siempre muestra lo más reciente sin
+ * tocar código ni depender de la API de YouTube (no hay backend en este
+ * sitio). Usa youtube-nocookie.com: no pone cookies de terceros hasta que
+ * la persona interactúa con el reproductor.
+ */
+import { siteConfig } from '@/config/site';
+
+interface Props {
+  title?: string;
+  class?: string;
+}
+
+const { title = 'Videos de ATP en YouTube', class: className } = Astro.props;
+---
+
+<div
+  class:list={[
+    'border-border bg-surface aspect-video w-full overflow-hidden rounded-md border',
+    className,
+  ]}
+>
+  <iframe
+    class="size-full"
+    src={`https://www.youtube-nocookie.com/embed/videoseries?list=${siteConfig.youtubeUploadsPlaylistId}`}
+    title={title}
+    loading="lazy"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen
+  ></iframe>
+</div>

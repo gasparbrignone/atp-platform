@@ -21,6 +21,7 @@ import Grid from '@/components/Grid.astro';
 import Card from '@/components/Card.astro';
 import Button from '@/components/Button.astro';
 import EmptyState from '@/components/EmptyState.astro';
+import YouTubeEmbed from '@/components/YouTubeEmbed.astro';
 import BookOpen from '@lucide/astro/icons/book-open';
 import Microscope from '@lucide/astro/icons/microscope';
 import CalendarCheck from '@lucide/astro/icons/calendar-check';
@@ -145,6 +146,17 @@ const instagramHandle = career.data.instagram
           )
         }
       </div>
+
+      {
+        // Solo Medicina por ahora — es el canal de YouTube de ATP en
+        // general, no hay contenido específico por carrera para segmentarlo.
+        career.id === 'medicina' && (
+          <div class="flex flex-col gap-6">
+            <SectionHeader title="Nuestro canal de YouTube" as="h2" />
+            <YouTubeEmbed />
+          </div>
+        )
+      }
 
       <div class="border-border flex flex-col items-center gap-4 border-t pt-10 text-center">
         <p class="text-h4 text-text font-bold">¿Querés participar de ATP?</p>
