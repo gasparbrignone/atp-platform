@@ -52,7 +52,7 @@ const publishedTools = await getCollection('tools', ({ data }) => data.published
             {publishedTools.map((tool) => {
               const Icon = toolIcons[tool.data.icon];
               return (
-                <Card>
+                <Card data-reveal>
                   <div slot="image" class="p-6 pb-0">
                     <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 items-center justify-center rounded-full">
                       <Icon class="size-6" aria-hidden="true" />

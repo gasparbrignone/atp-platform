@@ -125,6 +125,7 @@ const filterChips = [
             const typeName = resourceTypeNames.get(book.data.resourceType) ?? book.data.resourceType;
             return (
               <Card
+                data-reveal
                 data-book-card
                 data-career={book.data.career.join(' ')}
                 data-subject={book.data.subject}

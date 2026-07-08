@@ -67,7 +67,7 @@ const careers = [
       <Grid cols={4} gap="md">
         {
           quickLinks.map(({ icon: Icon, title, href }) => (
-            <Card>
+            <Card data-reveal>
               <div slot="image" class="p-6 pb-0">
                 <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 items-center justify-center rounded-full">
                   <Icon class="size-6" aria-hidden="true" />
@@ -140,7 +140,7 @@ const careers = [
       <Grid cols={4} gap="md">
         {
           careers.map(({ icon: Icon, name, href }) => (
-            <Card>
+            <Card data-reveal>
               <div slot="image" class="p-6 pb-0">
                 <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 items-center justify-center rounded-full">
                   <Icon class="size-6" aria-hidden="true" />
