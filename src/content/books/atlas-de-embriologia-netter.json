@@ -1,11 +1,12 @@
 {
   "title": "Atlas de Embriología",
   "author": "Netter",
-  "subject": "Embriología",
-  "career": ["medicina"],
+  "subject": "embriologia",
+  "career": [
+    "medicina"
+  ],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/netter-atlas-de-embriologia.pdf",
-  "description": "Atlas ilustrado del desarrollo embrionario humano, órgano por órgano y sistema por sistema.",
   "published": true,
   "cover": "/uploads/d061a688cbdc721198b7b3644fcb99b1.webp",
   "order": null

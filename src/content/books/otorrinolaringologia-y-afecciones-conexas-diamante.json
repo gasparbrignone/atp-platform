@@ -1,11 +1,12 @@
 {
   "title": "Otorrinolaringología y afecciones conexas",
   "author": "Diamante",
-  "subject": "Cirugía",
-  "career": ["medicina"],
+  "subject": "cirugia",
+  "career": [
+    "medicina"
+  ],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/diamante-otorrinolaringologia-y-afecciones-conexas.pdf",
-  "description": "Otorrinolaringología clínica: patologías de oído, nariz, garganta y afecciones relacionadas.",
   "published": true,
   "cover": "https://covers.openlibrary.org/b/id/12331643-M.jpg"
 }

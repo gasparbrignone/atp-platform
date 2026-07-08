@@ -10,7 +10,6 @@
  */
 
 export type ActivityStatus = 'proxima' | 'activa' | 'finalizada';
-export type ResourceType = 'libro' | 'resumen' | 'guia';
 export type CareerSlug = 'medicina' | 'enfermeria' | 'fonoaudiologia' | 'terapia-ocupacional';
 export type ToolIconKey = 'book-open' | 'microscope' | 'calculator' | 'activity' | 'link';
 export type CareerToolIconKey = 'book-open' | 'microscope' | 'calendar-check';
@@ -21,11 +20,10 @@ export const statusLabels: Record<ActivityStatus, string> = {
   finalizada: 'Finalizada',
 };
 
-export const resourceTypeLabels: Record<ResourceType, string> = {
-  libro: 'Libro',
-  resumen: 'Resumen',
-  guia: 'Guía',
-};
+// No hay `resourceTypeLabels` acá a propósito: los tipos de recurso de la
+// Biblioteca (libro/resumen/guía/...) ya no son un enum fijo, son la
+// colección editable `resourceTypes` — se resuelven contra ella en
+// src/pages/biblioteca.astro, igual que `subjects`.
 
 export const careerLabels: Record<CareerSlug, string> = {
   medicina: 'Medicina',

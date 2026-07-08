@@ -1,11 +1,12 @@
 {
   "title": "Fisiología Médica",
   "author": "Guyton & Hall",
-  "subject": "Fisiología",
-  "career": ["medicina"],
+  "subject": "fisiologia",
+  "career": [
+    "medicina"
+  ],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/guyton-fisiologia-medica.pdf",
-  "description": "Texto clásico de fisiología humana con enfoque clínico integrado.",
   "published": true,
   "cover": "https://covers.openlibrary.org/b/id/7903981-M.jpg"
 }

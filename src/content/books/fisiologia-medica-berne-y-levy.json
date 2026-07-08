@@ -1,11 +1,12 @@
 {
   "title": "Fisiología Médica",
   "author": "Berne y Levy",
-  "subject": "Fisiología",
-  "career": ["medicina"],
+  "subject": "fisiologia",
+  "career": [
+    "medicina"
+  ],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/berne-y-levy-fisiologia-medica.pdf",
-  "description": "Fisiología médica con enfoque en los mecanismos celulares y su integración en los sistemas del cuerpo.",
   "published": true,
   "cover": "/uploads/pasted-image-1783389182267.png",
   "order": null

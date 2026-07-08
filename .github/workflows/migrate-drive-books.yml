@@ -1,0 +1,70 @@
+name: Migrar libros de Google Drive
+
+# Corre cuando se edita/crea una entrada de la Biblioteca (vía CMS o commit
+# directo). scripts/migrate-drive-books.mjs decide entrada por entrada si
+# hay algo para hacer: solo procesa las que tienen `driveUrl` pero todavía
+# no `downloadUrl` — así una entrada ya migrada no se vuelve a tocar.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/content/books/**.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: migrate-drive-books
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # El GITHUB_TOKEN por defecto no dispara otros workflows al hacer
+          # push (para evitar loops infinitos) — necesitamos que el commit
+          # de este job SÍ dispare "Deploy to GitHub Pages", así que usamos
+          # un Personal Access Token propio en su lugar (ver
+          # docs/STACK_DECISIONS.md → Biblioteca, y el secret RELEASES_PAT).
+          token: ${{ secrets.RELEASES_PAT }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar gdown
+        # gdown maneja la descarga de Drive incluyendo el "confirm token" que
+        # pide para archivos grandes (el aviso de "no se puede escanear por
+        # virus") — reimplementar eso a mano no vale la pena.
+        run: pip install gdown
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Migrar libros pendientes
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/migrate-drive-books.mjs
+
+      - name: Commitear y pushear si hubo cambios
+        env:
+          GIT_AUTHOR_NAME: atp-bot
+          GIT_AUTHOR_EMAIL: atp-bot@users.noreply.github.com
+          GIT_COMMITTER_NAME: atp-bot
+          GIT_COMMITTER_EMAIL: atp-bot@users.noreply.github.com
+        run: |
+          if git diff --quiet -- src/content/books; then
+            echo "Sin cambios para commitear."
+          else
+            git add src/content/books
+            git commit -m "chore: migrar libros de Google Drive a GitHub Releases"
+            git push
+          fi

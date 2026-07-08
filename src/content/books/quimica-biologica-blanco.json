@@ -1,11 +1,12 @@
 {
   "title": "Química Biológica",
   "author": "Blanco",
-  "subject": "Química",
-  "career": ["medicina"],
+  "subject": "quimica",
+  "career": [
+    "medicina"
+  ],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/blanco-quimica-biologica.pdf",
-  "description": "Química biológica: metabolismo, bioenergética y bases bioquímicas de los procesos celulares.",
   "published": true,
   "cover": "https://covers.openlibrary.org/b/id/3343896-M.jpg"
 }

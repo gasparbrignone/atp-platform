@@ -1,14 +1,20 @@
 ---
 /**
- * Biblioteca. Assembles only existing components; data is local/static
- * (src/content/books.ts), no CMS or backend involved.
+ * Biblioteca. Content is local (src/content/books + subjects +
+ * resourceTypes), no backend involved — "subjects" and "resourceTypes" are
+ * their own CMS-editable collections (not fixed enums) so ATP can add a new
+ * materia or tipo de recurso (ej. "Cuaderno del alumno", "Inmunología") from
+ * the CMS itself, without a code change.
  *
- * Simplified on purpose (identity/UX pass): a library is a "search and
- * find", not a dashboard — one search box (title/author) plus a single
- * "Carrera" filter is enough. The earlier version also filtered by tipo de
- * recurso; that second axis added filter chips and a second dropdown for
- * marginal benefit, so it was dropped. The resource type still shows as a
- * Badge on each card — removing the filter doesn't remove the information.
+ * Three filter axes (Carrera, Materia, Tipo) plus a title/author search.
+ * Filter chips only ever represent the *currently selected* value of each
+ * dropdown — they're not a static legend. Visibility is driven by an inline
+ * `style.display`, not a `hidden` class: FilterChip's root element already
+ * carries `inline-flex` in its own template, and Tailwind can (depending on
+ * build-time utility ordering) generate `.inline-flex{}` *after* `.hidden{}`
+ * in the stylesheet, in which case same-specificity `inline-flex` wins the
+ * cascade and the chip stays visually shown even with the `hidden` class
+ * applied — inline style always wins regardless of that ordering.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Section from '@/components/Section.astro';
@@ -24,10 +30,38 @@ import FilterPanel from '@/components/FilterPanel.astro';
 import FilterChip from '@/components/FilterChip.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import { getCollection } from 'astro:content';
-import { careerLabels, resourceTypeLabels, type CareerSlug } from '@/lib/labels';
+import { careerLabels, type CareerSlug } from '@/lib/labels';
 
 const publishedBooks = await getCollection('books', ({ data }) => data.published);
 const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
+
+const subjects = await getCollection('subjects');
+const resourceTypes = await getCollection('resourceTypes');
+const subjectNames = new Map(subjects.map((entry) => [entry.id, entry.data.name]));
+const resourceTypeNames = new Map(resourceTypes.map((entry) => [entry.id, entry.data.name]));
+
+function sortedUsedOptions(names: Map<string, string>, usedSlugs: Set<string>) {
+  return [...usedSlugs]
+    .filter((slug) => names.has(slug))
+    .map((slug) => [slug, names.get(slug)!] as const)
+    .sort((a, b) => a[1].localeCompare(b[1], 'es'));
+}
+
+const usedSubjectSlugs = new Set(publishedBooks.map((book) => book.data.subject));
+const usedResourceTypeSlugs = new Set(publishedBooks.map((book) => book.data.resourceType));
+const subjectOptions = sortedUsedOptions(subjectNames, usedSubjectSlugs);
+const resourceTypeOptions = sortedUsedOptions(resourceTypeNames, usedResourceTypeSlugs);
+
+// Built as one flat array instead of three separate `.map()` blocks in the
+// template: Astro only kept the *last* of several sibling expressions each
+// targeting the same named slot (`slot="chips"`), silently dropping the
+// career/subject chips — merging into a single array + single `.map()`
+// sidesteps that entirely.
+const filterChips = [
+  ...careerOptions.map(([slug, label]) => ({ value: `career:${slug}`, label })),
+  ...subjectOptions.map(([slug, label]) => ({ value: `subject:${slug}`, label })),
+  ...resourceTypeOptions.map(([slug, label]) => ({ value: `type:${slug}`, label })),
+];
 ---
 
 <BaseLayout
@@ -57,56 +91,87 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
           </Select>
         </div>
 
+        <div class="flex flex-col gap-1">
+          <label for="filter-subject" class="text-caption text-text-secondary font-semibold">
+            Materia
+          </label>
+          <Select id="filter-subject" data-filter-subject class="min-w-48">
+            <option value="all">Todas las materias</option>
+            {subjectOptions.map(([slug, label]) => <option value={slug}>{label}</option>)}
+          </Select>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label for="filter-type" class="text-caption text-text-secondary font-semibold">
+            Tipo
+          </label>
+          <Select id="filter-type" data-filter-type class="min-w-48">
+            <option value="all">Todos los tipos</option>
+            {resourceTypeOptions.map(([slug, label]) => <option value={slug}>{label}</option>)}
+          </Select>
+        </div>
+
         {
-          careerOptions.map(([slug, label]) => (
-            <FilterChip slot="chips" value={`career:${slug}`} label={label} class="hidden" />
+          filterChips.map(({ value, label }) => (
+            <FilterChip slot="chips" value={value} label={label} style="display: none" />
           ))
         }
       </FilterPanel>
 
       <Grid data-library-grid cols={3} gap="md">
         {
-          publishedBooks.map((book) => (
-            <Card
-              data-book-card
-              data-career={book.data.career.join(' ')}
-              data-search={`${book.data.author} ${book.data.title} ${book.data.subject}`}
-            >
-              <Badge slot="badge" variant="secondary">
-                {resourceTypeLabels[book.data.resourceType]}
-              </Badge>
-              <div slot="title" class="flex items-start gap-3">
-                {book.data.cover && (
-                  <img
-                    src={book.data.cover}
-                    alt=""
-                    loading="lazy"
-                    width="40"
-                    height="56"
-                    class="border-border h-14 w-10 flex-shrink-0 rounded-sm border object-cover"
-                  />
-                )}
-                <h3 class="text-h4 text-text font-bold">
-                  {book.data.author} - {book.data.title}
-                </h3>
-              </div>
-              <p class="text-body-sm text-text-secondary font-semibold">{book.data.subject}</p>
-              <div slot="actions" class="flex items-center justify-between gap-4">
-                <span class="text-caption text-text-secondary">
-                  {book.data.career.map((slug) => careerLabels[slug]).join(', ')}
-                </span>
-                <Button
-                  href={book.data.downloadUrl}
-                  target="_blank"
-                  variant="outline"
-                  size="sm"
-                  trackId={`descarga:${book.id}`}
-                >
-                  Descargar
-                </Button>
-              </div>
-            </Card>
-          ))
+          publishedBooks.map((book) => {
+            const subjectName = subjectNames.get(book.data.subject) ?? book.data.subject;
+            const typeName = resourceTypeNames.get(book.data.resourceType) ?? book.data.resourceType;
+            return (
+              <Card
+                data-book-card
+                data-career={book.data.career.join(' ')}
+                data-subject={book.data.subject}
+                data-resource-type={book.data.resourceType}
+                data-search={`${book.data.author} ${book.data.title} ${subjectName}`}
+              >
+                <Badge slot="badge" variant="secondary">
+                  {typeName}
+                </Badge>
+                <div slot="title" class="flex items-start gap-3">
+                  {book.data.cover && (
+                    <img
+                      src={book.data.cover}
+                      alt=""
+                      loading="lazy"
+                      width="40"
+                      height="56"
+                      class="border-border h-14 w-10 flex-shrink-0 rounded-sm border object-cover"
+                    />
+                  )}
+                  <div class="flex flex-col gap-0.5">
+                    <h3 class="text-h4 text-text font-bold">{book.data.title}</h3>
+                    <p class="text-body-sm text-text-secondary">{book.data.author}</p>
+                  </div>
+                </div>
+                <p class="text-body-sm text-text-secondary font-semibold">{subjectName}</p>
+                <div slot="actions" class="flex items-center justify-between gap-4">
+                  <span class="text-caption text-text-secondary">
+                    {book.data.career.map((slug) => careerLabels[slug]).join(', ')}
+                  </span>
+                  {book.data.downloadUrl ? (
+                    <Button
+                      href={book.data.downloadUrl}
+                      target="_blank"
+                      variant="outline"
+                      size="sm"
+                      trackId={`descarga:${book.id}`}
+                    >
+                      Descargar
+                    </Button>
+                  ) : (
+                    <Badge variant="info">Disponible pronto</Badge>
+                  )}
+                </div>
+              </Card>
+            );
+          })
         }
       </Grid>
 
@@ -114,7 +179,7 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
         data-library-empty
         class="hidden"
         title="No encontramos nada con esa búsqueda"
-        description="Probá con otra palabra o cambiá la carrera."
+        description="Probá con otra palabra o cambiá los filtros."
       />
     </Container>
   </Section>
@@ -134,6 +199,8 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
   const chips = document.querySelectorAll<HTMLElement>('[data-filter-chip]');
   const searchInput = document.querySelector<HTMLInputElement>('[data-library-search]');
   const careerSelect = document.querySelector<HTMLSelectElement>('#filter-career');
+  const subjectSelect = document.querySelector<HTMLSelectElement>('#filter-subject');
+  const typeSelect = document.querySelector<HTMLSelectElement>('#filter-type');
   const grid = document.querySelector<HTMLElement>('[data-library-grid]');
   const emptyState = document.querySelector<HTMLElement>('[data-library-empty]');
 
@@ -179,6 +246,8 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
 
   function applyFilters() {
     const career = careerSelect?.value ?? 'all';
+    const subject = subjectSelect?.value ?? 'all';
+    const type = typeSelect?.value ?? 'all';
     const queryWords = normalize(searchInput?.value ?? '')
       .trim()
       .split(/\s+/)
@@ -188,18 +257,24 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
     cards.forEach((card) => {
       const cardCareers = (card.dataset.career ?? '').split(' ');
       const matchesCareer = career === 'all' || cardCareers.includes(career);
+      const matchesSubject = subject === 'all' || card.dataset.subject === subject;
+      const matchesType = type === 'all' || card.dataset.resourceType === type;
       const words = cardWords.get(card) ?? [];
       const matchesQuery =
         queryWords.length === 0 ||
         queryWords.every((queryWord) => words.some((word) => wordMatches(queryWord, word)));
-      const matches = matchesCareer && matchesQuery;
+      const matches = matchesCareer && matchesSubject && matchesType && matchesQuery;
       card.classList.toggle('hidden', !matches);
       if (matches) visibleCount += 1;
     });
 
     chips.forEach((chip) => {
       const value = chip.dataset.filterChip ?? '';
-      chip.classList.toggle('hidden', career === 'all' || value !== `career:${career}`);
+      const isActive =
+        (career !== 'all' && value === `career:${career}`) ||
+        (subject !== 'all' && value === `subject:${subject}`) ||
+        (type !== 'all' && value === `type:${type}`);
+      chip.style.display = isActive ? '' : 'none';
     });
 
     grid?.classList.toggle('hidden', visibleCount === 0);
@@ -207,6 +282,8 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
   }
 
   careerSelect?.addEventListener('change', applyFilters);
+  subjectSelect?.addEventListener('change', applyFilters);
+  typeSelect?.addEventListener('change', applyFilters);
   searchInput?.addEventListener('input', applyFilters);
 
   let searchTrackTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -221,11 +298,15 @@ const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
   document.addEventListener('filterchip:remove', ((event: CustomEvent<{ value: string }>) => {
     const value = event.detail?.value ?? '';
     if (value.startsWith('career:') && careerSelect) careerSelect.value = 'all';
+    if (value.startsWith('subject:') && subjectSelect) subjectSelect.value = 'all';
+    if (value.startsWith('type:') && typeSelect) typeSelect.value = 'all';
     applyFilters();
   }) as EventListener);
 
   document.addEventListener('filterpanel:clear', () => {
     if (careerSelect) careerSelect.value = 'all';
+    if (subjectSelect) subjectSelect.value = 'all';
+    if (typeSelect) typeSelect.value = 'all';
     if (searchInput) searchInput.value = '';
     applyFilters();
   });

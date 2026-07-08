@@ -1,11 +1,12 @@
 {
   "title": "Histología",
   "author": "Ross",
-  "subject": "Histología",
-  "career": ["medicina"],
+  "subject": "histologia",
+  "career": [
+    "medicina"
+  ],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/ross-histologia.pdf",
-  "description": "Texto e histología con enfoque en la correlación clínica de los tejidos.",
   "published": true,
   "cover": "https://covers.openlibrary.org/b/id/10443942-M.jpg"
 }

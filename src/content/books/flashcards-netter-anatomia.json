@@ -1,13 +1,12 @@
 {
   "title": "Flashcards Anatomía",
   "author": "Netter",
-  "subject": "Anatomía",
+  "subject": "anatomia",
   "career": [
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://drive.google.com/file/d/19v5NwNbXX6AxafrpSqcp9P3Bmjb1yuCU/view?usp=drive_link",
-  "description": "Flashcards Netter - Anatomía",
+  "driveUrl": "https://drive.google.com/file/d/19v5NwNbXX6AxafrpSqcp9P3Bmjb1yuCU/view?usp=drive_link",
   "published": true,
   "cover": "/uploads/pasted-image-1783512819235.png",
   "order": null

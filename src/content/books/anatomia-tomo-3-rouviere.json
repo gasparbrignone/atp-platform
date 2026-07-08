@@ -1,11 +1,12 @@
 {
   "title": "Anatomía Tomo 3",
   "author": "Rouviere",
-  "subject": "Anatomía normal",
-  "career": ["medicina"],
+  "subject": "anatomia",
+  "career": [
+    "medicina"
+  ],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/rouviere-anatomia-tomo-3.pdf",
-  "description": "Tratado de anatomía humana descriptiva, topográfica y funcional, tercer tomo (miembros).",
   "published": true,
   "cover": "/uploads/AnatomiaHumana-rouviereT3.jpg",
   "order": null

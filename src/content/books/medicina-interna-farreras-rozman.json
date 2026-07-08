@@ -1,11 +1,12 @@
 {
   "title": "Medicina Interna",
   "author": "Farreras Rozman",
-  "subject": "Medicina Interna",
-  "career": ["medicina"],
+  "subject": "medicina-interna",
+  "career": [
+    "medicina"
+  ],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/farreras-rozman-medicina-interna.pdf",
-  "description": "Tratado de referencia en medicina interna, organizado por aparatos y sistemas.",
   "published": true,
   "cover": "/uploads/pasted-image-1783389155537.png",
   "order": null

@@ -1,11 +1,12 @@
 {
   "title": "Anatomía Humana",
   "author": "Frank H. Netter",
-  "subject": "Anatomía",
-  "career": ["medicina"],
+  "subject": "anatomia",
+  "career": [
+    "medicina"
+  ],
   "resourceType": "libro",
   "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/netter-atlas-de-anatomia.pdf",
-  "description": "Atlas de referencia con ilustraciones detalladas de todos los sistemas del cuerpo.",
   "published": true,
   "cover": "https://covers.openlibrary.org/b/id/12501247-M.jpg"
 }

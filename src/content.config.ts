@@ -37,17 +37,54 @@ const books = defineCollection({
   schema: z.object({
     title: z.string(),
     author: z.string(),
+    // Slug de una entrada de la colección `subjects` (no el nombre libre de
+    // antes) — se resuelve contra esa colección al armar la página, igual
+    // que `career` se resuelve contra `careerLabels`. Permite crear materias
+    // nuevas desde el CMS sin tocar código (ver `subjects` más abajo).
     subject: z.string(),
     career: z.array(z.enum(['medicina', 'enfermeria', 'fonoaudiologia', 'terapia-ocupacional'])),
-    resourceType: z.enum(['libro', 'resumen', 'guia']),
-    downloadUrl: z.httpUrl(),
-    description: z.string(),
+    // Slug de una entrada de `resourceTypes`, mismo motivo que `subject`:
+    // antes era un `z.enum` fijo (libro/resumen/guia), ahora es
+    // CMS-extensible (ej. "cuaderno del alumno") sin deploy de código.
+    resourceType: z.string(),
+    // Link para el botón "Descargar". Puede faltar mientras `driveUrl` está
+    // siendo migrado automáticamente a un asset de GitHub Releases (ver
+    // .github/workflows/migrate-drive-books.yml) — por eso `.nullish()` y no
+    // requerido: un libro recién cargado no debe romper el build entero
+    // mientras la migración corre.
+    downloadUrl: z.httpUrl().nullish(),
+    // Link de "Compartir" de Google Drive tal cual lo pega la persona que
+    // carga el libro. El workflow de migración lo lee, descarga el archivo,
+    // lo sube como asset de GitHub Releases y completa `downloadUrl` solo —
+    // nunca se usa directamente como link de descarga (ver STACK_DECISIONS.md
+    // → Biblioteca).
+    driveUrl: z.httpUrl().nullish(),
     published: z.boolean(),
     // Todavía sin consumidor en ninguna página — solo preparar el modelo y
     // el CMS para cuando haya portadas reales. Path plano (no el helper
     // `image()` de Astro) porque ese helper exige que el archivo
     // referenciado exista en build time, y hoy no hay ninguna imagen real.
     cover: z.string().nullish(),
+    order: z.number().nullish(),
+  }),
+});
+
+// Materias (ej. "Fisiología") y tipos de recurso (ej. "Cuaderno del
+// alumno") como colecciones editables desde el CMS en vez de listas fijas
+// en código — así ATP puede crear una categoría nueva (ej. al cargar el
+// primer libro de Inmunología) sin pedir un cambio de código.
+const subjects = defineCollection({
+  loader: glob({ pattern: '**/*.json', base: './src/content/subjects' }),
+  schema: z.object({
+    name: z.string(),
+    order: z.number().nullish(),
+  }),
+});
+
+const resourceTypes = defineCollection({
+  loader: glob({ pattern: '**/*.json', base: './src/content/resourceTypes' }),
+  schema: z.object({
+    name: z.string(),
     order: z.number().nullish(),
   }),
 });
@@ -134,4 +171,4 @@ const tools = defineCollection({
   }),
 });
 
-export const collections = { activities, books, careers, tools };
+export const collections = { activities, books, careers, tools, subjects, resourceTypes };

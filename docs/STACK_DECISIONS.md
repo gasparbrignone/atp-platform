@@ -223,17 +223,19 @@ La arquitectura debe permitir reemplazar el proveedor de envío en el futuro sin
 
 ## Decisión
 
-Los archivos permanecerán almacenados en Google Drive.
+Superada (2026-07-08): los archivos NO se quedan en Google Drive. Cada libro se descarga una sola vez y se re-aloja como asset de GitHub Releases; el link de descarga real (`downloadUrl`) siempre apunta a `github.com/.../releases/download/...`, nunca a `drive.google.com`.
 
-La plataforma actuará como un catálogo inteligente.
+La persona que carga un libro solo pega el link de "Compartir" de Drive en el campo `driveUrl` del CMS. Un GitHub Action (`.github/workflows/migrate-drive-books.yml` + `scripts/migrate-drive-books.mjs`) detecta esa entrada, descarga el archivo con `gdown` (sin necesitar credenciales de la API de Google Drive — alcanza con que el archivo tenga el link compartido como "cualquiera con el link puede ver"), lo sube a un release de GitHub (`biblioteca-<carrera>-v1`) y completa `downloadUrl` solo, en un commit propio.
+
+`driveUrl` no se borra después de migrar — queda como referencia de origen. Una entrada con `driveUrl` pero sin `downloadUrl` todavía está "en proceso" (el campo es opcional justamente por esta ventana).
 
 ## Motivos
 
-No es necesario duplicar almacenamiento.
+Un link de Drive normal abre el visor web (requiere un clic extra para descargar) — el pedido explícito era que descargue directo, "como los libros que ya están".
 
-Google Drive ya forma parte del flujo de trabajo de ATP.
+Re-alojar en GitHub Releases evita depender de que Drive no cambie el archivo/permisos de un link ya compartido, y da una URL estable de descarga directa sin pasos intermedios.
 
-El valor agregado estará en la experiencia de búsqueda y organización.
+`gdown` evita necesitar una cuenta de servicio de Google Cloud (API de Drive): dado que ATP ya comparte el archivo como "cualquiera con el link", alcanza con el link público.
 
 ---
 

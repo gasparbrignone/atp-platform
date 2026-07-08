@@ -83,7 +83,16 @@ collections:
     fields:
       - { label: Título, name: title, widget: string }
       - { label: Autor, name: author, widget: string }
-      - { label: Materia, name: subject, widget: string }
+      - {
+          label: Materia,
+          name: subject,
+          widget: relation,
+          collection: subjects,
+          value_field: '{{slug}}',
+          search_fields: [name],
+          display_fields: [name],
+          hint: '¿No está la materia que buscás? Creala primero en "Materias" (menú de la izquierda) y después volvé acá a elegirla.',
+        }
       - {
           label: Carreras,
           name: career,
@@ -91,18 +100,60 @@ collections:
           multiple: true,
           options: [medicina, enfermeria, fonoaudiologia, terapia-ocupacional],
         }
-      - { label: Tipo, name: resourceType, widget: select, options: [libro, resumen, guia] }
+      - {
+          label: Tipo,
+          name: resourceType,
+          widget: relation,
+          collection: resourceTypes,
+          value_field: '{{slug}}',
+          search_fields: [name],
+          display_fields: [name],
+          hint: '¿No está el tipo que buscás (ej. "Cuaderno del alumno")? Crealo primero en "Tipos de recurso" y después volvé acá a elegirlo.',
+        }
+      - {
+          label: Link de Google Drive,
+          name: driveUrl,
+          widget: string,
+          required: false,
+          pattern: ['^https?://', 'Debe empezar con http:// o https://'],
+          hint: 'Pegá acá el link para compartir de Google Drive (que cualquiera con el link pueda verlo). En unos minutos el sitio lo migra solo a una descarga directa y completa "Link de descarga" — no lo completes vos a mano.',
+        }
       - {
           label: Link de descarga,
           name: downloadUrl,
           widget: string,
+          required: false,
           pattern: ['^https?://', 'Debe empezar con http:// o https://'],
+          hint: 'Se completa solo a partir del "Link de Google Drive" de arriba. No hace falta tocarlo.',
         }
-      - { label: Descripción, name: description, widget: text }
       - { label: Publicado, name: published, widget: boolean, default: true }
       # Sin consumidor todavía en ninguna página — solo se prepara el campo
       # para cuando haya portadas reales (ver content.config.ts).
       - { label: Portada, name: cover, widget: image, required: false }
+      - { label: Orden, name: order, widget: number, required: false, value_type: int }
+
+  - name: subjects
+    label: Materias
+    folder: src/content/subjects
+    create: true
+    delete: true
+    slug: '{{slug}}'
+    extension: json
+    format: json
+    fields:
+      - { label: Nombre, name: name, widget: string }
+      - { label: Orden, name: order, widget: number, required: false, value_type: int }
+
+  - name: resourceTypes
+    label: Tipos de recurso
+    folder: src/content/resourceTypes
+    create: true
+    delete: true
+    slug: '{{slug}}'
+    extension: json
+    format: json
+    fields:
+      - { label: Nombre, name: name, widget: string }
       - { label: Orden, name: order, widget: number, required: false, value_type: int }
 
   # create/delete en false a propósito: los íconos por carrera están
