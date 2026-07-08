@@ -52,7 +52,7 @@ const upcomingActivities = publishedActivities.filter(
         thisWeekActivities.length > 0 && (
           <div class="flex flex-col gap-6">
             <SectionHeader title="Esta semana" as="h2" />
-            <Grid cols={3} gap="md" data-stack>
+            <Grid cols={3} gap="md">
               {thisWeekActivities.map((activity) => (
                 <ActivityCard activity={activity} />
               ))}
@@ -65,7 +65,7 @@ const upcomingActivities = publishedActivities.filter(
         upcomingActivities.length > 0 && (
           <div class="flex flex-col gap-6">
             <SectionHeader title="Próximas actividades" as="h2" />
-            <Grid cols={3} gap="md" data-stack>
+            <Grid cols={3} gap="md">
               {upcomingActivities.map((activity) => (
                 <ActivityCard activity={activity} />
               ))}
