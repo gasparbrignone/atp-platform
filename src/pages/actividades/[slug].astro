@@ -18,6 +18,7 @@ import Container from '@/components/Container.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
 import Button from '@/components/Button.astro';
 import { getCollection, type CollectionEntry } from 'astro:content';
+import { getActivityScheduleLabel } from '@/lib/activitySchedule';
 
 export const getStaticPaths: GetStaticPaths = async () => {
   const activities = await getCollection('activities', ({ data }) => data.published);
@@ -28,9 +29,7 @@ export const getStaticPaths: GetStaticPaths = async () => {
 };
 
 const { activity } = Astro.props as { activity: CollectionEntry<'activities'> };
-const meta = [activity.data.date, activity.data.time, activity.data.location]
-  .filter(Boolean)
-  .join(' · ');
+const meta = getActivityScheduleLabel(activity.data);
 ---
 
 <BaseLayout

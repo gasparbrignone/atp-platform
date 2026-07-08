@@ -35,10 +35,22 @@ const activities = defineCollection({
     // opcional vacío como `null` explícito, no como clave ausente — el
     // schema tiene que aceptar ambas formas de "no hay valor".
     description: z.string().nullish(),
-    date: z.string(),
-    time: z.string(),
+    // `date`/`time` dejaron de ser requeridos: una actividad `recurring`
+    // (ej. un grupo de estudio semanal) no tiene una fecha puntual — se
+    // describe con `weekday` en su lugar (ver src/lib/activitySchedule.ts).
+    date: z.string().nullish(),
+    time: z.string().nullish(),
+    endTime: z.string().nullish(),
     location: z.string().nullish(),
     status: z.enum(['proxima', 'activa', 'finalizada']),
+    // Actividad que se repite todas las semanas el mismo día/horario (ej.
+    // "grupo de estudio, todos los miércoles"), en vez de un evento puntual
+    // con `date` fija que habría que reeditar cada semana para que no
+    // quede vieja. `weekday` solo se usa cuando `recurring` es true.
+    recurring: z.boolean().nullish(),
+    weekday: z
+      .enum(['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'])
+      .nullish(),
     registrationUrl: optionalUrl,
     featured: z.boolean(),
     published: z.boolean(),

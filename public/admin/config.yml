@@ -45,19 +45,54 @@ collections:
       - { label: Resumen, name: summary, widget: text }
       - { label: Descripción, name: description, widget: text, required: false }
       - {
+          label: '¿Se repite todas las semanas?',
+          name: recurring,
+          widget: boolean,
+          default: false,
+          hint: 'Activalo para algo como un grupo de estudio semanal. Si lo activás, completá "Día de la semana" en vez de "Fecha".',
+        }
+      - {
+          label: Día de la semana,
+          name: weekday,
+          widget: select,
+          required: false,
+          hint: 'Solo si "¿Se repite todas las semanas?" está activado.',
+          options:
+            [
+              { label: Lunes, value: lunes },
+              { label: Martes, value: martes },
+              { label: Miércoles, value: miercoles },
+              { label: Jueves, value: jueves },
+              { label: Viernes, value: viernes },
+              { label: Sábado, value: sabado },
+              { label: Domingo, value: domingo },
+            ],
+        }
+      - {
           label: Fecha,
           name: date,
           widget: datetime,
+          required: false,
           format: 'YYYY-MM-DD',
           date_format: true,
           time_format: false,
           picker_utc: true,
+          hint: 'Solo para una actividad puntual. No hace falta si "¿Se repite todas las semanas?" está activado.',
         }
       - {
-          label: Hora,
+          label: Hora de inicio,
           name: time,
           widget: string,
+          required: false,
           pattern: ['^([01]\d|2[0-3]):[0-5]\d$', 'Formato HH:MM en 24hs, ej: 08:00 o 19:45'],
+        }
+      - {
+          label: Hora de fin,
+          name: endTime,
+          widget: string,
+          required: false,
+          hint: 'Opcional, para mostrar un rango (ej. "14:00 a 16:00hs").',
+          pattern: ['^([01]\d|2[0-3]):[0-5]\d$', 'Formato HH:MM en 24hs, ej: 16:00'],
         }
       - { label: Lugar, name: location, widget: string, required: false }
       - { label: Estado, name: status, widget: select, options: [proxima, activa, finalizada] }

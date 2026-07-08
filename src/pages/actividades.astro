@@ -27,6 +27,7 @@ import aulaIntegracion from '@/assets/actividades/aula-integracion.jpg';
 import aulaMapa from '@/assets/actividades/aula-mapa.jpg';
 import auditorioAtp from '@/assets/actividades/auditorio-atp.jpg';
 import { getCollection } from 'astro:content';
+import { getActivityScheduleLabel } from '@/lib/activitySchedule';
 
 const publishedActivities = await getCollection('activities', ({ data }) => data.published);
 const featuredActivities = publishedActivities.filter((activity) => activity.data.featured);
@@ -64,14 +65,12 @@ const galleryPhotos = [
             <SectionHeader title="Próximas actividades" as="h2" />
             <Grid cols={3} gap="md">
               {featuredActivities.map((activity) => (
-                <Card>
+                <Card data-reveal>
                   <h3 slot="title" class="text-h4 text-text font-bold">
                     {activity.data.title}
                   </h3>
                   <p class="text-body-sm text-text-secondary font-semibold">
-                    {[activity.data.date, activity.data.time, activity.data.location]
-                      .filter(Boolean)
-                      .join(' · ')}
+                    {getActivityScheduleLabel(activity.data)}
                   </p>
                   <p class="mt-2">{activity.data.summary}</p>
                   <div slot="actions" class="flex flex-wrap items-center gap-2">
@@ -101,14 +100,12 @@ const galleryPhotos = [
         publishedActivities.length > 0 ? (
           <Grid cols={3} gap="md">
             {publishedActivities.map((activity) => (
-              <Card>
+              <Card data-reveal>
                 <h2 slot="title" class="text-h4 text-text font-bold">
                   {activity.data.title}
                 </h2>
                 <p class="text-body-sm text-text-secondary font-semibold">
-                  {[activity.data.date, activity.data.time, activity.data.location]
-                    .filter(Boolean)
-                    .join(' · ')}
+                  {getActivityScheduleLabel(activity.data)}
                 </p>
                 <p class="mt-2">{activity.data.summary}</p>
                 <div slot="actions" class="flex flex-wrap items-center gap-2">

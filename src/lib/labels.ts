@@ -10,6 +10,14 @@
  */
 
 export type ActivityStatus = 'proxima' | 'activa' | 'finalizada';
+export type Weekday =
+  | 'lunes'
+  | 'martes'
+  | 'miercoles'
+  | 'jueves'
+  | 'viernes'
+  | 'sabado'
+  | 'domingo';
 export type CareerSlug = 'medicina' | 'enfermeria' | 'fonoaudiologia' | 'terapia-ocupacional';
 export type ToolIconKey = 'book-open' | 'microscope' | 'calculator' | 'activity' | 'link';
 export type CareerToolIconKey = 'book-open' | 'microscope' | 'calendar-check';
@@ -18,6 +26,16 @@ export const statusLabels: Record<ActivityStatus, string> = {
   proxima: 'Próxima',
   activa: 'Activa',
   finalizada: 'Finalizada',
+};
+
+export const weekdayLabels: Record<Weekday, string> = {
+  lunes: 'lunes',
+  martes: 'martes',
+  miercoles: 'miércoles',
+  jueves: 'jueves',
+  viernes: 'viernes',
+  sabado: 'sábados',
+  domingo: 'domingos',
 };
 
 // No hay `resourceTypeLabels` acá a propósito: los tipos de recurso de la
