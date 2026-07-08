@@ -279,6 +279,13 @@ collections:
               widget: select,
               options: [book-open, microscope, calendar-check],
             }
+          - {
+              label: Ícono personalizado,
+              name: customIcon,
+              widget: image,
+              required: false,
+              hint: 'Opcional. Si subís una imagen acá, se usa en vez del ícono elegido arriba.',
+            }
       - label: Recursos
         name: resources
         widget: list
@@ -327,6 +334,13 @@ collections:
           name: icon,
           widget: select,
           options: [book-open, microscope, calculator, activity, link],
+        }
+      - {
+          label: Ícono personalizado,
+          name: customIcon,
+          widget: image,
+          required: false,
+          hint: 'Opcional. Si subís una imagen acá, se usa en vez del ícono elegido arriba.',
         }
       - {
           label: Contenido extendido,

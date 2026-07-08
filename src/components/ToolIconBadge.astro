@@ -1,0 +1,41 @@
+---
+/**
+ * Círculo de ícono usado por Herramientas (sueltas y de carrera): un
+ * ícono Lucide sobre fondo tenue por default, o una imagen subida por CMS
+ * (`customIcon`) en su lugar cuando existe — misma pieza visual en la
+ * tarjeta y en el detalle, así que se extrae en vez de repetirla en cada
+ * página (ver src/pages/herramientas.astro, herramientas/[tool].astro,
+ * carreras/[career].astro).
+ */
+import type { AstroComponentFactory } from 'astro/runtime/server/index.js';
+
+interface Props {
+  icon: AstroComponentFactory;
+  customIcon?: string | null;
+  class?: string;
+}
+
+const { icon: Icon, customIcon, class: className } = Astro.props;
+---
+
+{
+  customIcon ? (
+    <img
+      src={customIcon}
+      alt=""
+      loading="lazy"
+      width="48"
+      height="48"
+      class:list={['size-12 shrink-0 rounded-full object-cover', className]}
+    />
+  ) : (
+    <div
+      class:list={[
+        'bg-secondary/10 text-secondary-strong inline-flex size-12 shrink-0 items-center justify-center rounded-full',
+        className,
+      ]}
+    >
+      <Icon class="size-6" aria-hidden="true" />
+    </div>
+  )
+}

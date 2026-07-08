@@ -18,6 +18,7 @@ import Container from '@/components/Container.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
 import Button from '@/components/Button.astro';
 import Grid from '@/components/Grid.astro';
+import ToolIconBadge from '@/components/ToolIconBadge.astro';
 import BookOpen from '@lucide/astro/icons/book-open';
 import Microscope from '@lucide/astro/icons/microscope';
 import Calculator from '@lucide/astro/icons/calculator';
@@ -60,9 +61,7 @@ const Icon = toolIcons[tool.data.icon];
       </Button>
 
       <div class="flex items-center gap-4">
-        <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 shrink-0 items-center justify-center rounded-full">
-          <Icon class="size-6" aria-hidden="true" />
-        </div>
+        <ToolIconBadge icon={Icon} customIcon={tool.data.customIcon} />
         <SectionHeader as="h1" title={tool.data.name} />
       </div>
 

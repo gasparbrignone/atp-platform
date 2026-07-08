@@ -189,6 +189,11 @@ const careers = defineCollection({
         image: z.string().nullish(),
         href: optionalUrl,
         icon: z.enum(['book-open', 'microscope', 'calendar-check']),
+        // Reemplaza el ícono Lucide de arriba por una imagen propia (PNG,
+        // logo de la app/sitio, etc.) cuando está cargada — `icon` sigue
+        // siendo obligatorio como fallback, así el círculo nunca queda
+        // vacío si a alguien no le interesa subir uno personalizado.
+        customIcon: z.string().nullish(),
       }),
     ),
     resources: z.array(
@@ -222,6 +227,9 @@ const tools = defineCollection({
     description: z.string(),
     url: optionalUrl,
     icon: z.enum(['book-open', 'microscope', 'calculator', 'activity', 'link']),
+    // Mismo mecanismo que careers.tools.customIcon: imagen propia en vez
+    // del ícono Lucide de arriba, cuando está cargada.
+    customIcon: z.string().nullish(),
     published: z.boolean(),
     order: z.number().nullish(),
     // Everything below is optional so an entry can stay a simple card (name
