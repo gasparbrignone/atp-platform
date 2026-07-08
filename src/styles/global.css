@@ -295,6 +295,82 @@ html.js [data-reveal]:not(.is-visible) {
   animation-delay: var(--enter-delay, 0ms);
 }
 
+/*
+ * Actividades (mobile only): tarjetas apiladas tipo Apple — cada una queda
+ * `sticky` al hacer scroll y se encoge levemente al salir de la pila, en
+ * vez de desfilar en fila. Solo bajo el breakpoint `sm` de Tailwind
+ * (640px, ver Grid.astro): con 2-3 columnas, tarjetas sticky en distintas
+ * columnas quedarían "pegadas" en puntos de scroll distintos y rompen el
+ * layout — el efecto solo tiene sentido en una sola columna. Se activa con
+ * `data-stack` en el Grid que envuelve las tarjetas.
+ */
+@media (max-width: 39.9975rem) {
+  [data-stack] > * {
+    position: sticky;
+    top: 1rem;
+  }
+
+  /* Compensa el `top` creciente de abajo: sin este espacio extra, la
+     última tarjeta desliza sobre el resto de golpe en vez de acompañar
+     el scroll como las demás. */
+  [data-stack] > *:not(:last-child) {
+    margin-bottom: 2.5rem;
+  }
+
+  /* Offset creciente por tarjeta: así, mientras se apilan, se alcanza a
+     ver el borde superior de las que quedaron debajo (el efecto "mazo de
+     cartas" del ejemplo). Cubre hasta 8 tarjetas — más que eso, las
+     siguientes comparten el último offset, se ven bien igual, solo sin el
+     asomo extra individual. */
+  [data-stack] > *:nth-child(2) {
+    top: 1.75rem;
+  }
+  [data-stack] > *:nth-child(3) {
+    top: 2.5rem;
+  }
+  [data-stack] > *:nth-child(4) {
+    top: 3.25rem;
+  }
+  [data-stack] > *:nth-child(5) {
+    top: 4rem;
+  }
+  [data-stack] > *:nth-child(6) {
+    top: 4.75rem;
+  }
+  [data-stack] > *:nth-child(7) {
+    top: 5.5rem;
+  }
+  [data-stack] > *:nth-child(n + 8) {
+    top: 6.25rem;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (max-width: 39.9975rem) {
+    [data-stack] > * {
+      /*
+       * Longhand a propósito, no el shorthand `animation:`: Lightning CSS
+       * (el minificador de Tailwind v4) lo fusiona con `animation-timeline`
+       * en un shorthand que Chromium rechaza por completo (probado:
+       * `cssText` queda vacío), perdiendo el efecto entero en producción
+       * sin ningún error visible en build.
+       */
+      animation-name: stack-shrink;
+      animation-duration: 1ms;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: view(block);
+      animation-range: exit-crossing 0% exit-crossing 90%;
+    }
+  }
+
+  @keyframes stack-shrink {
+    to {
+      transform: scale(0.94);
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
@@ -308,6 +384,17 @@ html.js [data-reveal]:not(.is-visible) {
   html.js [data-reveal]:not(.is-visible) {
     opacity: 1;
     transform: none;
+  }
+
+  /* El apilado sticky+scale es movimiento continuo atado al scroll, no a
+     una duración — bajar `animation-duration` a 0.01ms (arriba) no lo
+     neutraliza. Se apaga del todo: tarjetas en flujo normal, sin sticky
+     ni scale. */
+  [data-stack] > * {
+    position: static;
+    top: auto;
+    margin-bottom: 0;
+    animation: none;
   }
 }
 

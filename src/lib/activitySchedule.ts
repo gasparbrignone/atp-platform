@@ -34,3 +34,48 @@ export function getActivityScheduleLabel(activity: ActivityScheduleInput): strin
 
   return [activity.date, timeRange, activity.location].filter(Boolean).join(' · ');
 }
+
+export type ActivityTiming = 'this-week' | 'upcoming' | 'past';
+
+// Semana calendario lunes-domingo, no "próximos 7 días" — así "esta semana"
+// coincide con lo que alguien esperaría al ver un calendario real.
+function startOfWeek(reference: Date): Date {
+  const start = new Date(reference);
+  const isoWeekday = (start.getDay() + 6) % 7; // lunes = 0 ... domingo = 6
+  start.setDate(start.getDate() - isoWeekday);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function endOfWeek(reference: Date): Date {
+  const end = startOfWeek(reference);
+  end.setDate(end.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
+/**
+ * Una actividad `recurring` pasa siempre como "this-week": se repite todas
+ * las semanas, así que técnicamente siempre está pasando esta semana — no
+ * tiene sentido evaluarla contra una fecha puntual que no tiene.
+ *
+ * Para una actividad puntual (con `date`), se compara contra la semana
+ * calendario actual. Como el sitio es estático y solo se reconstruye
+ * cuando se pushea contenido (ver CLAUDE.md / migrate-drive-books), esto
+ * puede quedar desactualizado entre pushes — igual que ya pasaba con
+ * cualquier otro contenido con fecha del sitio.
+ */
+export function getActivityTiming(
+  activity: Pick<ActivityScheduleInput, 'recurring' | 'date'>,
+  now: Date = new Date(),
+): ActivityTiming {
+  if (activity.recurring) return 'this-week';
+  if (!activity.date) return 'upcoming';
+
+  const date = new Date(`${activity.date}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return 'upcoming';
+
+  if (date < startOfWeek(now)) return 'past';
+  if (date > endOfWeek(now)) return 'upcoming';
+  return 'this-week';
+}

@@ -11,34 +11,32 @@
  *
  * Each card always links to its detail page (src/pages/actividades/[slug].astro)
  * via "Ver más"; "Inscribirse" only renders when `registrationUrl` exists.
+ *
+ * Split into "Esta semana" / "Próximas actividades" (getActivityTiming, ver
+ * src/lib/activitySchedule.ts) en vez de la vieja intro con PhotoGallery +
+ * un único listado plano — una actividad `recurring` siempre cae en "Esta
+ * semana" (se repite todas las semanas); una puntual se ubica según su
+ * `date` contra la semana calendario actual. Las que ya pasaron no se
+ * muestran. `featured` sigue existiendo en el schema (lo usa el carrusel de
+ * la home, ver src/pages/index.astro) pero esta página ya no lo lee.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Section from '@/components/Section.astro';
 import Container from '@/components/Container.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
 import Grid from '@/components/Grid.astro';
-import Card from '@/components/Card.astro';
-import Button from '@/components/Button.astro';
+import ActivityCard from '@/components/ActivityCard.astro';
 import EmptyState from '@/components/EmptyState.astro';
-import PhotoGallery from '@/components/PhotoGallery.astro';
-import charlaRcp from '@/assets/actividades/charla-rcp.jpg';
-import aulaHistologia from '@/assets/actividades/aula-histologia.jpg';
-import aulaIntegracion from '@/assets/actividades/aula-integracion.jpg';
-import aulaMapa from '@/assets/actividades/aula-mapa.jpg';
-import auditorioAtp from '@/assets/actividades/auditorio-atp.jpg';
 import { getCollection } from 'astro:content';
-import { getActivityScheduleLabel } from '@/lib/activitySchedule';
+import { getActivityTiming } from '@/lib/activitySchedule';
 
 const publishedActivities = await getCollection('activities', ({ data }) => data.published);
-const featuredActivities = publishedActivities.filter((activity) => activity.data.featured);
-
-const galleryPhotos = [
-  { image: aulaHistologia, alt: 'Estudiantes en un aula siguiendo una clase de histología organizada por ATP.' },
-  { image: charlaRcp, alt: 'Charla de RCP dictada en un salón de la facultad.' },
-  { image: aulaIntegracion, alt: 'Clase de integración de sistemas proyectada en un aula llena de estudiantes.' },
-  { image: aulaMapa, alt: 'Estudiantes en un aula durante una actividad de ATP.' },
-  { image: auditorioAtp, alt: 'Grupo de integrantes de ATP con la remera oficial en un auditorio de la facultad.' },
-];
+const thisWeekActivities = publishedActivities.filter(
+  (activity) => getActivityTiming(activity.data) === 'this-week',
+);
+const upcomingActivities = publishedActivities.filter(
+  (activity) => getActivityTiming(activity.data) === 'upcoming',
+);
 ---
 
 <BaseLayout
@@ -50,46 +48,13 @@ const galleryPhotos = [
     <Container class="flex flex-col gap-10">
       <SectionHeader as="h1" title="Actividades" />
 
-      <div class="flex flex-col gap-6">
-        <SectionHeader
-          title="Así son nuestras actividades"
-          description="Un vistazo a los talleres, charlas y encuentros que armamos entre todos."
-          as="h2"
-        />
-        <PhotoGallery photos={galleryPhotos} />
-      </div>
-
       {
-        featuredActivities.length > 0 && (
+        thisWeekActivities.length > 0 && (
           <div class="flex flex-col gap-6">
-            <SectionHeader title="Próximas actividades" as="h2" />
-            <Grid cols={3} gap="md">
-              {featuredActivities.map((activity) => (
-                <Card data-reveal>
-                  <h3 slot="title" class="text-h4 text-text font-bold">
-                    {activity.data.title}
-                  </h3>
-                  <p class="text-body-sm text-text-secondary font-semibold">
-                    {getActivityScheduleLabel(activity.data)}
-                  </p>
-                  <p class="mt-2">{activity.data.summary}</p>
-                  <div slot="actions" class="flex flex-wrap items-center gap-2">
-                    <Button href={`/actividades/${activity.id}`} variant="outline" size="sm">
-                      Ver más
-                    </Button>
-                    {activity.data.registrationUrl && (
-                      <Button
-                        href={activity.data.registrationUrl}
-                        target="_blank"
-                        size="sm"
-                        disabled={activity.data.status === 'finalizada'}
-                        trackId={`inscripcion:${activity.id}`}
-                      >
-                        Inscribirse
-                      </Button>
-                    )}
-                  </div>
-                </Card>
+            <SectionHeader title="Esta semana" as="h2" />
+            <Grid cols={3} gap="md" data-stack>
+              {thisWeekActivities.map((activity) => (
+                <ActivityCard activity={activity} />
               ))}
             </Grid>
           </div>
@@ -97,37 +62,20 @@ const galleryPhotos = [
       }
 
       {
-        publishedActivities.length > 0 ? (
-          <Grid cols={3} gap="md">
-            {publishedActivities.map((activity) => (
-              <Card data-reveal>
-                <h2 slot="title" class="text-h4 text-text font-bold">
-                  {activity.data.title}
-                </h2>
-                <p class="text-body-sm text-text-secondary font-semibold">
-                  {getActivityScheduleLabel(activity.data)}
-                </p>
-                <p class="mt-2">{activity.data.summary}</p>
-                <div slot="actions" class="flex flex-wrap items-center gap-2">
-                  <Button href={`/actividades/${activity.id}`} variant="outline" size="sm">
-                    Ver más
-                  </Button>
-                  {activity.data.registrationUrl && (
-                    <Button
-                      href={activity.data.registrationUrl}
-                      target="_blank"
-                      size="sm"
-                      disabled={activity.data.status === 'finalizada'}
-                      trackId={`inscripcion:${activity.id}`}
-                    >
-                      Inscribirse
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            ))}
-          </Grid>
-        ) : (
+        upcomingActivities.length > 0 && (
+          <div class="flex flex-col gap-6">
+            <SectionHeader title="Próximas actividades" as="h2" />
+            <Grid cols={3} gap="md" data-stack>
+              {upcomingActivities.map((activity) => (
+                <ActivityCard activity={activity} />
+              ))}
+            </Grid>
+          </div>
+        )
+      }
+
+      {
+        thisWeekActivities.length === 0 && upcomingActivities.length === 0 && (
           <EmptyState
             title="Todavía no hay actividades publicadas"
             description="Muy pronto vas a encontrar acá las próximas propuestas de ATP."

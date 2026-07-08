@@ -1,0 +1,51 @@
+---
+/**
+ * Tarjeta de actividad. Extraída porque el mismo bloque (título + horario +
+ * resumen + Ver más/Inscribirse) se repetía tal cual en el carrusel de la
+ * home (src/pages/index.astro) y en las dos secciones de
+ * src/pages/actividades.astro ("Esta semana" / "Próximas actividades") —
+ * evita que una corrección (ej. el formato del horario) quede aplicada en
+ * un lugar y desactualizada en los otros.
+ */
+import type { CollectionEntry } from 'astro:content';
+import Card from '@/components/Card.astro';
+import Button from '@/components/Button.astro';
+import { getActivityScheduleLabel } from '@/lib/activitySchedule';
+
+interface Props {
+  activity: CollectionEntry<'activities'>;
+  /** Nivel del heading del título, según la jerarquía de la página que lo use. */
+  as?: 'h2' | 'h3';
+  class?: string;
+}
+
+const { activity, as: Heading = 'h3', class: className } = Astro.props;
+---
+
+<Card data-reveal class={className}>
+  <Heading slot="title" class="text-h4 text-text font-bold">
+    {activity.data.title}
+  </Heading>
+  <p class="text-body-sm text-text-secondary font-semibold">
+    {getActivityScheduleLabel(activity.data)}
+  </p>
+  <p class="mt-2">{activity.data.summary}</p>
+  <div slot="actions" class="flex flex-wrap items-center gap-2">
+    <Button href={`/actividades/${activity.id}`} variant="outline" size="sm">
+      Ver más
+    </Button>
+    {
+      activity.data.registrationUrl && (
+        <Button
+          href={activity.data.registrationUrl}
+          target="_blank"
+          size="sm"
+          disabled={activity.data.status === 'finalizada'}
+          trackId={`inscripcion:${activity.id}`}
+        >
+          Inscribirse
+        </Button>
+      )
+    }
+  </div>
+</Card>

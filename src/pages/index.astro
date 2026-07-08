@@ -13,6 +13,7 @@ import SectionHeader from '@/components/SectionHeader.astro';
 import Container from '@/components/Container.astro';
 import Grid from '@/components/Grid.astro';
 import Card from '@/components/Card.astro';
+import ActivityCard from '@/components/ActivityCard.astro';
 import Button from '@/components/Button.astro';
 import Carousel from '@/components/Carousel.astro';
 import EmptyState from '@/components/EmptyState.astro';
@@ -95,33 +96,10 @@ const careers = [
         featuredActivities.length > 0 ? (
           <Carousel label="Actividades">
             {featuredActivities.map((activity) => (
-              <Card class="w-[85%] shrink-0 snap-center sm:w-[45%] lg:w-[30%]">
-                <h3 slot="title" class="text-h4 text-text font-bold">
-                  {activity.data.title}
-                </h3>
-                <p class="text-body-sm text-text-secondary font-semibold">
-                  {[activity.data.date, activity.data.time, activity.data.location]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
-                <p class="mt-2">{activity.data.summary}</p>
-                <div slot="actions" class="flex flex-wrap items-center gap-2">
-                  <Button href={`/actividades/${activity.id}`} variant="outline" size="sm">
-                    Ver más
-                  </Button>
-                  {activity.data.registrationUrl && (
-                    <Button
-                      href={activity.data.registrationUrl}
-                      target="_blank"
-                      size="sm"
-                      disabled={activity.data.status === 'finalizada'}
-                      trackId={`inscripcion:${activity.id}`}
-                    >
-                      Inscribirse
-                    </Button>
-                  )}
-                </div>
-              </Card>
+              <ActivityCard
+                activity={activity}
+                class="w-[85%] shrink-0 snap-center sm:w-[45%] lg:w-[30%]"
+              />
             ))}
           </Carousel>
         ) : (
