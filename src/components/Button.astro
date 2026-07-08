@@ -88,9 +88,16 @@ const variantClasses: Record<ButtonVariant, string> = {
    * opaque card floating on top of it. White text always: this variant
    * only makes sense over a dark-overlaid photo, never on a themed
    * background, so it doesn't need a light/dark-mode pair like the others.
+   *
+   * No `backdrop-blur`, on purpose: stacking several blurred elements over
+   * a large scrolling photo (this + the sticky Navbar's own blur) causes a
+   * real Chromium compositing glitch during fast scroll — pills visibly
+   * detach from the photo for a frame instead of scrolling with it (seen
+   * in production). Plain translucency + a soft shadow reads as "glass"
+   * without the blur's cost or the bug.
    */
   glass:
-    'border border-white/25 bg-white/10 text-white backdrop-blur-md hover:bg-white/20 hover:border-white/40 active:bg-white/25',
+    'border border-white/30 bg-white/15 text-white shadow-sm hover:bg-white/25 hover:border-white/45 active:bg-white/30',
 };
 
 const classes = [
