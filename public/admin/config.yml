@@ -259,7 +259,13 @@ collections:
         widget: list
         fields:
           - { label: Nombre, name: name, widget: string }
-          - { label: Descripción, name: description, widget: text }
+          - {
+              label: Descripción,
+              name: description,
+              widget: text,
+              hint: 'Admite Markdown en línea: **negrita**, *cursiva*, [link](https://...).',
+            }
+          - { label: Foto, name: image, widget: image, required: false }
           - {
               label: Link,
               name: href,
@@ -278,6 +284,14 @@ collections:
         widget: list
         fields:
           - { label: Título, name: label, widget: string }
+          - {
+              label: Descripción,
+              name: description,
+              widget: text,
+              required: false,
+              hint: 'Opcional. Admite Markdown en línea: **negrita**, *cursiva*, [link](https://...).',
+            }
+          - { label: Foto, name: image, widget: image, required: false }
           # A diferencia de los demás links, este también admite rutas
           # internas del sitio (p. ej. "/biblioteca", ver el flag "Es
           # externo") — no se restringe a http(s) para no romper esos casos.

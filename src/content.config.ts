@@ -179,7 +179,14 @@ const careers = defineCollection({
     tools: z.array(
       z.object({
         name: z.string(),
+        // Markdown en línea (negrita/cursiva/links), no texto plano — mismo
+        // renderer que `tools.description` (la colección Herramientas
+        // suelta, ver más abajo), vía src/lib/markdown.ts.
         description: z.string(),
+        // Ruta a `public/uploads/...`, mismo criterio que `activities.image`
+        // — opcional: una herramienta puede seguir siendo solo ícono +
+        // texto si nadie carga una foto.
+        image: z.string().nullish(),
         href: optionalUrl,
         icon: z.enum(['book-open', 'microscope', 'calendar-check']),
       }),
@@ -187,6 +194,11 @@ const careers = defineCollection({
     resources: z.array(
       z.object({
         label: z.string(),
+        // Opcional: un recurso puede seguir siendo solo un link con
+        // etiqueta, como hasta ahora. Markdown en línea igual que
+        // `tools.description`.
+        description: z.string().nullish(),
+        image: z.string().nullish(),
         // No se restringe a http(s) como el resto de las URLs: a diferencia
         // de tools.href, este campo también aporta links internos del sitio
         // (p. ej. "/biblioteca", ver el flag `external`) y los datos
