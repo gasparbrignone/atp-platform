@@ -12,6 +12,20 @@ import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
 
+/**
+ * An optional http(s) URL field. Despite `omit_empty_optional_fields: true`
+ * in the CMS config, Sveltia can still write `""` for a field the editor
+ * touched and then cleared instead of omitting the key — plain
+ * `z.httpUrl().nullish()` rejects that empty string as an invalid URL and
+ * breaks the *entire* build (seen in production: `downloadUrl: ""` on a
+ * book took the whole site down). This treats blank/whitespace-only
+ * strings the same as "no value" before the URL check ever runs.
+ */
+const optionalUrl = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.httpUrl().nullish(),
+);
+
 const activities = defineCollection({
   loader: glob({ pattern: '**/*.json', base: './src/content/activities' }),
   schema: z.object({
@@ -25,7 +39,7 @@ const activities = defineCollection({
     time: z.string(),
     location: z.string().nullish(),
     status: z.enum(['proxima', 'activa', 'finalizada']),
-    registrationUrl: z.httpUrl().nullish(),
+    registrationUrl: optionalUrl,
     featured: z.boolean(),
     published: z.boolean(),
     order: z.number().nullish(),
@@ -52,13 +66,13 @@ const books = defineCollection({
     // .github/workflows/migrate-drive-books.yml) — por eso `.nullish()` y no
     // requerido: un libro recién cargado no debe romper el build entero
     // mientras la migración corre.
-    downloadUrl: z.httpUrl().nullish(),
+    downloadUrl: optionalUrl,
     // Link de "Compartir" de Google Drive tal cual lo pega la persona que
     // carga el libro. El workflow de migración lo lee, descarga el archivo,
     // lo sube como asset de GitHub Releases y completa `downloadUrl` solo —
     // nunca se usa directamente como link de descarga (ver STACK_DECISIONS.md
     // → Biblioteca).
-    driveUrl: z.httpUrl().nullish(),
+    driveUrl: optionalUrl,
     published: z.boolean(),
     // Todavía sin consumidor en ninguna página — solo preparar el modelo y
     // el CMS para cuando haya portadas reales. Path plano (no el helper
@@ -97,12 +111,12 @@ const careers = defineCollection({
     // Cada carrera tiene su propia cuenta de Instagram salvo Medicina, que
     // usa la general @atp.fcm (ver SocialLinks.astro) — por eso es nullish
     // en vez de requerido.
-    instagram: z.httpUrl().nullish(),
+    instagram: optionalUrl,
     tools: z.array(
       z.object({
         name: z.string(),
         description: z.string(),
-        href: z.httpUrl().nullish(),
+        href: optionalUrl,
         icon: z.enum(['book-open', 'microscope', 'calendar-check']),
       }),
     ),
@@ -130,7 +144,7 @@ const tools = defineCollection({
     // decision is about the entry file format, this is just syntax inside
     // one string field of it.
     description: z.string(),
-    url: z.httpUrl().nullish(),
+    url: optionalUrl,
     icon: z.enum(['book-open', 'microscope', 'calculator', 'activity', 'link']),
     published: z.boolean(),
     order: z.number().nullish(),
