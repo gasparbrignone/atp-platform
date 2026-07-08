@@ -201,10 +201,10 @@ const isCentered = alignment === 'center';
 
 <style>
   /*
-   * Plain CSS, not Tailwind gradient utilities: a 4-stop gradient with
-   * exact per-stop opacity is clearer written out than chained
-   * from-*/via-*/to-* utilities, and Tailwind can't read an alpha value
-   * off a hex custom property anyway. rgb(28, 25, 38) is --gray-900 (see
+   * Plain CSS, not Tailwind's gradient utilities: a 4-stop gradient with
+   * exact per-stop opacity is clearer written out than chaining several
+   * "from/via/to" utilities, and Tailwind can't read an alpha value off a
+   * hex custom property anyway. rgb(28, 25, 38) is --gray-900 (see
    * tokens.css) — kept in sync by hand since there are only two call
    * sites (here and nowhere else this value is needed as raw channels).
    */

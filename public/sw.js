@@ -1,8 +1,8 @@
-// Bumped so every existing visitor's browser drops whatever it has cached
-// under the old name and starts clean — cheap insurance given tonight's
-// reports of stale/broken content on a real iPhone (see `activate` below,
-// which already deletes any cache key that isn't this one).
-const CACHE_NAME = 'atp-v2';
+// Bumped again — reports of the hero redesign (darker gradient, Navbar
+// fix) not showing up after deploy, same "stale cache" class of issue as
+// last time this got bumped. See `activate` below, which already deletes
+// any cache key that isn't this one.
+const CACHE_NAME = 'atp-v3';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE_URLS = [OFFLINE_URL, '/favicon.svg'];
 
