@@ -167,7 +167,11 @@ const careers = defineCollection({
   loader: glob({ pattern: '**/*.json', base: './src/content/careers' }),
   schema: z.object({
     name: z.string(),
-    description: z.string(),
+    // Nullish, no requerido: Enfermería/Fonoaudiología/Terapia Ocupacional
+    // no tienen todavía una descripción propia real (tenían un texto
+    // genérico calcado entre las tres) — mejor sin nada que repetir el
+    // mismo párrafo en las tres carreras.
+    description: z.string().nullish(),
     // Cada carrera tiene su propia cuenta de Instagram salvo Medicina, que
     // usa la general @atp.fcm (ver SocialLinks.astro) — por eso es nullish
     // en vez de requerido.

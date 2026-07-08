@@ -246,7 +246,7 @@ collections:
     format: json
     fields:
       - { label: Nombre, name: name, widget: string }
-      - { label: Descripción, name: description, widget: text }
+      - { label: Descripción, name: description, widget: text, required: false }
       - {
           label: Instagram,
           name: instagram,
