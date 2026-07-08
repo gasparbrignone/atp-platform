@@ -23,6 +23,7 @@ import Microscope from '@lucide/astro/icons/microscope';
 import Calculator from '@lucide/astro/icons/calculator';
 import Activity from '@lucide/astro/icons/activity';
 import Link from '@lucide/astro/icons/link';
+import ExternalLink from '@lucide/astro/icons/external-link';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import type { ToolIconKey } from '@/lib/labels';
 import { renderInlineMarkdown, renderMarkdown } from '@/lib/markdown';
@@ -96,20 +97,25 @@ const Icon = toolIcons[tool.data.icon];
         tool.data.resources && tool.data.resources.length > 0 && (
           <div class="flex flex-col gap-3">
             <h2 class="text-h4 text-text font-bold">Recursos</h2>
-            <ul class="flex flex-col gap-2">
+            <Grid cols={2} gap="md">
               {tool.data.resources.map((resource) => (
-                <li>
-                  <a
-                    href={resource.href}
-                    target={resource.external ? '_blank' : undefined}
-                    rel={resource.external ? 'noopener noreferrer' : undefined}
-                    class="text-secondary-strong text-body font-semibold underline-offset-4 hover:underline"
-                  >
-                    {resource.label}
-                  </a>
-                </li>
+                <a
+                  href={resource.href}
+                  target={resource.external ? '_blank' : undefined}
+                  rel={resource.external ? 'noopener noreferrer' : undefined}
+                  class="border-border bg-surface ease-standard flex items-center gap-3 rounded-md border p-4 shadow-[0_1px_2px_rgba(28,25,38,0.06),0_1px_1px_rgba(28,25,38,0.04)] transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(28,25,38,0.12),0_2px_8px_rgba(28,25,38,0.06)]"
+                >
+                  <span class="bg-secondary/10 text-secondary-strong inline-flex size-10 shrink-0 items-center justify-center rounded-full">
+                    {resource.external ? (
+                      <ExternalLink class="size-5" aria-hidden="true" />
+                    ) : (
+                      <Link class="size-5" aria-hidden="true" />
+                    )}
+                  </span>
+                  <span class="text-body text-text font-semibold">{resource.label}</span>
+                </a>
               ))}
-            </ul>
+            </Grid>
           </div>
         )
       }

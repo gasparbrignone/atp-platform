@@ -14,13 +14,26 @@ import Button from './Button.astro';
 import MobileMenu from './MobileMenu.astro';
 import AtpMark from './icons/AtpMark.astro';
 import Logo from './icons/Logo.astro';
+import { getCollection } from 'astro:content';
+import { careerLabels, type CareerSlug } from '@/lib/labels';
+
+const careers = await getCollection('careers');
+const careerChildren = (Object.keys(careerLabels) as CareerSlug[])
+  .filter((slug) => careers.some((career) => career.id === slug))
+  .map((slug) => ({ label: careerLabels[slug], href: `/carreras/${slug}` }));
+
+const publishedTools = await getCollection('tools', ({ data }) => data.published);
+const toolChildren = publishedTools.map((tool) => ({
+  label: tool.data.name,
+  href: `/herramientas/${tool.id}`,
+}));
 
 const navLinks = [
   { label: 'Inicio', href: '/' },
   { label: 'Biblioteca', href: '/biblioteca' },
   { label: 'Actividades', href: '/actividades' },
-  { label: 'Carreras', href: '/carreras' },
-  { label: '+info', href: '/herramientas' },
+  { label: 'Carreras', href: '/carreras', children: careerChildren },
+  { label: '+info', href: '/herramientas', children: toolChildren },
 ];
 ---
 

@@ -7,6 +7,7 @@
  * on the same page (see Navbar.astro).
  */
 import X from '@lucide/astro/icons/x';
+import ChevronDown from '@lucide/astro/icons/chevron-down';
 import Button from './Button.astro';
 import SocialLinks from './SocialLinks.astro';
 import AtpMark from './icons/AtpMark.astro';
@@ -14,6 +15,7 @@ import AtpMark from './icons/AtpMark.astro';
 interface NavLink {
   label: string;
   href: string;
+  children?: NavLink[];
 }
 
 interface Props {
@@ -47,16 +49,54 @@ const { links }: Props = Astro.props;
     <nav aria-label="Navegación del menú móvil">
       <ul class="flex flex-col gap-1">
         {
-          links.map((link) => (
-            <li>
-              <a
-                href={link.href}
-                class="text-body-lg text-text ease-standard hover:bg-surface-alt block rounded-sm px-3 py-3 font-semibold transition-colors duration-150"
-              >
-                {link.label}
-              </a>
-            </li>
-          ))
+          links.map((link) =>
+            link.children && link.children.length > 0 ? (
+              <li>
+                <div class="flex items-center">
+                  <a
+                    href={link.href}
+                    class="text-body-lg text-text ease-standard hover:bg-surface-alt block flex-1 rounded-sm px-3 py-3 font-semibold transition-colors duration-150"
+                  >
+                    {link.label}
+                  </a>
+                  <button
+                    type="button"
+                    data-submenu-toggle
+                    aria-expanded="false"
+                    aria-label={`Mostrar ${link.label}`}
+                    class="text-text-secondary ease-standard hover:bg-surface-alt inline-flex size-10 shrink-0 items-center justify-center rounded-full transition-colors duration-150"
+                  >
+                    <ChevronDown
+                      data-submenu-chevron
+                      class="ease-standard size-4 transition-transform duration-200"
+                      aria-hidden="true"
+                    />
+                  </button>
+                </div>
+                <ul data-submenu class="hidden flex-col gap-1 py-1 pl-4">
+                  {link.children.map((child) => (
+                    <li>
+                      <a
+                        href={child.href}
+                        class="text-body text-text-secondary ease-standard hover:bg-surface-alt hover:text-text block rounded-sm px-3 py-2.5 font-semibold transition-colors duration-150"
+                      >
+                        {child.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ) : (
+              <li>
+                <a
+                  href={link.href}
+                  class="text-body-lg text-text ease-standard hover:bg-surface-alt block rounded-sm px-3 py-3 font-semibold transition-colors duration-150"
+                >
+                  {link.label}
+                </a>
+              </li>
+            ),
+          )
         }
       </ul>
     </nav>
@@ -90,4 +130,21 @@ const { links }: Props = Astro.props;
     trigger?.addEventListener('click', menu.open);
     closeButton?.addEventListener('click', menu.close);
   }
+
+  // Accordion for the Carreras/+info sub-lists — each toggle button sits
+  // right next to its own <a>, so `nextElementSibling` from the button's
+  // parent row always finds the matching <ul data-submenu>.
+  document.querySelectorAll<HTMLButtonElement>('[data-submenu-toggle]').forEach((toggle) => {
+    const submenu = toggle.parentElement?.nextElementSibling;
+    const chevron = toggle.querySelector<HTMLElement>('[data-submenu-chevron]');
+    if (!(submenu instanceof HTMLElement)) return;
+
+    toggle.addEventListener('click', () => {
+      const isOpen = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', String(!isOpen));
+      submenu.classList.toggle('hidden', isOpen);
+      submenu.classList.toggle('flex', !isOpen);
+      chevron?.classList.toggle('rotate-180', !isOpen);
+    });
+  });
 </script>

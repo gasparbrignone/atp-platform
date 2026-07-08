@@ -66,7 +66,7 @@ collections:
           name: registrationUrl,
           widget: string,
           required: false,
-          pattern: ['^https?://', 'Debe empezar con http:// o https://'],
+          hint: 'Debe empezar con http:// o https://. Dejalo vacío si no hay inscripción externa.',
         }
       - { label: Destacada, name: featured, widget: boolean, default: false }
       - { label: Publicada, name: published, widget: boolean, default: true }
@@ -115,16 +115,14 @@ collections:
           name: driveUrl,
           widget: string,
           required: false,
-          pattern: ['^https?://', 'Debe empezar con http:// o https://'],
-          hint: 'Pegá acá el link para compartir de Google Drive (que cualquiera con el link pueda verlo). En unos minutos el sitio lo migra solo a una descarga directa y completa "Link de descarga" — no lo completes vos a mano.',
+          hint: 'Pegá acá el link para compartir de Google Drive (que cualquiera con el link pueda verlo, empezando con http:// o https://). En unos minutos el sitio lo migra solo a una descarga directa y completa "Link de descarga" — no lo completes vos a mano.',
         }
       - {
           label: Link de descarga,
           name: downloadUrl,
           widget: string,
           required: false,
-          pattern: ['^https?://', 'Debe empezar con http:// o https://'],
-          hint: 'Se completa solo a partir del "Link de Google Drive" de arriba. No hace falta tocarlo.',
+          hint: 'Se completa solo a partir del "Link de Google Drive" de arriba. No hace falta tocarlo ni completarlo a mano.',
         }
       - { label: Publicado, name: published, widget: boolean, default: true }
       # Sin consumidor todavía en ninguna página — solo se prepara el campo
@@ -175,7 +173,7 @@ collections:
           name: instagram,
           widget: string,
           required: false,
-          pattern: ['^https?://', 'Debe empezar con http:// o https://'],
+          hint: 'Debe empezar con http:// o https://.',
         }
       - label: Herramientas
         name: tools
@@ -188,7 +186,7 @@ collections:
               name: href,
               widget: string,
               required: false,
-              pattern: ['^https?://', 'Debe empezar con http:// o https://'],
+              hint: 'Debe empezar con http:// o https://.',
             }
           - {
               label: Ícono,
@@ -229,7 +227,7 @@ collections:
           name: url,
           widget: string,
           required: false,
-          pattern: ['^https?://', 'Debe empezar con http:// o https://'],
+          hint: 'Opcional: solo si esta entrada lleva a un link externo. Si es solo texto para leer acá, dejalo vacío. Debe empezar con http:// o https://.',
         }
       - {
           label: Ícono,
