@@ -86,7 +86,9 @@ function main() {
       if (!driveId) throw new Error(`No se pudo extraer el ID de Drive de: ${book.driveUrl}`);
 
       const downloadedPath = path.join(tmpDir, 'downloaded');
-      execFileSync('gdown', ['--id', driveId, '--output', downloadedPath], { stdio: 'inherit' });
+      // Modern gdown dropped `--id`: the ID (or full URL) is now a plain
+      // positional argument.
+      execFileSync('gdown', [driveId, '--output', downloadedPath], { stdio: 'inherit' });
 
       const extension = detectExtension(downloadedPath);
       const assetName = `${slugify(`${book.author}-${book.title}`)}.${extension}`;
