@@ -21,6 +21,11 @@ const organizationJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   name: siteConfig.name,
+  // El dominio y lo que la gente efectivamente busca es "ATP FCM"
+  // (Facultad de Ciencias Médicas) — ayuda a que Google conecte esa
+  // búsqueda con esta entidad en vez de con el podcast homónimo
+  // "ATP.fm" (Accidental Tech Podcast), que domina esas siglas.
+  alternateName: 'ATP FCM',
   url: Astro.site?.toString(),
   logo: seo.ogImage,
 };
