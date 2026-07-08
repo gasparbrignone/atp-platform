@@ -29,7 +29,10 @@ export const getStaticPaths: GetStaticPaths = async () => {
 };
 
 const { activity } = Astro.props as { activity: CollectionEntry<'activities'> };
-const meta = getActivityScheduleLabel(activity.data);
+const sessions = activity.data.sessions ?? [];
+// Una actividad compuesta no tiene un único horario que mostrar como
+// description del heading — se lista cada sesión aparte, más abajo.
+const meta = sessions.length > 0 ? undefined : getActivityScheduleLabel(activity.data);
 ---
 
 <BaseLayout
@@ -43,11 +46,42 @@ const meta = getActivityScheduleLabel(activity.data);
         ← Volver a actividades
       </Button>
 
+      {
+        activity.data.image && (
+          <img
+            src={activity.data.image}
+            alt=""
+            loading="eager"
+            width="1200"
+            height="675"
+            class="aspect-video w-full rounded-md object-cover"
+          />
+        )
+      }
+
       <SectionHeader as="h1" title={activity.data.title} description={meta} />
 
       <p class="text-body-lg text-text-secondary max-w-2xl">
         {activity.data.description ?? activity.data.summary}
       </p>
+
+      {
+        sessions.length > 0 && (
+          <div class="flex flex-col gap-4">
+            <h2 class="text-h3 text-text font-bold">Cronograma</h2>
+            <ol class="border-border divide-border flex flex-col divide-y rounded-md border">
+              {sessions.map((session) => (
+                <li class="flex flex-col gap-1 p-4">
+                  <span class="text-text font-semibold">{session.title}</span>
+                  <span class="text-body-sm text-text-secondary">
+                    {getActivityScheduleLabel(session)}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )
+      }
 
       <div class="flex flex-wrap gap-3">
         {

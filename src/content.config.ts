@@ -26,6 +26,28 @@ const optionalUrl = z.preprocess(
   z.httpUrl().nullish(),
 );
 
+const weekdayEnum = z.enum([
+  'lunes',
+  'martes',
+  'miercoles',
+  'jueves',
+  'viernes',
+  'sabado',
+  'domingo',
+]);
+
+// Una clase suelta dentro de una actividad compuesta (ej. "Semana de
+// repasos CyD" con una clase distinta por día). Sin `recurring`: cada
+// sesión es un encuentro puntual dentro de la serie, no algo que se repita
+// semana a semana por sí solo — eso lo decide la actividad contenedora.
+const activitySession = z.object({
+  title: z.string(),
+  weekday: weekdayEnum.nullish(),
+  time: z.string().nullish(),
+  endTime: z.string().nullish(),
+  location: z.string().nullish(),
+});
+
 const activities = defineCollection({
   loader: glob({ pattern: '**/*.json', base: './src/content/activities' }),
   schema: z.object({
@@ -35,6 +57,12 @@ const activities = defineCollection({
     // opcional vacío como `null` explícito, no como clave ausente — el
     // schema tiene que aceptar ambas formas de "no hay valor".
     description: z.string().nullish(),
+    // Ruta a `public/uploads/...` (media library del CMS), no el helper
+    // `image()` de Astro — mismo motivo que `books.cover`: ese helper exige
+    // que el archivo exista en build time, y esto lo carga cada persona
+    // desde el CMS después. Decorativa en las cards (alt=""), el título ya
+    // dice de qué se trata.
+    image: z.string().nullish(),
     // `date`/`time` dejaron de ser requeridos: una actividad `recurring`
     // (ej. un grupo de estudio semanal) no tiene una fecha puntual — se
     // describe con `weekday` en su lugar (ver src/lib/activitySchedule.ts).
@@ -48,9 +76,13 @@ const activities = defineCollection({
     // con `date` fija que habría que reeditar cada semana para que no
     // quede vieja. `weekday` solo se usa cuando `recurring` es true.
     recurring: z.boolean().nullish(),
-    weekday: z
-      .enum(['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'])
-      .nullish(),
+    weekday: weekdayEnum.nullish(),
+    // Actividad compuesta (ej. "Semana de repasos CyD"): en vez de una
+    // fecha/horario único, agrupa varias clases sueltas, cada una con su
+    // propio título/día/horario/lugar. Cuando está presente, la página de
+    // detalle lista cada sesión en vez de mostrar una sola línea de
+    // horario (ver src/pages/actividades/[slug].astro).
+    sessions: z.array(activitySession).nullish(),
     registrationUrl: optionalUrl,
     featured: z.boolean(),
     published: z.boolean(),

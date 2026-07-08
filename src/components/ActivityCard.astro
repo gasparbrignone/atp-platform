@@ -20,14 +20,36 @@ interface Props {
 }
 
 const { activity, as: Heading = 'h3', class: className } = Astro.props;
+
+// Una actividad compuesta (con `sessions`) no tiene un horario único que
+// mostrar de un vistazo — se resume como cantidad de encuentros; el detalle
+// de cada uno vive en la página de detalle (ver [slug].astro).
+const sessionsCount = activity.data.sessions?.length ?? 0;
+const scheduleLabel =
+  sessionsCount > 0
+    ? `${sessionsCount} ${sessionsCount === 1 ? 'encuentro' : 'encuentros'}`
+    : getActivityScheduleLabel(activity.data);
 ---
 
 <Card data-reveal class={className}>
+  {
+    activity.data.image && (
+      <img
+        slot="image"
+        src={activity.data.image}
+        alt=""
+        loading="lazy"
+        width="640"
+        height="360"
+        class="aspect-video w-full object-cover"
+      />
+    )
+  }
   <Heading slot="title" class="text-h4 text-text font-bold">
     {activity.data.title}
   </Heading>
   <p class="text-body-sm text-text-secondary font-semibold">
-    {getActivityScheduleLabel(activity.data)}
+    {scheduleLabel}
   </p>
   <p class="mt-2">{activity.data.summary}</p>
   <div slot="actions" class="flex flex-wrap items-center gap-2">

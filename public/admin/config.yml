@@ -44,6 +44,7 @@ collections:
       - { label: Título, name: title, widget: string }
       - { label: Resumen, name: summary, widget: text }
       - { label: Descripción, name: description, widget: text, required: false }
+      - { label: Foto, name: image, widget: image, required: false }
       - {
           label: '¿Se repite todas las semanas?',
           name: recurring,
@@ -95,6 +96,49 @@ collections:
           pattern: ['^([01]\d|2[0-3]):[0-5]\d$', 'Formato HH:MM en 24hs, ej: 16:00'],
         }
       - { label: Lugar, name: location, widget: string, required: false }
+      - {
+          label: Clases,
+          name: sessions,
+          widget: list,
+          required: false,
+          hint: 'Solo para una actividad compuesta por varios encuentros (ej. "Semana de repasos CyD"). Si cargás clases acá, no hace falta completar Fecha/Hora arriba: cada clase tiene su propio día y horario.',
+          summary: '{{title}}',
+          fields:
+            [
+              { label: Título, name: title, widget: string },
+              {
+                label: Día de la semana,
+                name: weekday,
+                widget: select,
+                required: false,
+                options:
+                  [
+                    { label: Lunes, value: lunes },
+                    { label: Martes, value: martes },
+                    { label: Miércoles, value: miercoles },
+                    { label: Jueves, value: jueves },
+                    { label: Viernes, value: viernes },
+                    { label: Sábado, value: sabado },
+                    { label: Domingo, value: domingo },
+                  ],
+              },
+              {
+                label: Hora de inicio,
+                name: time,
+                widget: string,
+                required: false,
+                pattern: ['^([01]\d|2[0-3]):[0-5]\d$', 'Formato HH:MM en 24hs, ej: 08:00 o 19:45'],
+              },
+              {
+                label: Hora de fin,
+                name: endTime,
+                widget: string,
+                required: false,
+                pattern: ['^([01]\d|2[0-3]):[0-5]\d$', 'Formato HH:MM en 24hs, ej: 16:00'],
+              },
+              { label: Lugar, name: location, widget: string, required: false },
+            ],
+        }
       - { label: Estado, name: status, widget: select, options: [proxima, activa, finalizada] }
       - {
           label: Link de inscripción,

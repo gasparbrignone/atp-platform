@@ -25,8 +25,15 @@ function formatTimeRange(time?: string | null, endTime?: string | null): string 
 export function getActivityScheduleLabel(activity: ActivityScheduleInput): string {
   const timeRange = formatTimeRange(activity.time, activity.endTime);
 
-  if (activity.recurring && activity.weekday) {
-    const weekdayPart = `Todos los ${weekdayLabels[activity.weekday]}`;
+  // `weekday` sin `recurring` es una sesión suelta de una actividad
+  // compuesta (ver `sessions` en content.config.ts): un encuentro puntual
+  // dentro de una serie, no algo que se repita semana a semana — por eso
+  // el label es solo "Miércoles de...", no "Todos los miércoles de...".
+  if (activity.weekday) {
+    const label = weekdayLabels[activity.weekday];
+    const weekdayPart = activity.recurring
+      ? `Todos los ${label}`
+      : label.charAt(0).toUpperCase() + label.slice(1);
     return [timeRange ? `${weekdayPart} de ${timeRange}` : weekdayPart, activity.location]
       .filter(Boolean)
       .join(' · ');
