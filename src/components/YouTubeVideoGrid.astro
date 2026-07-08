@@ -1,0 +1,91 @@
+---
+/**
+ * Grilla de los últimos videos del canal de YouTube de ATP (ver
+ * src/lib/youtube.ts). Cada tarjeta muestra la miniatura real del video
+ * (imagen estática de i.ytimg.com, sin costo de cuota de la API) y recién
+ * carga el iframe del reproductor al hacer click — evita pagar el peso de
+ * varios reproductores de YouTube en una página que capaz nadie reproduce
+ * ("Minimizar JavaScript", "Avoid unnecessary client-side rendering").
+ *
+ * Sin `YOUTUBE_API_KEY` configurada (ver docs/YOUTUBE_SETUP.md) o si la
+ * API falla, `videos` llega vacío — nunca rompe el build (ver
+ * getLatestYouTubeVideos). En ese caso se muestra un link directo al canal
+ * en vez de una grilla vacía.
+ */
+import Play from '@lucide/astro/icons/play';
+import Button from '@/components/Button.astro';
+import { getLatestYouTubeVideos } from '@/lib/youtube';
+import { siteConfig } from '@/config/site';
+
+interface Props {
+  maxResults?: number;
+}
+
+const { maxResults = 6 } = Astro.props;
+const videos = await getLatestYouTubeVideos(maxResults);
+---
+
+{
+  videos.length > 0 ? (
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {videos.map((video) => (
+        <div
+          class="border-border bg-surface aspect-video overflow-hidden rounded-md border"
+          data-yt-card
+          data-yt-id={video.id}
+        >
+          <button
+            type="button"
+            class="group relative block size-full cursor-pointer"
+            data-yt-play
+            aria-label={`Reproducir: ${video.title}`}
+          >
+            <img
+              src={`https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`}
+              alt=""
+              loading="lazy"
+              width="480"
+              height="360"
+              class="size-full object-cover"
+            />
+            <span class="ease-standard absolute inset-0 flex items-center justify-center bg-black/20 transition-colors duration-150 group-hover:bg-black/30">
+              <span class="text-primary-fill-foreground bg-primary-fill inline-flex size-14 items-center justify-center rounded-full">
+                <Play class="size-6 translate-x-0.5" fill="currentColor" aria-hidden="true" />
+              </span>
+            </span>
+            <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3 text-left text-sm font-semibold text-white">
+              {video.title}
+            </span>
+          </button>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <Button href={siteConfig.youtubeChannelUrl} target="_blank" variant="outline" class="self-start">
+      Ver nuestro canal en YouTube
+    </Button>
+  )
+}
+
+<script>
+  // Un solo listener con delegación, no uno por tarjeta — se registra una
+  // vez sin importar cuántos videos haya en la página (home + Medicina).
+  document.addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLElement>('[data-yt-play]');
+    if (!button) return;
+
+    const card = button.closest<HTMLElement>('[data-yt-card]');
+    const videoId = card?.dataset.ytId;
+    if (!card || !videoId) return;
+
+    const iframe = document.createElement('iframe');
+    iframe.className = 'size-full';
+    iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`;
+    iframe.title = 'Video de YouTube';
+    iframe.allow =
+      'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframe.allowFullscreen = true;
+
+    card.replaceChildren(iframe);
+  });
+</script>

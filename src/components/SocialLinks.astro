@@ -13,11 +13,12 @@
  */
 import Mail from '@lucide/astro/icons/mail';
 import InstagramMark from '@/components/icons/InstagramMark.astro';
+import { siteConfig } from '@/config/site';
 
 const links = [
   { platform: 'instagram', label: 'Instagram', href: 'https://www.instagram.com/atp.fcm/' },
   { platform: 'tiktok', label: 'TikTok', href: 'https://www.tiktok.com/@atp.fcm' },
-  { platform: 'youtube', label: 'YouTube', href: 'https://www.youtube.com/@atpcienciasmedicas' },
+  { platform: 'youtube', label: 'YouTube', href: siteConfig.youtubeChannelUrl },
   { platform: 'mail', label: 'Email', href: 'mailto:atpcienciasmedicas@gmail.com' },
 ] as const;
 ---

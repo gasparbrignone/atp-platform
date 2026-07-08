@@ -26,6 +26,12 @@ jobs:
         uses: withastro/action@v3
         with:
           node-version: 22
+        env:
+          # Server-only en Astro (sin prefijo PUBLIC_, ver src/env.d.ts):
+          # se usa en build time para pedir los últimos videos del canal
+          # de YouTube (src/lib/youtube.ts) y nunca llega al bundle del
+          # cliente. Ver docs/YOUTUBE_SETUP.md para crearla.
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
 
   deploy:
     needs: build

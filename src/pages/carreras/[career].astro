@@ -21,7 +21,7 @@ import Grid from '@/components/Grid.astro';
 import Card from '@/components/Card.astro';
 import Button from '@/components/Button.astro';
 import EmptyState from '@/components/EmptyState.astro';
-import YouTubeEmbed from '@/components/YouTubeEmbed.astro';
+import YouTubeVideoGrid from '@/components/YouTubeVideoGrid.astro';
 import BookOpen from '@lucide/astro/icons/book-open';
 import Microscope from '@lucide/astro/icons/microscope';
 import CalendarCheck from '@lucide/astro/icons/calendar-check';
@@ -153,7 +153,7 @@ const instagramHandle = career.data.instagram
         career.id === 'medicina' && (
           <div class="flex flex-col gap-6">
             <SectionHeader title="Nuestro canal de YouTube" as="h2" />
-            <YouTubeEmbed />
+            <YouTubeVideoGrid />
           </div>
         )
       }
