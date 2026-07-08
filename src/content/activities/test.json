@@ -1,0 +1,33 @@
+{
+  "title": "Test",
+  "summary": "Test",
+  "description": "Test",
+  "image": "/uploads/pasted-image-1783542617824.png",
+  "recurring": false,
+  "weekday": "",
+  "date": "",
+  "time": "14:00",
+  "endTime": "16:00",
+  "location": "",
+  "sessions": [
+    {
+      "title": "Anatofisiohisto",
+      "weekday": "sabado",
+      "time": "12:00",
+      "endTime": "14:00",
+      "location": "anf central"
+    },
+    {
+      "title": "anato",
+      "weekday": "miercoles",
+      "time": "17:00",
+      "endTime": "20:00",
+      "location": "anf allende"
+    }
+  ],
+  "status": "proxima",
+  "registrationUrl": "",
+  "featured": false,
+  "published": true,
+  "order": null
+}
