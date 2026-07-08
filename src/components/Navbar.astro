@@ -1,9 +1,17 @@
 ---
 /**
- * Main site navigation. Sticky, glass background, constant height —
+ * Main site navigation. Sticky, translucent background, constant height —
  * only the background/shadow respond to scroll (see DESIGN.md → Navbar).
  * The mobile drawer itself lives in MobileMenu.astro; this component only
  * renders the trigger button that opens it.
+ *
+ * No `backdrop-blur` (there used to be one): a `position: sticky` element
+ * blurring whatever scrolls behind it — especially the home's large Hero
+ * photo — causes a real Chromium/WebKit compositing glitch on fast scroll
+ * (content visibly "detaches" from the page for a frame; seen in
+ * production, same class of bug fixed on Button's `glass` variant for the
+ * same reason). Higher fill opacity instead compensates for losing the
+ * blur's legibility assist.
  *
  * All nav links now point to real pages (see docs/ROADMAP.md for the
  * remaining phases still ahead, e.g. institutional pages).
@@ -39,7 +47,7 @@ const navLinks = [
 
 <header
   data-navbar
-  class="z-sticky bg-surface/70 ease-standard data-scrolled:border-border data-scrolled:bg-surface/90 sticky top-0 w-full border-b border-transparent backdrop-blur-md transition-[background-color,box-shadow,border-color] duration-200 data-scrolled:shadow-sm"
+  class="z-sticky bg-surface/85 ease-standard data-scrolled:border-border data-scrolled:bg-surface/95 sticky top-0 w-full border-b border-transparent transition-[background-color,box-shadow,border-color] duration-200 data-scrolled:shadow-sm"
 >
   <Container as="nav" aria-label="Principal" class="flex h-16 items-center justify-between">
     <a href="/" class="text-text flex items-center">

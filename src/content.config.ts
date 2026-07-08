@@ -26,7 +26,23 @@ const optionalUrl = z.preprocess(
   z.httpUrl().nullish(),
 );
 
-const weekdayEnum = z.enum([
+/**
+ * Same bug, different field type: an optional `widget: select` (ej.
+ * "Día de la semana") can also come back as `""` instead of an omitted
+ * key when Sveltia touches-then-clears it — `z.enum(...).nullish()` alone
+ * rejects that empty string as an invalid option and breaks the *entire*
+ * build (seen in production: `weekday: ""` on a test activity took the
+ * whole site down, same failure mode `optionalUrl` above already covers
+ * for URL fields). Reusable since this isn't specific to weekdays.
+ */
+function optionalEnum<T extends readonly [string, ...string[]]>(values: T) {
+  return z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.enum(values).nullish(),
+  );
+}
+
+const weekdayValues = [
   'lunes',
   'martes',
   'miercoles',
@@ -34,7 +50,7 @@ const weekdayEnum = z.enum([
   'viernes',
   'sabado',
   'domingo',
-]);
+] as const;
 
 // Una clase suelta dentro de una actividad compuesta (ej. "Semana de
 // repasos CyD" con una clase distinta por día). Sin `recurring`: cada
@@ -42,7 +58,7 @@ const weekdayEnum = z.enum([
 // semana a semana por sí solo — eso lo decide la actividad contenedora.
 const activitySession = z.object({
   title: z.string(),
-  weekday: weekdayEnum.nullish(),
+  weekday: optionalEnum(weekdayValues),
   time: z.string().nullish(),
   endTime: z.string().nullish(),
   location: z.string().nullish(),
@@ -76,7 +92,7 @@ const activities = defineCollection({
     // con `date` fija que habría que reeditar cada semana para que no
     // quede vieja. `weekday` solo se usa cuando `recurring` es true.
     recurring: z.boolean().nullish(),
-    weekday: weekdayEnum.nullish(),
+    weekday: optionalEnum(weekdayValues),
     // Actividad compuesta (ej. "Semana de repasos CyD"): en vez de una
     // fecha/horario único, agrupa varias clases sueltas, cada una con su
     // propio título/día/horario/lugar. Cuando está presente, la página de
