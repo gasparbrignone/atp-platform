@@ -51,6 +51,12 @@ interface Props {
   backgroundVariant?: SectionBackground;
   /** Heading tag for `title`. Defaults to h1 — override to h2 if this Hero isn't the page's main heading. */
   as?: 'h1' | 'h2';
+  /**
+   * Visually hides the rendered `title` text (kept in the DOM, `sr-only`,
+   * for a11y/SEO) — for callers filling the `logo` slot with a wordmark
+   * that should read as the heading instead of duplicating it as text.
+   */
+  hideTitleVisually?: boolean;
 }
 
 const {
@@ -64,6 +70,7 @@ const {
   alignment = 'center',
   backgroundVariant = 'background',
   as: Heading = 'h1',
+  hideTitleVisually = false,
 }: Props = Astro.props;
 
 const isCentered = alignment === 'center';
@@ -88,7 +95,18 @@ const isCentered = alignment === 'center';
           quality="high"
           class="absolute inset-0 -z-20 size-full object-cover"
         />
-        <div class="absolute inset-0 -z-10 bg-black/55" />
+        {
+          /*
+           * A single flat wash reads flat/dated and either crushes the
+           * photo everywhere or leaves the top too bright for white text —
+           * a top-to-bottom gradient keeps the photo's own brightness
+           * doing the work instead of fighting it. `--gray-900` (never pure
+           * black, per tokens.css) hardcoded as rgb here since Tailwind's
+           * gradient utilities can't consume a hex custom property's
+           * channels directly.
+           */
+        }
+        <div class="hero-gradient absolute inset-0 -z-10" />
       </>
     )
   }
@@ -101,17 +119,20 @@ const isCentered = alignment === 'center';
     <div
       class:list={['flex max-w-2xl flex-col items-center gap-4', !isCentered && 'lg:items-start']}
     >
-      <Heading
-        data-enter
-        class:list={[
-          'text-h1 font-extrabold',
-          backgroundImage
-            ? 'text-white'
-            : 'from-primary-fill to-primary-strong bg-gradient-to-t bg-clip-text text-transparent',
-        ]}
-      >
-        {title}
-      </Heading>
+      <div data-enter>
+        <slot name="logo" />
+        <Heading
+          class:list={[
+            'text-h1 font-extrabold',
+            hideTitleVisually && 'sr-only',
+            backgroundImage
+              ? 'text-white'
+              : 'from-primary-fill to-primary-strong bg-gradient-to-t bg-clip-text text-transparent',
+          ]}
+        >
+          {title}
+        </Heading>
+      </div>
       {
         subtitle && (
           <p
@@ -154,6 +175,7 @@ const isCentered = alignment === 'center';
           </div>
         )
       }
+      <slot name="extra" />
     </div>
 
     {
@@ -176,3 +198,23 @@ const isCentered = alignment === 'center';
     }
   </Container>
 </Section>
+
+<style>
+  /*
+   * Plain CSS, not Tailwind gradient utilities: a 4-stop gradient with
+   * exact per-stop opacity is clearer written out than chained
+   * from-*/via-*/to-* utilities, and Tailwind can't read an alpha value
+   * off a hex custom property anyway. rgb(28, 25, 38) is --gray-900 (see
+   * tokens.css) — kept in sync by hand since there are only two call
+   * sites (here and nowhere else this value is needed as raw channels).
+   */
+  .hero-gradient {
+    background: linear-gradient(
+      180deg,
+      rgba(28, 25, 38, 0.78) 0%,
+      rgba(28, 25, 38, 0.32) 42%,
+      rgba(28, 25, 38, 0.58) 68%,
+      rgba(28, 25, 38, 0.88) 100%
+    );
+  }
+</style>

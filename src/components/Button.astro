@@ -10,7 +10,7 @@
 import type { HTMLAttributes } from 'astro/types';
 import { getSpinnerClasses } from '@/lib/spinnerClasses';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'glass';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 export type ButtonTarget = '_self' | '_blank' | '_parent' | '_top';
 
@@ -81,6 +81,16 @@ const variantClasses: Record<ButtonVariant, string> = {
     'border border-secondary-strong bg-transparent text-secondary-strong hover:bg-secondary/10 active:bg-secondary/20',
   ghost: 'bg-transparent text-secondary-strong hover:bg-secondary/10 active:bg-secondary/20',
   danger: 'bg-error text-error-foreground hover:brightness-95 active:brightness-90',
+  /*
+   * For UI sitting directly on a photo (Hero's `backgroundImage`), not on a
+   * page surface — a translucent "glass" pill instead of a solid fill, so
+   * quick links read as part of the photo composition rather than an
+   * opaque card floating on top of it. White text always: this variant
+   * only makes sense over a dark-overlaid photo, never on a themed
+   * background, so it doesn't need a light/dark-mode pair like the others.
+   */
+  glass:
+    'border border-white/25 bg-white/10 text-white backdrop-blur-md hover:bg-white/20 hover:border-white/40 active:bg-white/25',
 };
 
 const classes = [
