@@ -189,9 +189,9 @@ collections:
       - {
           label: Contenido extendido,
           name: content,
-          widget: text,
+          widget: markdown,
           required: false,
-          hint: 'Texto libre para la sub-página de esta entrada (podés dejar líneas en blanco entre párrafos).',
+          hint: 'Admite Markdown: títulos con #, listas, links, --- para separar secciones, y bloques de aviso con > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING] o > [!CAUTION].',
         }
       - label: Imágenes
         name: images

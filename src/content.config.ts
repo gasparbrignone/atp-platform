@@ -101,9 +101,10 @@ const tools = defineCollection({
     // + description + link) or grow into its own detail page
     // (/herramientas/{slug}) with a longer body, photos and extra links —
     // whichever the person loading content actually has to give it.
-    // Plain text, not Markdown (see docs/STACK_DECISIONS.md → CMS: "JSON
-    // plano, no Markdown"): rendered with `whitespace-pre-line` so blank
-    // lines from the CMS's multiline text widget still read as paragraphs.
+    // Full Markdown (headings, lists, links, `---`, and `[!NOTE]`-style
+    // callout blockquotes) rendered via src/lib/markdown.ts — see the
+    // `description` comment above re: not reopening the CMS file-format
+    // decision.
     content: z.string().nullish(),
     // Plain upload paths (e.g. `/uploads/xyz.jpg`), same treatment as
     // `books.cover` — not Astro's `image()` helper, which requires the file

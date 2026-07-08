@@ -7,7 +7,9 @@
  * `content`, `images` and `resources` are all optional — an entry with
  * none of them still gets a working detail page (name, description, and
  * the external "Acceder" link if set), it just won't have much to show
- * beyond that.
+ * beyond that. `content` is full Markdown (see src/lib/markdown.ts) so an
+ * entry can grow into a real sub-page: headings, lists, links, `---`
+ * rules and `[!NOTE]`-style callout boxes, not just a wall of text.
  */
 import type { GetStaticPaths } from 'astro';
 import BaseLayout from '@/layouts/BaseLayout.astro';
@@ -23,7 +25,7 @@ import Activity from '@lucide/astro/icons/activity';
 import Link from '@lucide/astro/icons/link';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import type { ToolIconKey } from '@/lib/labels';
-import { renderInlineMarkdown } from '@/lib/markdown';
+import { renderInlineMarkdown, renderMarkdown } from '@/lib/markdown';
 
 const toolIcons: Record<ToolIconKey, typeof BookOpen> = {
   'book-open': BookOpen,
@@ -70,7 +72,7 @@ const Icon = toolIcons[tool.data.icon];
 
       {
         tool.data.content && (
-          <p class="text-body max-w-2xl whitespace-pre-line">{tool.data.content}</p>
+          <div class="max-w-2xl" set:html={renderMarkdown(tool.data.content)} />
         )
       }
 
