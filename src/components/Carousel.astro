@@ -62,7 +62,7 @@ const { label, autoplay = false, interval = 6000, class: className, ...rest }: P
   <span data-carousel-status class="sr-only" aria-live="polite"></span>
 
   <div class="mt-4 flex items-center justify-between gap-4">
-    <div data-carousel-dots class="flex items-center gap-2" aria-label="Diapositivas"></div>
+    <div data-carousel-dots class="flex items-center" aria-label="Diapositivas"></div>
     <div class="flex items-center gap-2">
       {
         autoplay && (
@@ -127,10 +127,15 @@ const { label, autoplay = false, interval = 6000, class: className, ...rest }: P
 
     let activeIndex = 0;
     const dots = slides.map((slide, index) => {
+      // The button itself is the full 24×24 touch target (WCAG 2.5.8); the
+      // small visible dot is an inner span so the indicator doesn't look
+      // oversized while its clickable area still meets the minimum.
       const dot = document.createElement('button');
       dot.type = 'button';
       dot.setAttribute('aria-label', `Ir a la diapositiva ${index + 1}`);
-      dot.className = 'size-2 rounded-full bg-border transition-colors duration-150 ease-standard';
+      dot.className = 'inline-flex size-6 items-center justify-center';
+      dot.innerHTML =
+        '<span class="size-2 rounded-full bg-border transition-colors duration-150 ease-standard"></span>';
       dot.addEventListener('click', () => {
         slide.scrollIntoView({ behavior: scrollBehavior, block: 'nearest', inline: 'center' });
       });
@@ -141,8 +146,9 @@ const { label, autoplay = false, interval = 6000, class: className, ...rest }: P
     function setActive(index: number, announce = true) {
       activeIndex = index;
       dots.forEach((dot, i) => {
-        dot.classList.toggle('bg-secondary-strong', i === index);
-        dot.classList.toggle('bg-border', i !== index);
+        const indicator = dot.firstElementChild;
+        indicator?.classList.toggle('bg-secondary-strong', i === index);
+        indicator?.classList.toggle('bg-border', i !== index);
         dot.setAttribute('aria-current', String(i === index));
       });
       if (announce) {
