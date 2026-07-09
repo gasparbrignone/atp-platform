@@ -96,7 +96,11 @@ const renderer: RendererObject = {
   },
 
   listitem(item) {
-    return `<li>${this.parser.parse(item.tokens, !!item.loose)}</li>`;
+    // marked v18 dropped `Parser.parse`'s second (loose/tight) argument —
+    // tight vs. loose is already baked into `item.tokens` by the tokenizer
+    // (loose items get wrapped in paragraph tokens, tight ones don't), so
+    // there's nothing left to pass here.
+    return `<li>${this.parser.parse(item.tokens)}</li>`;
   },
 
   link({ href, title, tokens }) {
@@ -135,4 +139,27 @@ export function renderInlineMarkdown(text: string): string {
 
 export function renderMarkdown(text: string): string {
   return marked.parse(text, { async: false });
+}
+
+const HTML_ENTITIES: Record<string, string> = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+};
+
+/**
+ * Same fields as `renderInlineMarkdown` (`tools.description`,
+ * `careers.tools[].description`), but for contexts that need plain text
+ * instead of HTML — meta description, `og:description`, Twitter Card —
+ * where the raw Markdown syntax (or an embedded `![]()` image) would
+ * otherwise show up literally in search results and link previews.
+ */
+export function markdownToPlainText(text: string): string {
+  return renderInlineMarkdown(text)
+    .replace(/<[^>]+>/g, '')
+    .replace(/&[a-z#0-9]+;/gi, (entity) => HTML_ENTITIES[entity] ?? entity)
+    .replace(/\s+/g, ' ')
+    .trim();
 }

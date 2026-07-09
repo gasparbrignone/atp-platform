@@ -27,7 +27,7 @@ import Link from '@lucide/astro/icons/link';
 import ExternalLink from '@lucide/astro/icons/external-link';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import type { ToolIconKey } from '@/lib/labels';
-import { renderInlineMarkdown, renderMarkdown } from '@/lib/markdown';
+import { renderInlineMarkdown, renderMarkdown, markdownToPlainText } from '@/lib/markdown';
 
 const toolIcons: Record<ToolIconKey, typeof BookOpen> = {
   'book-open': BookOpen,
@@ -51,7 +51,7 @@ const Icon = toolIcons[tool.data.icon];
 
 <BaseLayout
   title={tool.data.name}
-  description={tool.data.description}
+  description={markdownToPlainText(tool.data.description)}
   canonicalPath={`/herramientas/${tool.id}`}
 >
   <Section spacing="lg">
