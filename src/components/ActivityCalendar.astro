@@ -1,0 +1,73 @@
+---
+/**
+ * Month-grid overview for /actividades, above the existing "Esta
+ * semana"/"Próximas actividades" card lists (ActivityCard.astro) — those
+ * keep the full detail (photo, summary, Inscribirse); this is purely a
+ * quick "what's on which day" view, closer to what other student
+ * associations' sites offer (see the July 2026 platform audit).
+ *
+ * Renders the current month and the next one, both server-side: no client
+ * JS, no month-navigation state to keep in sync with a static,
+ * rebuilt-on-content-push site. Only `recurring` and dated one-off
+ * activities can be placed on a date — see activityCalendar.ts for why
+ * compound-activity sessions are left off.
+ */
+import type { CollectionEntry } from 'astro:content';
+import { buildCalendarMonth } from '@/lib/activityCalendar';
+
+interface Props {
+  activities: CollectionEntry<'activities'>[];
+}
+
+const { activities }: Props = Astro.props;
+
+const inputs = activities.map((activity) => ({ id: activity.id, ...activity.data }));
+const now = new Date();
+const months = [
+  buildCalendarMonth(inputs, now.getFullYear(), now.getMonth(), now),
+  buildCalendarMonth(inputs, now.getFullYear(), now.getMonth() + 1, now),
+];
+
+const weekdayHeaders = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+---
+
+<div class="grid gap-8 sm:grid-cols-2">
+  {
+    months.map((month) => (
+      <div class="flex flex-col gap-3">
+        <h3 class="text-h4 text-text font-bold">{month.label}</h3>
+        <div class="border-border grid grid-cols-7 gap-px overflow-hidden rounded-md border bg-border">
+          {weekdayHeaders.map((label, i) => (
+            <div class="bg-surface-alt text-text-secondary text-caption py-1.5 text-center font-semibold">
+              <span aria-hidden="true">{label}</span>
+              <span class="sr-only">{['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'][i]}</span>
+            </div>
+          ))}
+          {month.weeks.flat().map((day) => (
+            <div
+              class:list={[
+                'bg-surface flex min-h-16 flex-col gap-0.5 p-1 sm:min-h-20',
+                !day.inMonth && 'opacity-40',
+                day.isToday && 'bg-secondary/10',
+              ]}
+            >
+              <span class="text-caption text-text-secondary font-semibold">{day.date.getDate()}</span>
+              {day.activities.slice(0, 2).map((activity) => (
+                <a
+                  href={`/actividades/${activity.id}`}
+                  class="bg-secondary/10 text-secondary-strong ease-standard block truncate rounded-sm px-1 py-0.5 text-[11px] leading-tight font-semibold transition-colors duration-150 hover:bg-secondary/20"
+                  title={activity.title}
+                >
+                  {activity.title}
+                </a>
+              ))}
+              {day.activities.length > 2 && (
+                <span class="text-text-secondary px-1 text-[11px]">+{day.activities.length - 2} más</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    ))
+  }
+</div>
