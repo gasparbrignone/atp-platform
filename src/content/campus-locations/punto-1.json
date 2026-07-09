@@ -1,11 +1,11 @@
 {
-  "name": "Punto 1 (completar)",
-  "category": "Sin clasificar",
-  "description": "Editá este punto: poné el nombre y la categoría reales de este lugar del plano, y publicalo cuando esté listo.",
-  "instructions": null,
+  "name": "Bedelía",
+  "category": "Oficina",
+  "description": "descripcionnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+  "instructions": "como llegar va acaaaaaaaaaaaaa",
   "aliases": [],
-  "video": null,
+  "video": "",
   "x": 31.6,
   "y": 68.8,
-  "published": false
+  "published": true
 }
