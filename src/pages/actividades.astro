@@ -26,7 +26,6 @@ import Container from '@/components/Container.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
 import Grid from '@/components/Grid.astro';
 import ActivityCard from '@/components/ActivityCard.astro';
-import ActivityCalendar from '@/components/ActivityCalendar.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import { getCollection } from 'astro:content';
 import { getActivityTiming } from '@/lib/activitySchedule';
@@ -48,15 +47,6 @@ const upcomingActivities = publishedActivities.filter(
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
       <SectionHeader as="h1" title="Actividades" />
-
-      {
-        publishedActivities.length > 0 && (
-          <div class="flex flex-col gap-6">
-            <SectionHeader title="Calendario" as="h2" />
-            <ActivityCalendar activities={publishedActivities} />
-          </div>
-        )
-      }
 
       {
         thisWeekActivities.length > 0 && (
