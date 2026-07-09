@@ -269,38 +269,4 @@ const tools = defineCollection({
   }),
 });
 
-// Mapa interactivo de la facultad (/mapa). El plano de origen (Canva,
-// public/branding/) exportó los círculos numerados como parte de una
-// imagen rasterizada, no como <circle>/<text> reales — no hay nada del
-// SVG para referenciar por id. Cada ubicación vive acá como su propio
-// punto con coordenadas propias (`x`/`y`, % del ancho/alto de la imagen
-// de fondo), independiente de cómo esté dibujado el plano. `aliases`
-// alimenta la búsqueda (ver src/lib/campusSearch.ts) para que "bedelia"
-// encuentre "Departamento de Alumnos", por ejemplo.
-const campusLocations = defineCollection({
-  loader: glob({ pattern: '**/*.json', base: './src/content/campus-locations' }),
-  schema: z.object({
-    name: z.string(),
-    category: z.string(),
-    description: z.string().nullish(),
-    instructions: z.string().nullish(),
-    aliases: z.array(z.string()).nullish(),
-    // Nullish y sin consumidor todavía a propósito — el pedido original
-    // pidió dejar la estructura lista para un video explicativo por
-    // ubicación sin construir esa función ahora.
-    video: optionalUrl,
-    x: z.number().min(0).max(100),
-    y: z.number().min(0).max(100),
-    published: z.boolean(),
-  }),
-});
-
-export const collections = {
-  activities,
-  books,
-  careers,
-  tools,
-  subjects,
-  resourceTypes,
-  campusLocations,
-};
+export const collections = { activities, books, careers, tools, subjects, resourceTypes };
