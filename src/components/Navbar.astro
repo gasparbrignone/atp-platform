@@ -17,6 +17,7 @@
  * remaining phases still ahead, e.g. institutional pages).
  */
 import Menu from '@lucide/astro/icons/menu';
+import ChevronDown from '@lucide/astro/icons/chevron-down';
 import Container from './Container.astro';
 import Button from './Button.astro';
 import MobileMenu from './MobileMenu.astro';
@@ -57,16 +58,58 @@ const navLinks = [
 
     <ul class="hidden items-center gap-8 md:flex">
       {
-        navLinks.map((link) => (
-          <li>
-            <a
-              href={link.href}
-              class="text-body text-text-secondary ease-standard hover:text-text after:ease-standard relative font-semibold transition-colors duration-150 after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-200 after:content-[''] hover:after:scale-x-100"
-            >
-              {link.label}
-            </a>
-          </li>
-        ))
+        navLinks.map((link) =>
+          link.children && link.children.length > 0 ? (
+            <li class="relative">
+              <div class="flex items-center">
+                <a
+                  href={link.href}
+                  class="text-body text-text-secondary ease-standard hover:text-text after:ease-standard relative font-semibold transition-colors duration-150 after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-200 after:content-[''] hover:after:scale-x-100"
+                >
+                  {link.label}
+                </a>
+                <button
+                  type="button"
+                  data-desktop-submenu-toggle
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                  aria-label={`Mostrar ${link.label}`}
+                  class="text-text-secondary ease-standard hover:text-text -mr-1 inline-flex size-6 items-center justify-center transition-colors duration-150"
+                >
+                  <ChevronDown
+                    data-desktop-submenu-chevron
+                    class="ease-standard size-4 transition-transform duration-200"
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
+              <ul
+                data-desktop-submenu
+                class="bg-surface border-border ease-standard z-dropdown invisible absolute top-full left-0 mt-2 flex min-w-48 -translate-y-1 flex-col gap-0.5 rounded-md border p-1.5 opacity-0 shadow-lg transition-[opacity,transform,visibility] duration-150"
+              >
+                {link.children.map((child) => (
+                  <li>
+                    <a
+                      href={child.href}
+                      class="text-body-sm text-text-secondary ease-standard hover:bg-surface-alt hover:text-text block rounded-sm px-3 py-2 font-semibold transition-colors duration-150"
+                    >
+                      {child.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ) : (
+            <li>
+              <a
+                href={link.href}
+                class="text-body text-text-secondary ease-standard hover:text-text after:ease-standard relative font-semibold transition-colors duration-150 after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-full after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-200 after:content-[''] hover:after:scale-x-100"
+              >
+                {link.label}
+              </a>
+            </li>
+          ),
+        )
       }
     </ul>
 
@@ -102,4 +145,48 @@ const navLinks = [
 
   updateScrolled();
   window.addEventListener('scroll', updateScrolled, { passive: true });
+
+  // Desktop Carreras/+info dropdowns — closed by default, one open at a
+  // time, dismissed on outside click or Escape (unlike the mobile
+  // accordion in MobileMenu.astro, which stays open within the drawer).
+  const toggles = Array.from(
+    document.querySelectorAll<HTMLButtonElement>('[data-desktop-submenu-toggle]'),
+  );
+
+  function closeSubmenu(toggle: HTMLButtonElement) {
+    const submenu = toggle.parentElement?.nextElementSibling;
+    const chevron = toggle.querySelector<HTMLElement>('[data-desktop-submenu-chevron]');
+    if (!(submenu instanceof HTMLElement)) return;
+    toggle.setAttribute('aria-expanded', 'false');
+    submenu.classList.add('invisible', 'opacity-0', '-translate-y-1');
+    chevron?.classList.remove('rotate-180');
+  }
+
+  function openSubmenu(toggle: HTMLButtonElement) {
+    const submenu = toggle.parentElement?.nextElementSibling;
+    const chevron = toggle.querySelector<HTMLElement>('[data-desktop-submenu-chevron]');
+    if (!(submenu instanceof HTMLElement)) return;
+    toggle.setAttribute('aria-expanded', 'true');
+    submenu.classList.remove('invisible', 'opacity-0', '-translate-y-1');
+    chevron?.classList.add('rotate-180');
+  }
+
+  toggles.forEach((toggle) => {
+    toggle.addEventListener('click', () => {
+      const isOpen = toggle.getAttribute('aria-expanded') === 'true';
+      toggles.forEach((other) => other !== toggle && closeSubmenu(other));
+      isOpen ? closeSubmenu(toggle) : openSubmenu(toggle);
+    });
+  });
+
+  document.addEventListener('click', (event) => {
+    const target = event.target;
+    const clickedInsideAny =
+      target instanceof Node && toggles.some((toggle) => toggle.closest('li')?.contains(target));
+    if (!clickedInsideAny) toggles.forEach(closeSubmenu);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') toggles.forEach(closeSubmenu);
+  });
 </script>

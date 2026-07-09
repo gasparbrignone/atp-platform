@@ -117,13 +117,20 @@
   --ease-standard: var(--ease-standard);
   --ease-emphasized: var(--ease-emphasized);
 
-  --z-base: var(--z-base);
-  --z-dropdown: var(--z-dropdown);
-  --z-sticky: var(--z-sticky);
-  --z-overlay: var(--z-overlay);
-  --z-modal: var(--z-modal);
-  --z-toast: var(--z-toast);
-  --z-tooltip: var(--z-tooltip);
+  /*
+   * `--z-index-*`, not `--z-*`: Tailwind v4's theme namespace for the
+   * `z-*` utility is `--z-index-*` — the previous `--z-*` names here never
+   * matched it, so `z-sticky`/`z-toast`/`z-tooltip` silently generated no
+   * CSS at all (same failure mode as the `ease`/`blur` tokens above, which
+   * do use the namespace Tailwind actually looks for).
+   */
+  --z-index-base: var(--z-index-base);
+  --z-index-dropdown: var(--z-index-dropdown);
+  --z-index-sticky: var(--z-index-sticky);
+  --z-index-overlay: var(--z-index-overlay);
+  --z-index-modal: var(--z-index-modal);
+  --z-index-toast: var(--z-index-toast);
+  --z-index-tooltip: var(--z-index-tooltip);
 
   /*
    * shadcn/cult-ui vocabulary. These components (installed via the shadcn
