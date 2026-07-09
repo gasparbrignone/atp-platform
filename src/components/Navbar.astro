@@ -41,6 +41,7 @@ const navLinks = [
   { label: 'Inicio', href: '/' },
   { label: 'Biblioteca', href: '/biblioteca' },
   { label: 'Actividades', href: '/actividades' },
+  { label: 'Mapa', href: '/mapa' },
   { label: 'Carreras', href: '/carreras', children: careerChildren },
   { label: '+info', href: '/herramientas', children: toolChildren },
 ];
@@ -175,7 +176,11 @@ const navLinks = [
     toggle.addEventListener('click', () => {
       const isOpen = toggle.getAttribute('aria-expanded') === 'true';
       toggles.forEach((other) => other !== toggle && closeSubmenu(other));
-      isOpen ? closeSubmenu(toggle) : openSubmenu(toggle);
+      if (isOpen) {
+        closeSubmenu(toggle);
+      } else {
+        openSubmenu(toggle);
+      }
     });
   });
 

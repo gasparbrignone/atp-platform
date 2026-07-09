@@ -1,0 +1,31 @@
+---
+/**
+ * Mapa interactivo de la facultad. El modo "Ubicar" (?ubicar=1, ver
+ * CampusMap.tsx) es una herramienta de mantenimiento, no una feature
+ * pública: no aparece en ningún link del sitio, solo lo usa quien esté
+ * completando coordenadas nuevas en el CMS (ver public/admin/config.yml →
+ * Mapa de la facultad).
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Section from '@/components/Section.astro';
+import Container from '@/components/Container.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import CampusMap from '@/components/CampusMap.astro';
+---
+
+<BaseLayout
+  title="Mapa de la facultad"
+  description="Encontrá aulas, oficinas y espacios de la Facultad de Ciencias Médicas (UNR) con el mapa interactivo de ATP."
+  canonicalPath="/mapa"
+>
+  <Section spacing="lg">
+    <Container class="flex flex-col gap-8">
+      <SectionHeader
+        as="h1"
+        title="Mapa de la facultad"
+        description="Buscá un aula, oficina o espacio y te mostramos dónde queda."
+      />
+      <CampusMap />
+    </Container>
+  </Section>
+</BaseLayout>

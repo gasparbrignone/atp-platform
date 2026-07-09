@@ -1,0 +1,42 @@
+---
+/**
+ * Wrapper Astro del mapa interactivo (/mapa). Resuelve la imagen del plano
+ * vía `getImage()` (astro:assets) en build time —el componente React de
+ * abajo no puede usar `<Image>` directamente— y las ubicaciones publicadas
+ * de la colección `campusLocations`, y le pasa ambas cosas ya resueltas
+ * (props planas, serializables) al island de React. El modo "Ubicar" (ver
+ * CampusMap.tsx) se lee del browser, no acá: esta página es 100% estática.
+ */
+import { getImage } from 'astro:assets';
+import { getCollection } from 'astro:content';
+import planoFcm from '@/assets/campus-map/plano-fcm.png';
+import CampusMap from './CampusMap/CampusMap';
+import type { CampusLocation } from '@/lib/campusSearch';
+
+const optimizedMap = await getImage({ src: planoFcm, format: 'webp', width: 2400 });
+
+const entries = await getCollection('campusLocations', ({ data }) => data.published);
+const locations: CampusLocation[] = entries
+  .map((entry) => ({
+    id: entry.id,
+    name: entry.data.name,
+    category: entry.data.category,
+    description: entry.data.description ?? null,
+    instructions: entry.data.instructions ?? null,
+    aliases: entry.data.aliases ?? [],
+    video: entry.data.video ?? null,
+    x: entry.data.x,
+    y: entry.data.y,
+  }))
+  .sort((a, b) => a.name.localeCompare(b.name));
+---
+
+<CampusMap
+  client:visible
+  locations={locations}
+  mapImage={{
+    src: optimizedMap.src,
+    width: optimizedMap.attributes.width,
+    height: optimizedMap.attributes.height,
+  }}
+/>
