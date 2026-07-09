@@ -75,6 +75,26 @@ const websiteJsonLd = {
       crossorigin
     />
 
+    <!-- Auditoría de julio 2026: mismo problema que arriba, encontrado con
+         Lighthouse en el peso Bold y SemiBold (nav, botones, subtítulos y
+         eyebrows en font-semibold/font-bold aparecen sobre el pliegue en
+         casi toda página) — sin esto, la cadena HTML → CSS → fuente medía
+         ~4.8s, más que la propia foto del hero. -->
+    <link
+      rel="preload"
+      href="/branding/Montserrat-Bold.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/branding/Montserrat-SemiBold.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
     <title>{seo.title}</title>
     <meta name="description" content={seo.description} />
     {seo.canonicalUrl && <link rel="canonical" href={seo.canonicalUrl} />}
@@ -112,6 +132,11 @@ const websiteJsonLd = {
       `data-goatcounter-click` (ver Button.astro) o `goatcounter.count(...)`
       (ver biblioteca.astro). Ver docs/ANALYTICS_SETUP.md.
     -->
+    <!-- El script (gc.zgo.at) recién descubre este otro origen al
+         ejecutarse — precargar la conexión en paralelo evita esa demora
+         (Lighthouse lo marcaba como candidato a preconnect, ~885ms de
+         ahorro estimado). -->
+    <link rel="preconnect" href={`https://${siteConfig.goatcounterSite}.goatcounter.com`} />
     <script
       is:inline
       data-goatcounter={`https://${siteConfig.goatcounterSite}.goatcounter.com/count`}
