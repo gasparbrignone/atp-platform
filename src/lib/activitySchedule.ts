@@ -31,8 +31,11 @@ export function getActivityScheduleLabel(activity: ActivityScheduleInput): strin
   // el label es solo "Miércoles de...", no "Todos los miércoles de...".
   if (activity.weekday) {
     const label = weekdayLabels[activity.weekday];
+    // Plural en español: los días que ya terminan en "s" (lunes, miércoles,
+    // ...) no cambian en plural — solo sábado/domingo suman una "s".
+    const plural = label.endsWith('s') ? label : `${label}s`;
     const weekdayPart = activity.recurring
-      ? `Todos los ${label}`
+      ? `Todos los ${plural}`
       : label.charAt(0).toUpperCase() + label.slice(1);
     return [timeRange ? `${weekdayPart} de ${timeRange}` : weekdayPart, activity.location]
       .filter(Boolean)

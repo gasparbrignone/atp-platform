@@ -34,8 +34,8 @@ export const weekdayLabels: Record<Weekday, string> = {
   miercoles: 'miércoles',
   jueves: 'jueves',
   viernes: 'viernes',
-  sabado: 'sábados',
-  domingo: 'domingos',
+  sabado: 'sábado',
+  domingo: 'domingo',
 };
 
 // No hay `resourceTypeLabels` acá a propósito: los tipos de recurso de la
