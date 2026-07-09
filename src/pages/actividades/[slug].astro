@@ -19,6 +19,7 @@ import SectionHeader from '@/components/SectionHeader.astro';
 import Button from '@/components/Button.astro';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { getActivityScheduleLabel } from '@/lib/activitySchedule';
+import { uploadThumb } from '@/lib/uploadThumb';
 
 export const getStaticPaths: GetStaticPaths = async () => {
   const activities = await getCollection('activities', ({ data }) => data.published);
@@ -49,7 +50,7 @@ const meta = sessions.length > 0 ? undefined : getActivityScheduleLabel(activity
       {
         activity.data.image && (
           <img
-            src={activity.data.image}
+            src={uploadThumb(activity.data.image, 'activity')}
             alt=""
             loading="eager"
             width="1200"

@@ -2,6 +2,9 @@
 dist/
 # generated types
 .astro/
+# generado en build/dev por scripts/generate-upload-thumbnails.mjs, no
+# contenido fuente — se recrea solo al correr npm run dev/build
+public/uploads/thumbs/
 
 # dependencies
 node_modules/

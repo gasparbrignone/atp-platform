@@ -31,6 +31,7 @@ import FilterChip from '@/components/FilterChip.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import { getCollection } from 'astro:content';
 import { careerLabels, type CareerSlug } from '@/lib/labels';
+import { uploadThumb } from '@/lib/uploadThumb';
 
 const publishedBooks = await getCollection('books', ({ data }) => data.published);
 const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
@@ -138,7 +139,7 @@ const filterChips = [
                 <div slot="title" class="flex items-start gap-3">
                   {book.data.cover && (
                     <img
-                      src={book.data.cover}
+                      src={uploadThumb(book.data.cover, 'cover')}
                       alt=""
                       loading="lazy"
                       width="40"
