@@ -29,7 +29,7 @@ const sessionsCount = activity.data.sessions?.length ?? 0;
 const scheduleLabel =
   sessionsCount > 0
     ? `${sessionsCount} ${sessionsCount === 1 ? 'encuentro' : 'encuentros'}`
-    : getActivityScheduleLabel(activity.data);
+    : getActivityScheduleLabel(activity.data.schedule);
 ---
 
 <Card data-reveal class={className}>
@@ -58,9 +58,9 @@ const scheduleLabel =
       Ver más
     </Button>
     {
-      activity.data.registrationUrl && (
+      activity.data.registration.registrationUrl && (
         <Button
-          href={activity.data.registrationUrl}
+          href={activity.data.registration.registrationUrl}
           target="_blank"
           size="sm"
           disabled={activity.data.status === 'finalizada'}

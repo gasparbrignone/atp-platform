@@ -32,10 +32,10 @@ import { getActivityTiming } from '@/lib/activitySchedule';
 
 const publishedActivities = await getCollection('activities', ({ data }) => data.published);
 const thisWeekActivities = publishedActivities.filter(
-  (activity) => getActivityTiming(activity.data) === 'this-week',
+  (activity) => getActivityTiming(activity.data.schedule) === 'this-week',
 );
 const upcomingActivities = publishedActivities.filter(
-  (activity) => getActivityTiming(activity.data) === 'upcoming',
+  (activity) => getActivityTiming(activity.data.schedule) === 'upcoming',
 );
 ---
 

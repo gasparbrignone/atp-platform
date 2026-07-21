@@ -22,6 +22,26 @@ function formatTimeRange(time?: string | null, endTime?: string | null): string 
   return null;
 }
 
+/**
+ * `date` se guarda como `YYYY-MM-DD` (ver content.config.ts). `Intl` sin
+ * `locale` fijo cae en el idioma del navegador de quien visita el sitio —
+ * el contenido es en español sí o sí, así que el locale va hardcodeado acá
+ * en vez de dejar que Intl lo herede. Se arma "Lunes 27 de agosto" a mano
+ * (día de semana + día + mes, sin año) en vez de un solo
+ * `Intl.DateTimeFormat` con `weekday+day+month` porque ese formato en
+ * `es-AR` intercala una coma ("lunes, 27 de agosto") que no es el que se
+ * pidió.
+ */
+function formatDateLabel(dateStr: string): string {
+  const date = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return dateStr;
+
+  const weekday = new Intl.DateTimeFormat('es-AR', { weekday: 'long' }).format(date);
+  const dayMonth = new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long' }).format(date);
+
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${dayMonth}`;
+}
+
 export function getActivityScheduleLabel(activity: ActivityScheduleInput): string {
   const timeRange = formatTimeRange(activity.time, activity.endTime);
 
@@ -44,7 +64,9 @@ export function getActivityScheduleLabel(activity: ActivityScheduleInput): strin
       .join(' · ');
   }
 
-  return [activity.date, timeRange, activity.location].filter(Boolean).join(' · ');
+  return [activity.date ? formatDateLabel(activity.date) : null, timeRange, activity.location]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 export type ActivityTiming = 'this-week' | 'upcoming' | 'past';

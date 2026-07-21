@@ -2,13 +2,17 @@
   "title": "Grupo de estudio TyTL",
   "summary": "Sumate a repasar TyTL todos los miércoles de 14 a 16hs",
   "description": "Desde ATP organizamos este grupo de estudio semanal para el cursado de Trabajo y Tiempo Libre. \nNos encontramos todos los miércoles de 14:00 a 16:00hs en la facu para abordar las unidades problema y ver los temas más importantes. \n\nComo todas nuestras actividades, el grupo de estudio es COMPLETAMENTE GRATUITO! \n\nCompletá el formulario así te agregamos al grupo de whatsapp donde avisamos las aulas y mandamos el material! :)",
-  "recurring": true,
-  "weekday": "miercoles",
-  "time": "14:00",
-  "endTime": "16:00",
-  "location": "A confirmar",
+  "schedule": {
+    "recurring": true,
+    "weekday": "miercoles",
+    "time": "14:00",
+    "endTime": "16:00",
+    "location": "A confirmar"
+  },
   "status": "activa",
-  "registrationUrl": "https://docs.google.com/forms/d/e/1FAIpQLSeKiTTh16UlYjvm8U-huMIJBb-39tlaSsPmbcmKhP5hPHNJQA/viewform?usp=header",
+  "registration": {
+    "registrationUrl": "https://docs.google.com/forms/d/e/1FAIpQLSeKiTTh16UlYjvm8U-huMIJBb-39tlaSsPmbcmKhP5hPHNJQA/viewform?usp=header"
+  },
   "featured": true,
   "published": true,
   "order": null

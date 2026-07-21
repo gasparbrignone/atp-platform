@@ -71,6 +71,41 @@ const activitySession = z.object({
   location: z.string().nullish(),
 });
 
+// Agrupa los campos de horario en un solo objeto (en vez de sueltos al nivel
+// raíz de la actividad) para que el CMS los muestre como un sub-formulario
+// colapsable ("Agenda") — la actividad tiene muchos campos y sin esta
+// agrupación el formulario del CMS quedaba como una lista plana de 17+
+// campos sin ninguna organización visual (Sveltia no soporta separadores o
+// secciones de otra forma, solo agrupando con `widget: object`).
+const activitySchedule = z.object({
+  // Actividad que se repite todas las semanas el mismo día/horario (ej.
+  // "grupo de estudio, todos los miércoles"), en vez de un evento puntual
+  // con `date` fija que habría que reeditar cada semana para que no quede
+  // vieja. `weekday` solo se usa cuando `recurring` es true.
+  recurring: z.boolean().nullish(),
+  weekday: optionalEnum(weekdayValues),
+  // `date`/`time` no son requeridos: una actividad `recurring` no tiene una
+  // fecha puntual — se describe con `weekday` en su lugar (ver
+  // src/lib/activitySchedule.ts). Tampoco lo son en una actividad compuesta
+  // (con `sessions`), que no usa este objeto para nada.
+  date: z.string().nullish(),
+  time: z.string().nullish(),
+  endTime: z.string().nullish(),
+  location: z.string().nullish(),
+});
+
+// Mismo motivo que `activitySchedule`: agrupa la decisión de cómo
+// inscribirse en un sub-formulario propio ("Inscripción") en vez de dos
+// campos sueltos más en la lista raíz.
+const activityRegistration = z.object({
+  // Cuando está en true, la página de detalle muestra el formulario propio
+  // (src/components/ActivityRegistrationForm.astro, escribe a un Google
+  // Sheet vía Apps Script) en vez del botón que linkea a `registrationUrl`
+  // — nunca ambos a la vez (ver src/pages/actividades/[slug].astro).
+  useRegistrationForm: z.boolean().nullish(),
+  registrationUrl: optionalUrl,
+});
+
 const activities = defineCollection({
   loader: glob({ pattern: '**/*.json', base: './src/content/activities' }),
   schema: z.object({
@@ -86,32 +121,15 @@ const activities = defineCollection({
     // desde el CMS después. Decorativa en las cards (alt=""), el título ya
     // dice de qué se trata.
     image: z.string().nullish(),
-    // `date`/`time` dejaron de ser requeridos: una actividad `recurring`
-    // (ej. un grupo de estudio semanal) no tiene una fecha puntual — se
-    // describe con `weekday` en su lugar (ver src/lib/activitySchedule.ts).
-    date: z.string().nullish(),
-    time: z.string().nullish(),
-    endTime: z.string().nullish(),
-    location: z.string().nullish(),
+    schedule: activitySchedule,
     status: z.enum(['proxima', 'activa', 'finalizada']),
-    // Actividad que se repite todas las semanas el mismo día/horario (ej.
-    // "grupo de estudio, todos los miércoles"), en vez de un evento puntual
-    // con `date` fija que habría que reeditar cada semana para que no
-    // quede vieja. `weekday` solo se usa cuando `recurring` es true.
-    recurring: z.boolean().nullish(),
-    weekday: optionalEnum(weekdayValues),
     // Actividad compuesta (ej. "Semana de repasos CyD"): en vez de una
     // fecha/horario único, agrupa varias clases sueltas, cada una con su
     // propio título/día/horario/lugar. Cuando está presente, la página de
     // detalle lista cada sesión en vez de mostrar una sola línea de
     // horario (ver src/pages/actividades/[slug].astro).
     sessions: z.array(activitySession).nullish(),
-    registrationUrl: optionalUrl,
-    // Cuando está en true, la página de detalle muestra el formulario propio
-    // (src/components/ActivityRegistrationForm.astro, escribe a un Google
-    // Sheet vía Apps Script) en vez del botón que linkea a `registrationUrl`
-    // — nunca ambos a la vez (ver src/pages/actividades/[slug].astro).
-    useRegistrationForm: z.boolean().nullish(),
+    registration: activityRegistration,
     featured: z.boolean(),
     published: z.boolean(),
     order: z.number().nullish(),

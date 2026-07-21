@@ -46,56 +46,66 @@ collections:
       - { label: Descripción, name: description, widget: text, required: false }
       - { label: Foto, name: image, widget: image, required: false }
       - {
-          label: '¿Se repite todas las semanas?',
-          name: recurring,
-          widget: boolean,
-          default: false,
-          hint: 'Activalo para algo como un grupo de estudio semanal. Si lo activás, completá "Día de la semana" en vez de "Fecha".',
-        }
-      - {
-          label: Día de la semana,
-          name: weekday,
-          widget: select,
-          required: false,
-          hint: 'Solo si "¿Se repite todas las semanas?" está activado.',
-          options:
+          label: Agenda,
+          name: schedule,
+          widget: object,
+          collapsed: false,
+          hint: 'Horario de una actividad simple. Si es una actividad compuesta por varios encuentros, dejá esto vacío y cargalos en "Clases" más abajo.',
+          fields:
             [
-              { label: Lunes, value: lunes },
-              { label: Martes, value: martes },
-              { label: Miércoles, value: miercoles },
-              { label: Jueves, value: jueves },
-              { label: Viernes, value: viernes },
-              { label: Sábado, value: sabado },
-              { label: Domingo, value: domingo },
+              {
+                label: '¿Se repite todas las semanas?',
+                name: recurring,
+                widget: boolean,
+                default: false,
+                hint: 'Activalo para algo como un grupo de estudio semanal. Si lo activás, completá "Día de la semana" en vez de "Fecha".',
+              },
+              {
+                label: Día de la semana,
+                name: weekday,
+                widget: select,
+                required: false,
+                hint: 'Solo si "¿Se repite todas las semanas?" está activado.',
+                options:
+                  [
+                    { label: Lunes, value: lunes },
+                    { label: Martes, value: martes },
+                    { label: Miércoles, value: miercoles },
+                    { label: Jueves, value: jueves },
+                    { label: Viernes, value: viernes },
+                    { label: Sábado, value: sabado },
+                    { label: Domingo, value: domingo },
+                  ],
+              },
+              {
+                label: Fecha,
+                name: date,
+                widget: datetime,
+                required: false,
+                format: 'YYYY-MM-DD',
+                date_format: true,
+                time_format: false,
+                picker_utc: true,
+                hint: 'Solo para una actividad puntual. No hace falta si "¿Se repite todas las semanas?" está activado.',
+              },
+              {
+                label: Hora de inicio,
+                name: time,
+                widget: string,
+                required: false,
+                pattern: ['^([01]\d|2[0-3]):[0-5]\d$', 'Formato HH:MM en 24hs, ej: 08:00 o 19:45'],
+              },
+              {
+                label: Hora de fin,
+                name: endTime,
+                widget: string,
+                required: false,
+                hint: 'Opcional, para mostrar un rango (ej. "14:00 a 16:00hs").',
+                pattern: ['^([01]\d|2[0-3]):[0-5]\d$', 'Formato HH:MM en 24hs, ej: 16:00'],
+              },
+              { label: Lugar, name: location, widget: string, required: false },
             ],
         }
-      - {
-          label: Fecha,
-          name: date,
-          widget: datetime,
-          required: false,
-          format: 'YYYY-MM-DD',
-          date_format: true,
-          time_format: false,
-          picker_utc: true,
-          hint: 'Solo para una actividad puntual. No hace falta si "¿Se repite todas las semanas?" está activado.',
-        }
-      - {
-          label: Hora de inicio,
-          name: time,
-          widget: string,
-          required: false,
-          pattern: ['^([01]\d|2[0-3]):[0-5]\d$', 'Formato HH:MM en 24hs, ej: 08:00 o 19:45'],
-        }
-      - {
-          label: Hora de fin,
-          name: endTime,
-          widget: string,
-          required: false,
-          hint: 'Opcional, para mostrar un rango (ej. "14:00 a 16:00hs").',
-          pattern: ['^([01]\d|2[0-3]):[0-5]\d$', 'Formato HH:MM en 24hs, ej: 16:00'],
-        }
-      - { label: Lugar, name: location, widget: string, required: false }
       - {
           label: Clases,
           name: sessions,
@@ -153,18 +163,27 @@ collections:
         }
       - { label: Estado, name: status, widget: select, options: [proxima, activa, finalizada] }
       - {
-          label: '¿Usar formulario propio en vez de link externo?',
-          name: useRegistrationForm,
-          widget: boolean,
-          default: false,
-          hint: 'Activalo para mostrar un formulario propio (nombre, email, teléfono) que guarda cada inscripción en un Google Sheet. Si está activado, se ignora el "Link de inscripción" de abajo.',
-        }
-      - {
-          label: Link de inscripción,
-          name: registrationUrl,
-          widget: string,
-          required: false,
-          hint: 'Solo se usa si "¿Usar formulario propio...?" está desactivado. Debe empezar con http:// o https://. Dejalo vacío si no hay inscripción externa.',
+          label: Inscripción,
+          name: registration,
+          widget: object,
+          collapsed: false,
+          fields:
+            [
+              {
+                label: '¿Usar formulario propio en vez de link externo?',
+                name: useRegistrationForm,
+                widget: boolean,
+                default: false,
+                hint: 'Activalo para mostrar un formulario propio (nombre, email, teléfono) que guarda cada inscripción en un Google Sheet. Si está activado, se ignora el "Link de inscripción" de abajo.',
+              },
+              {
+                label: Link de inscripción,
+                name: registrationUrl,
+                widget: string,
+                required: false,
+                hint: 'Solo se usa si "¿Usar formulario propio...?" está desactivado. Debe empezar con http:// o https://. Dejalo vacío si no hay inscripción externa.',
+              },
+            ],
         }
       - { label: Destacada, name: featured, widget: boolean, default: false }
       - { label: Publicada, name: published, widget: boolean, default: true }
