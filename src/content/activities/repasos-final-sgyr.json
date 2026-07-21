@@ -44,6 +44,7 @@
     }
   ],
   "status": "proxima",
+  "useRegistrationForm": true,
   "registrationUrl": "",
   "featured": true,
   "published": true,
