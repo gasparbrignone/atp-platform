@@ -2,18 +2,15 @@
   "title": "Grupo de estudio CyD",
   "summary": "Estudiamos juntxs todos los miércoles de 12 a 14hs en la FCM. Sumate!",
   "description": "Sumate a repasar junto a tus compañerxs todas las semanas en la facu!\nLos grupos de estudio son espacios guiados por compañerxs de ATP que ya aprobaron el área y nos ayudan a estudiar, sacarnos dudas y prepararnos para rendir ;)\nNos encontramos todos los miércoles de 12 a 14hs en la facu! \nInscribite asi te agregamos al grupo de WhatsApp!",
-  "schedule": {
-    "recurring": true,
-    "weekday": "miercoles",
-    "time": "12:00",
-    "endTime": "14:00",
-    "location": "A confirmar"
-  },
+  "recurring": true,
+  "weekday": "miercoles",
+  "date": "",
+  "time": "12:00",
+  "endTime": "14:00",
+  "location": "A confirmar",
   "status": "activa",
-  "registration": {
-    "registrationUrl": "https://forms.gle/oN1sqbJUAwBAdpmL6"
-  },
+  "registrationUrl": "https://forms.gle/oN1sqbJUAwBAdpmL6",
   "featured": true,
   "published": true,
-  "order": null
+  "order": 2
 }
