@@ -94,12 +94,23 @@ const { activityId, activityTitle } = Astro.props;
     submitButton.textContent = 'Enviando…';
 
     try {
+      // `application/x-www-form-urlencoded` (via URLSearchParams), no
+      // `FormData` (multipart): el parseo de `e.parameter` de Apps Script es
+      // poco confiable con multipart cuando el body viene de `fetch` (campos
+      // que llegan vacíos o directamente ausentes) — urlencoded es el
+      // formato que Apps Script parsea de forma consistente.
+      //
       // `no-cors`: no podemos leer response.ok (ver comentario arriba) — si
       // el fetch no tira una excepción de red, asumimos que se guardó.
+      const params = new URLSearchParams();
+      for (const [key, value] of new FormData(form).entries()) {
+        params.append(key, String(value));
+      }
+
       await fetch(endpoint, {
         method: 'POST',
         mode: 'no-cors',
-        body: new FormData(form),
+        body: params,
       });
 
       showToast({
