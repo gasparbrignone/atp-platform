@@ -29,6 +29,8 @@ export function getActivityScheduleLabel(activity: ActivityScheduleInput): strin
   // compuesta (ver `sessions` en content.config.ts): un encuentro puntual
   // dentro de una serie, no algo que se repita semana a semana — por eso
   // el label es solo "Miércoles de...", no "Todos los miércoles de...".
+  // Si la sesión tiene `weekday` Y `date` cargados a la vez, gana `weekday`
+  // (rama debajo) — el CMS permite cargar ambos pero solo uno se muestra.
   if (activity.weekday) {
     const label = weekdayLabels[activity.weekday];
     // Plural en español: los días que ya terminan en "s" (lunes, miércoles,

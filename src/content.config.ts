@@ -58,6 +58,13 @@ const weekdayValues = [
 // semana a semana por sí solo — eso lo decide la actividad contenedora.
 const activitySession = z.object({
   title: z.string(),
+  // Fecha puntual (ej. "2026-08-03") para una clase suelta con día calendario
+  // real, no solo un día de la semana — necesario cuando las clases de una
+  // actividad compuesta caen en fechas concretas (no todas la misma semana).
+  // Coexiste con `weekday`: cargar una no exige borrar la otra, pero
+  // `getActivityScheduleLabel` (src/lib/activitySchedule.ts) prioriza
+  // `weekday` si ambas están presentes.
+  date: z.string().nullish(),
   weekday: optionalEnum(weekdayValues),
   time: z.string().nullish(),
   endTime: z.string().nullish(),

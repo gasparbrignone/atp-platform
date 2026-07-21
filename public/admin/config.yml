@@ -107,10 +107,22 @@ collections:
             [
               { label: Título, name: title, widget: string },
               {
+                label: Fecha,
+                name: date,
+                widget: datetime,
+                required: false,
+                format: 'YYYY-MM-DD',
+                date_format: true,
+                time_format: false,
+                picker_utc: true,
+                hint: 'Fecha puntual de esta clase (ej. una del cronograma de "Semana de repasos"). Si la cargás, no hace falta completar "Día de la semana" abajo.',
+              },
+              {
                 label: Día de la semana,
                 name: weekday,
                 widget: select,
                 required: false,
+                hint: 'Alternativa a "Fecha" si preferís mostrar solo el día (ej. "Miércoles") sin una fecha calendario puntual.',
                 options:
                   [
                     { label: Lunes, value: lunes },
