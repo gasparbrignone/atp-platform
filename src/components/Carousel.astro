@@ -14,10 +14,13 @@
  * label injected at runtime (so the consumer's own markup doesn't need to
  * know about it); a visually-hidden live region announces the active slide
  * (muted — `aria-live="off"` — while autoplay is actively rotating, per the
- * pattern's guidance, so it doesn't talk over itself every few seconds);
- * and autoplay has a persistent, keyboard/touch-reachable pause/play toggle
- * (WCAG 2.2.2) — hover/focus-pausing alone isn't enough on a touch device,
- * which has no hover state at all.
+ * pattern's guidance, so it doesn't talk over itself every few seconds).
+ *
+ * No visible pause/play button (deliberate call, not an oversight — WCAG
+ * 2.2.2 still needs to be satisfied without one): autoplay pauses on
+ * pointerenter/focusin and on touchstart, resuming on pointerleave/focusout/
+ * touchend, so hovering, tabbing into or touching a slide freezes it on any
+ * input type, including touchscreens that have no persistent hover state.
  *
  * Contract for each slide passed into the default slot: it must be a
  * direct child of the track with `shrink-0 snap-center` and an explicit
@@ -27,8 +30,6 @@
 import type { HTMLAttributes } from 'astro/types';
 import ChevronLeft from '@lucide/astro/icons/chevron-left';
 import ChevronRight from '@lucide/astro/icons/chevron-right';
-import Pause from '@lucide/astro/icons/pause';
-import Play from '@lucide/astro/icons/play';
 
 interface Props extends HTMLAttributes<'div'> {
   /** Accessible name for the carousel region, e.g. "Próximas actividades". */
@@ -64,20 +65,6 @@ const { label, autoplay = false, interval = 6000, class: className, ...rest }: P
   <div class="mt-4 flex items-center justify-between gap-4">
     <div data-carousel-dots class="flex items-center" aria-label="Diapositivas"></div>
     <div class="flex items-center gap-2">
-      {
-        autoplay && (
-          <button
-            type="button"
-            data-carousel-toggle
-            aria-label="Pausar reproducción automática"
-            aria-pressed="true"
-            class="border-border-strong bg-surface text-text-secondary ease-standard hover:bg-surface-alt inline-flex size-9 items-center justify-center rounded-full border transition-colors duration-150"
-          >
-            <Pause data-icon-pause class="size-5" aria-hidden="true" />
-            <Play data-icon-play class="hidden size-5" aria-hidden="true" />
-          </button>
-        )
-      }
       <button
         type="button"
         data-carousel-prev
@@ -105,7 +92,6 @@ const { label, autoplay = false, interval = 6000, class: className, ...rest }: P
     const statusEl = root.querySelector<HTMLElement>('[data-carousel-status]');
     const prevButton = root.querySelector<HTMLButtonElement>('[data-carousel-prev]');
     const nextButton = root.querySelector<HTMLButtonElement>('[data-carousel-next]');
-    const toggleButton = root.querySelector<HTMLButtonElement>('[data-carousel-toggle]');
     if (!track || !dotsContainer || !statusEl) return;
     // Re-bound as a definitely-non-null const: TS narrowing from the guard
     // above doesn't carry into the nested functions below.
@@ -184,67 +170,34 @@ const { label, autoplay = false, interval = 6000, class: className, ...rest }: P
 
     const shouldAutoplay = root.hasAttribute('data-autoplay') && !prefersReducedMotion;
     let timer: ReturnType<typeof setInterval> | undefined;
-    let isPlaying = false;
-    let manuallyPaused = false;
-
-    function updateToggleIcon() {
-      const pauseIcon = toggleButton?.querySelector<HTMLElement>('[data-icon-pause]');
-      const playIcon = toggleButton?.querySelector<HTMLElement>('[data-icon-play]');
-      pauseIcon?.classList.toggle('hidden', !isPlaying);
-      playIcon?.classList.toggle('hidden', isPlaying);
-      toggleButton?.setAttribute('aria-pressed', String(isPlaying));
-      toggleButton?.setAttribute(
-        'aria-label',
-        isPlaying ? 'Pausar reproducción automática' : 'Reanudar reproducción automática',
-      );
-    }
-
-    function startTimer() {
-      const autoplayInterval = Number(root.dataset.interval) || 6000;
-      timer = setInterval(() => goTo((activeIndex + 1) % slides.length), autoplayInterval);
-      isPlaying = true;
-      // Muted while auto-rotating so it doesn't interrupt the screen reader
-      // every few seconds — the pause control below covers WCAG 2.2.2.
-      status.setAttribute('aria-live', 'off');
-      updateToggleIcon();
-    }
-
-    function stopTimer() {
-      if (timer) clearInterval(timer);
-      isPlaying = false;
-      status.setAttribute('aria-live', 'polite');
-      updateToggleIcon();
-    }
 
     function play() {
-      if (!shouldAutoplay || manuallyPaused) return;
-      startTimer();
+      if (!shouldAutoplay || timer) return;
+      const autoplayInterval = Number(root.dataset.interval) || 6000;
+      timer = setInterval(() => goTo((activeIndex + 1) % slides.length), autoplayInterval);
+      // Muted while auto-rotating so it doesn't interrupt the screen reader
+      // every few seconds — pausing on hover/focus/touch below is what
+      // satisfies WCAG 2.2.2 instead of a visible pause button (ver
+      // comentario arriba).
+      status.setAttribute('aria-live', 'off');
     }
 
     function pause() {
-      stopTimer();
+      if (timer) clearInterval(timer);
+      timer = undefined;
+      status.setAttribute('aria-live', 'polite');
     }
 
-    toggleButton?.addEventListener('click', () => {
-      if (isPlaying) {
-        manuallyPaused = true;
-        stopTimer();
-      } else {
-        manuallyPaused = false;
-        startTimer();
-      }
-    });
-
-    // Hover/focus pausing is a convenience for pointer/keyboard users on top
-    // of the explicit toggle above — it never overrides an explicit pause.
+    // Sin botón visible de pausa: pointerenter/leave cubre mouse y stylus,
+    // focusin/out cubre teclado, y touchstart/end cubre touch de forma
+    // explícita ya que un dedo no genera un "hover" persistente en la
+    // mayoría de los navegadores.
     root.addEventListener('pointerenter', pause);
-    root.addEventListener('pointerleave', () => {
-      if (!manuallyPaused) play();
-    });
+    root.addEventListener('pointerleave', play);
     root.addEventListener('focusin', pause);
-    root.addEventListener('focusout', () => {
-      if (!manuallyPaused) play();
-    });
+    root.addEventListener('focusout', play);
+    root.addEventListener('touchstart', pause, { passive: true });
+    root.addEventListener('touchend', play, { passive: true });
 
     play();
   });

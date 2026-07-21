@@ -82,7 +82,7 @@ const careers = [
       <SectionHeader title="Actividades" />
       {
         featuredActivities.length > 0 ? (
-          <Carousel label="Actividades" autoplay>
+          <Carousel label="Actividades" autoplay interval={4000}>
             {featuredActivities.map((activity) => (
               <ActivityCard
                 activity={activity}
