@@ -153,11 +153,18 @@ collections:
         }
       - { label: Estado, name: status, widget: select, options: [proxima, activa, finalizada] }
       - {
+          label: '¿Usar formulario propio en vez de link externo?',
+          name: useRegistrationForm,
+          widget: boolean,
+          default: false,
+          hint: 'Activalo para mostrar un formulario propio (nombre, email, teléfono) que guarda cada inscripción en un Google Sheet. Si está activado, se ignora el "Link de inscripción" de abajo.',
+        }
+      - {
           label: Link de inscripción,
           name: registrationUrl,
           widget: string,
           required: false,
-          hint: 'Debe empezar con http:// o https://. Dejalo vacío si no hay inscripción externa.',
+          hint: 'Solo se usa si "¿Usar formulario propio...?" está desactivado. Debe empezar con http:// o https://. Dejalo vacío si no hay inscripción externa.',
         }
       - { label: Destacada, name: featured, widget: boolean, default: false }
       - { label: Publicada, name: published, widget: boolean, default: true }

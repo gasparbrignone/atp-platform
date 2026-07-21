@@ -107,6 +107,11 @@ const activities = defineCollection({
     // horario (ver src/pages/actividades/[slug].astro).
     sessions: z.array(activitySession).nullish(),
     registrationUrl: optionalUrl,
+    // Cuando está en true, la página de detalle muestra el formulario propio
+    // (src/components/ActivityRegistrationForm.astro, escribe a un Google
+    // Sheet vía Apps Script) en vez del botón que linkea a `registrationUrl`
+    // — nunca ambos a la vez (ver src/pages/actividades/[slug].astro).
+    useRegistrationForm: z.boolean().nullish(),
     featured: z.boolean(),
     published: z.boolean(),
     order: z.number().nullish(),

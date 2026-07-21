@@ -1,0 +1,119 @@
+---
+/**
+ * Formulario de inscripción propio: en vez de linkear a un Google Form/link
+ * externo (`registrationUrl`), escribe cada envío como una fila nueva en un
+ * Google Sheet vía un Google Apps Script Web App. Se muestra cuando la
+ * actividad tiene `useRegistrationForm: true` en el CMS — ver
+ * src/pages/actividades/[slug].astro, que elige entre esto y el botón con
+ * `registrationUrl` según ese flag (nunca ambos a la vez).
+ *
+ * Mismo patrón de fetch + toast que src/pages/sumate.astro (Formspree), con
+ * una diferencia clave: un Google Apps Script Web App no agrega headers CORS
+ * a su respuesta, así que el fetch va con `mode: 'no-cors'`. Eso significa
+ * que no podemos leer si el servidor confirmó el guardado — solo si la
+ * request salió sin error de red. Es la limitación estándar de este patrón
+ * (documentada en cualquier guía de "form a Google Sheets sin backend
+ * propio"), aceptada a cambio de no pagar/mantener un backend real.
+ */
+import Input from '@/components/Input.astro';
+import Button from '@/components/Button.astro';
+
+/**
+ * URL de la implementación ("Aplicación web") del Apps Script, termina en
+ * `/exec`. Placeholder hasta que se despliegue el script real — ver
+ * docs/GOOGLE_SHEETS_FORM_SETUP.md para los pasos de deploy y dónde
+ * reemplazar esto.
+ */
+const REGISTRATION_FORM_ENDPOINT = 'REEMPLAZAR_CON_LA_URL_DEL_APPS_SCRIPT';
+
+interface Props {
+  activityId: string;
+  activityTitle: string;
+}
+
+const { activityId, activityTitle } = Astro.props;
+---
+
+<form
+  data-activity-registration-form
+  data-endpoint={REGISTRATION_FORM_ENDPOINT}
+  novalidate
+  class="flex w-full max-w-xl flex-col gap-4"
+>
+  <input type="hidden" name="activityId" value={activityId} />
+  <input type="hidden" name="activityTitle" value={activityTitle} />
+
+  <div class="flex flex-col gap-2">
+    <label for="registration-name" class="text-caption text-text-secondary font-semibold">
+      Nombre y apellido
+    </label>
+    <Input id="registration-name" name="name" autocomplete="name" required />
+  </div>
+
+  <div class="flex flex-col gap-2">
+    <label for="registration-email" class="text-caption text-text-secondary font-semibold">
+      Email
+    </label>
+    <Input id="registration-email" name="email" type="email" autocomplete="email" required />
+  </div>
+
+  <div class="flex flex-col gap-2">
+    <label for="registration-phone" class="text-caption text-text-secondary font-semibold">
+      Teléfono
+    </label>
+    <Input id="registration-phone" name="phone" type="tel" autocomplete="tel" required />
+  </div>
+
+  <Button
+    type="submit"
+    size="lg"
+    data-activity-registration-submit
+    class="self-start"
+    trackId={`inscripcion:${activityId}`}
+  >
+    Inscribirme
+  </Button>
+</form>
+
+<script>
+  import { showToast } from '@/lib/toast';
+
+  const form = document.querySelector<HTMLFormElement>('[data-activity-registration-form]');
+  const submitButton = form?.querySelector<HTMLButtonElement>('[data-activity-registration-submit]');
+  const endpoint = form?.dataset.endpoint;
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!submitButton || submitButton.disabled || !endpoint) return;
+
+    if (!form.reportValidity()) return;
+
+    const originalLabel = submitButton.textContent;
+    submitButton.disabled = true;
+    submitButton.textContent = 'Enviando…';
+
+    try {
+      // `no-cors`: no podemos leer response.ok (ver comentario arriba) — si
+      // el fetch no tira una excepción de red, asumimos que se guardó.
+      await fetch(endpoint, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: new FormData(form),
+      });
+
+      showToast({
+        message: 'Listo, quedaste inscripto/a. Nos vemos ahí.',
+        variant: 'success',
+      });
+      form.reset();
+    } catch {
+      showToast({
+        message: 'No pudimos enviar la inscripción. Probá de nuevo en un rato.',
+        variant: 'error',
+      });
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = originalLabel;
+    }
+  });
+</script>

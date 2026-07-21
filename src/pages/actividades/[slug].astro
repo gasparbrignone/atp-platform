@@ -17,6 +17,7 @@ import Section from '@/components/Section.astro';
 import Container from '@/components/Container.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
 import Button from '@/components/Button.astro';
+import ActivityRegistrationForm from '@/components/ActivityRegistrationForm.astro';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { getActivityScheduleLabel } from '@/lib/activitySchedule';
 import { uploadThumb } from '@/lib/uploadThumb';
@@ -84,22 +85,29 @@ const meta = sessions.length > 0 ? undefined : getActivityScheduleLabel(activity
         )
       }
 
-      <div class="flex flex-wrap gap-3">
-        {
-          activity.data.registrationUrl ? (
-            <Button
-              href={activity.data.registrationUrl}
-              target="_blank"
-              disabled={activity.data.status === 'finalizada'}
-              trackId={`inscripcion:${activity.id}`}
-            >
-              Inscribirse
-            </Button>
-          ) : (
+      {
+        activity.data.status === 'finalizada' ? (
+          <div class="flex flex-wrap gap-3">
             <Button disabled>Inscripción no disponible</Button>
-          )
-        }
-      </div>
+          </div>
+        ) : activity.data.useRegistrationForm ? (
+          <ActivityRegistrationForm activityId={activity.id} activityTitle={activity.data.title} />
+        ) : (
+          <div class="flex flex-wrap gap-3">
+            {activity.data.registrationUrl ? (
+              <Button
+                href={activity.data.registrationUrl}
+                target="_blank"
+                trackId={`inscripcion:${activity.id}`}
+              >
+                Inscribirse
+              </Button>
+            ) : (
+              <Button disabled>Inscripción no disponible</Button>
+            )}
+          </div>
+        )
+      }
     </Container>
   </Section>
 </BaseLayout>
