@@ -20,11 +20,12 @@ import Button from '@/components/Button.astro';
 
 /**
  * URL de la implementación ("Aplicación web") del Apps Script, termina en
- * `/exec`. Placeholder hasta que se despliegue el script real — ver
- * docs/GOOGLE_SHEETS_FORM_SETUP.md para los pasos de deploy y dónde
- * reemplazar esto.
+ * `/exec` — ver docs/GOOGLE_SHEETS_FORM_SETUP.md para los pasos de deploy.
+ * Si el script se vuelve a implementar como "Nueva implementación" (ej. tras
+ * editar el código), esta URL cambia y hay que actualizarla acá.
  */
-const REGISTRATION_FORM_ENDPOINT = 'REEMPLAZAR_CON_LA_URL_DEL_APPS_SCRIPT';
+const REGISTRATION_FORM_ENDPOINT =
+  'https://script.google.com/macros/s/AKfycbzIYU4H3B94IoTyH40O4EXljqPVTNGd0Ult_yi8VzS3hhAOjScEdsCQlNZarE5Ixe6f/exec';
 
 interface Props {
   activityId: string;
