@@ -14,9 +14,11 @@ Google Sheet, y cómo activarlo por actividad desde el CMS.
 
 `src/components/ActivityRegistrationForm.astro` envía cada inscripción por
 POST a un **Google Apps Script Web App** atado a un Google Sheet — no hay
-backend propio: el script vive dentro del mismo Sheet y escribe una fila por
-cada envío. Todas las actividades comparten el mismo Sheet/script; cada fila
-identifica de qué actividad es (columna "Actividad").
+backend propio: el script vive dentro del mismo Sheet. Todas las actividades
+comparten el mismo Sheet/script, pero cada actividad tiene su propia hoja
+(pestaña) dentro de esa planilla, nombrada igual que la actividad: el
+script crea la hoja sola (con encabezados) la primera vez que alguien se
+inscribe a esa actividad, y agrega una fila por cada inscripción siguiente.
 
 Se activa por actividad: en el CMS, el campo **"¿Usar formulario propio en
 vez de link externo?"** de esa actividad. Si está activado, la página de
@@ -47,9 +49,9 @@ URL en el código (paso 3 de abajo).
    Google de ATP (`atpcienciasmedicas@gmail.com`).
 2. Crear una planilla nueva, nombrarla por ejemplo
    **"Inscripciones a actividades - ATP"**.
-3. Renombrar la primera hoja (pestaña de abajo) a **`Inscripciones`**.
-4. En la fila 1, cargar estos encabezados, uno por columna:
-   `Fecha` | `Actividad` | `Nombre y apellido` | `Email` | `Teléfono`
+3. No hace falta tocar la primera hoja ni cargar encabezados a mano: el
+   script del paso siguiente crea una hoja nueva (con sus encabezados) por
+   cada actividad, la primera vez que alguien se inscribe a esa actividad.
 
 ## 2. Crear el Apps Script
 
@@ -59,12 +61,19 @@ URL en el código (paso 3 de abajo).
 
    ```js
    function doPost(e) {
-     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Inscripciones');
      var params = e.parameter;
+     var sheetName = sanitizeSheetName(params.activityTitle || 'Sin actividad');
+
+     var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+     var sheet = spreadsheet.getSheetByName(sheetName);
+
+     if (!sheet) {
+       sheet = spreadsheet.insertSheet(sheetName);
+       sheet.appendRow(['Fecha', 'Nombre y apellido', 'Email', 'Teléfono']);
+     }
 
      sheet.appendRow([
        new Date(),
-       params.activityTitle || '',
        params.name || '',
        params.email || '',
        params.phone || '',
@@ -73,6 +82,13 @@ URL en el código (paso 3 de abajo).
      return ContentService
        .createTextOutput(JSON.stringify({ result: 'success' }))
        .setMimeType(ContentService.MimeType.JSON);
+   }
+
+   // Los nombres de hoja de Google Sheets no admiten : \ / ? * [ ] ni más de
+   // 100 caracteres — esto limpia el título de la actividad para que sirva
+   // como nombre de hoja aunque tenga alguno de esos caracteres.
+   function sanitizeSheetName(name) {
+     return name.replace(/[:\\\/\?\*\[\]]/g, '').substring(0, 100);
    }
    ```
 
@@ -113,9 +129,9 @@ solo no alcanza.
    prueba.
 2. Entrar a esa actividad en el sitio y completar el formulario con datos de
    prueba.
-3. Volver al Google Sheet: debería aparecer una fila nueva con esos datos en
-   un momento (sin recargar la planilla, F5 si no aparece).
-4. Si no aparece nada: revisar que la hoja se llame exactamente
-   `Inscripciones` (mayúscula inicial) y que la implementación del paso 3 use
-   "Cualquier usuario" en acceso — son los dos motivos más comunes de que el
-   script no reciba o no encuentre la hoja.
+3. Volver al Google Sheet: debería aparecer una pestaña nueva con el nombre
+   de esa actividad (o una fila nueva si ya existía) con esos datos, en un
+   momento (sin recargar la planilla, F5 si no aparece).
+4. Si no aparece nada: revisar que la implementación del paso 3 use
+   "Cualquier usuario" en acceso — es el motivo más común de que el script
+   no reciba el envío.
