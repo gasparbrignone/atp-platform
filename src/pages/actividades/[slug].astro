@@ -34,7 +34,7 @@ const { activity } = Astro.props as { activity: CollectionEntry<'activities'> };
 const sessions = activity.data.sessions ?? [];
 // Una actividad compuesta no tiene un único horario que mostrar como
 // description del heading — se lista cada sesión aparte, más abajo.
-const meta = sessions.length > 0 ? undefined : getActivityScheduleLabel(activity.data.schedule);
+const meta = sessions.length > 0 ? undefined : getActivityScheduleLabel(activity.data.schedule ?? {});
 ---
 
 <BaseLayout
@@ -90,11 +90,11 @@ const meta = sessions.length > 0 ? undefined : getActivityScheduleLabel(activity
           <div class="flex flex-wrap gap-3">
             <Button disabled>Inscripción no disponible</Button>
           </div>
-        ) : activity.data.registration.useRegistrationForm ? (
+        ) : activity.data.registration?.useRegistrationForm ? (
           <ActivityRegistrationForm activityId={activity.id} activityTitle={activity.data.title} />
         ) : (
           <div class="flex flex-wrap gap-3">
-            {activity.data.registration.registrationUrl ? (
+            {activity.data.registration?.registrationUrl ? (
               <Button
                 href={activity.data.registration.registrationUrl}
                 target="_blank"

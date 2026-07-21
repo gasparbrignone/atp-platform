@@ -49,6 +49,7 @@ collections:
           label: Agenda,
           name: schedule,
           widget: object,
+          required: false,
           collapsed: false,
           hint: 'Horario de una actividad simple. Si es una actividad compuesta por varios encuentros, dejá esto vacío y cargalos en "Clases" más abajo.',
           fields:
@@ -166,6 +167,7 @@ collections:
           label: Inscripción,
           name: registration,
           widget: object,
+          required: false,
           collapsed: false,
           fields:
             [

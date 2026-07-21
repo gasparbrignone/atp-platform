@@ -121,7 +121,10 @@ const activities = defineCollection({
     // desde el CMS después. Decorativa en las cards (alt=""), el título ya
     // dice de qué se trata.
     image: z.string().nullish(),
-    schedule: activitySchedule,
+    // Nullish, no requerido: una actividad compuesta (con `sessions`) no
+    // completa nada acá, y `omit_empty_optional_fields` puede llegar a
+    // omitir el objeto entero si el CMS lo considera "vacío" al guardar.
+    schedule: activitySchedule.nullish(),
     status: z.enum(['proxima', 'activa', 'finalizada']),
     // Actividad compuesta (ej. "Semana de repasos CyD"): en vez de una
     // fecha/horario único, agrupa varias clases sueltas, cada una con su
@@ -129,7 +132,8 @@ const activities = defineCollection({
     // detalle lista cada sesión en vez de mostrar una sola línea de
     // horario (ver src/pages/actividades/[slug].astro).
     sessions: z.array(activitySession).nullish(),
-    registration: activityRegistration,
+    // Nullish por el mismo motivo que `schedule`.
+    registration: activityRegistration.nullish(),
     featured: z.boolean(),
     published: z.boolean(),
     order: z.number().nullish(),
