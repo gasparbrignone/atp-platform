@@ -4,7 +4,11 @@
   "description": "",
   "image": "",
   "schedule": {
-    "recurring": false
+    "recurring": false,
+    "date": "",
+    "time": "00:00",
+    "endTime": "00:00",
+    "location": ""
   },
   "sessions": [
     {
@@ -12,28 +16,28 @@
       "date": "2026-07-27",
       "time": "12:00",
       "endTime": "14:00",
-      "location": "Aula a confirmar"
+      "location": "Subsuelo Sala 7"
     },
     {
       "title": "Métodos anticonceptivos",
       "date": "2026-07-27",
       "time": "14:00",
       "endTime": "16:00",
-      "location": "Aula a confirmar"
+      "location": "Subsuelo Sala 7"
     },
     {
       "title": "Anatomía | Genitales femeninos y masculinos",
       "date": "2026-07-28",
       "time": "14:00",
       "endTime": "16:00",
-      "location": "Aula a confirmar"
+      "location": "Subsuelo Sala 7"
     },
     {
       "title": "Anatomía | Pelvis, pared anterolateral del abdomen y trayecto inguinal",
       "date": "2026-07-28",
       "time": "16:00",
       "endTime": "18:00",
-      "location": "Aula a confirmar"
+      "location": "Subsuelo Sala 7"
     }
   ],
   "status": "proxima",
