@@ -1,0 +1,49 @@
+{
+  "title": "Repasos 3er parcial CyD",
+  "summary": "Sumate a los repasos para el 3er parcial de CyD con ATP!",
+  "description": "",
+  "image": "",
+  "schedule": null,
+  "sessions": [
+    {
+      "title": "Inmunología: repaso del sistema inume",
+      "date": "2026-07-30",
+      "weekday": "",
+      "time": "10:00",
+      "endTime": "12:00",
+      "location": "Aula a confirmar"
+    },
+    {
+      "title": "Fisiología: visión y audición",
+      "date": "2026-07-30",
+      "weekday": "",
+      "time": "12:00",
+      "endTime": "14:00",
+      "location": "Aula a confirmar"
+    },
+    {
+      "title": "Anatomía: miembro superior e inferior",
+      "date": "2026-07-31",
+      "weekday": "",
+      "time": "14:00",
+      "endTime": "16:00",
+      "location": "Anfiteatro de Sala 7"
+    },
+    {
+      "title": "SIMULACRO DE PARCIAL",
+      "date": "2026-07-24",
+      "weekday": "",
+      "time": "16:00",
+      "endTime": "18:00",
+      "location": "Anfiteatro de Sala 7"
+    }
+  ],
+  "status": "proxima",
+  "registration": {
+    "useRegistrationForm": true,
+    "registrationUrl": ""
+  },
+  "featured": true,
+  "published": true,
+  "order": null
+}
