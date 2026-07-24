@@ -113,3 +113,58 @@ export function getActivityTiming(
   if (date > endOfWeek(now)) return 'upcoming';
   return 'this-week';
 }
+
+export interface ReminderSession {
+  title: string;
+  date: string;
+  time?: string | null;
+  endTime?: string | null;
+  location?: string | null;
+}
+
+interface ReminderSessionInput {
+  title: string;
+  date?: string | null;
+  time?: string | null;
+  endTime?: string | null;
+  location?: string | null;
+}
+
+/**
+ * Las clases con `date` puntual (no `weekday` ni `recurring`) son las únicas
+ * que un recordatorio "el día antes" puede ubicar en el calendario — de ahí
+ * el nombre. Usado por ActivityRegistrationForm.astro para mandarle al
+ * Apps Script (ver docs/GOOGLE_SHEETS_FORM_SETUP.md) qué fechas recordar; si
+ * devuelve `[]`, el formulario no ofrece el checkbox de recordatorio.
+ */
+export function getReminderSessions(activity: {
+  title: string;
+  schedule?: ActivityScheduleInput | null;
+  sessions?: ReminderSessionInput[] | null;
+}): ReminderSession[] {
+  if (activity.sessions && activity.sessions.length > 0) {
+    return activity.sessions
+      .filter((session): session is ReminderSessionInput & { date: string } => Boolean(session.date))
+      .map((session) => ({
+        title: session.title,
+        date: session.date,
+        time: session.time,
+        endTime: session.endTime,
+        location: session.location,
+      }));
+  }
+
+  if (activity.schedule?.date) {
+    return [
+      {
+        title: activity.title,
+        date: activity.schedule.date,
+        time: activity.schedule.time,
+        endTime: activity.schedule.endTime,
+        location: activity.schedule.location,
+      },
+    ];
+  }
+
+  return [];
+}

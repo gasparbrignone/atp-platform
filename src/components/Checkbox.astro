@@ -1,0 +1,30 @@
+---
+/**
+ * Checkbox nativo (no un div-fingiendo-checkbox) para heredar gratis foco de
+ * teclado, lectura por lector de pantalla y toggle con la barra espaciadora.
+ * `accent-color` deja que el navegador dibuje el estado marcado con el color
+ * de marca sin perder ninguno de esos comportamientos nativos.
+ */
+import type { HTMLAttributes } from 'astro/types';
+
+interface Props extends Omit<HTMLAttributes<'input'>, 'type'> {
+  label: string;
+}
+
+const { label, id, class: className, ...rest }: Props = Astro.props;
+---
+
+<div class="flex items-start gap-3">
+  <input
+    type="checkbox"
+    id={id}
+    class:list={[
+      'border-border-strong accent-secondary-strong mt-0.5 size-4 shrink-0 rounded-xs border',
+      className,
+    ]}
+    {...rest}
+  />
+  <label for={id} class="text-body-sm text-text-secondary">
+    {label}
+  </label>
+</div>

@@ -16,7 +16,9 @@
  * propio"), aceptada a cambio de no pagar/mantener un backend real.
  */
 import Input from '@/components/Input.astro';
+import Checkbox from '@/components/Checkbox.astro';
 import Button from '@/components/Button.astro';
+import type { ReminderSession } from '@/lib/activitySchedule';
 
 /**
  * URL de la implementación ("Aplicación web") del Apps Script, termina en
@@ -30,9 +32,17 @@ const REGISTRATION_FORM_ENDPOINT =
 interface Props {
   activityId: string;
   activityTitle: string;
+  /**
+   * Clases con fecha puntual (ver `getReminderSessions` en
+   * activitySchedule.ts) — solo si hay al menos una se ofrece el checkbox de
+   * recordatorio, porque es lo único que el Apps Script puede ubicar
+   * "el día antes" en el calendario (una actividad `recurring` sin fecha fija
+   * no tiene un "día antes" que recordar).
+   */
+  reminderSessions: ReminderSession[];
 }
 
-const { activityId, activityTitle } = Astro.props;
+const { activityId, activityTitle, reminderSessions } = Astro.props;
 ---
 
 <form
@@ -43,6 +53,7 @@ const { activityId, activityTitle } = Astro.props;
 >
   <input type="hidden" name="activityId" value={activityId} />
   <input type="hidden" name="activityTitle" value={activityTitle} />
+  <input type="hidden" name="sessions" value={JSON.stringify(reminderSessions)} />
 
   <div class="flex flex-col gap-2">
     <label for="registration-name" class="text-caption text-text-secondary font-semibold">
@@ -64,6 +75,17 @@ const { activityId, activityTitle } = Astro.props;
     </label>
     <Input id="registration-phone" name="phone" type="tel" autocomplete="tel" required />
   </div>
+
+  {
+    reminderSessions.length > 0 && (
+      <Checkbox
+        id="registration-reminder"
+        name="wantsReminder"
+        value="true"
+        label="Quiero que me recuerden por mail el día antes de cada clase."
+      />
+    )
+  }
 
   <Button
     type="submit"

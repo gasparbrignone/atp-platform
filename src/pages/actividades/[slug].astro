@@ -19,7 +19,7 @@ import SectionHeader from '@/components/SectionHeader.astro';
 import Button from '@/components/Button.astro';
 import ActivityRegistrationForm from '@/components/ActivityRegistrationForm.astro';
 import { getCollection, type CollectionEntry } from 'astro:content';
-import { getActivityScheduleLabel } from '@/lib/activitySchedule';
+import { getActivityScheduleLabel, getReminderSessions } from '@/lib/activitySchedule';
 import { uploadThumb } from '@/lib/uploadThumb';
 
 export const getStaticPaths: GetStaticPaths = async () => {
@@ -91,7 +91,11 @@ const meta = sessions.length > 0 ? undefined : getActivityScheduleLabel(activity
             <Button disabled>Inscripción no disponible</Button>
           </div>
         ) : activity.data.registration?.useRegistrationForm ? (
-          <ActivityRegistrationForm activityId={activity.id} activityTitle={activity.data.title} />
+          <ActivityRegistrationForm
+            activityId={activity.id}
+            activityTitle={activity.data.title}
+            reminderSessions={getReminderSessions(activity.data)}
+          />
         ) : (
           <div class="flex flex-wrap gap-3">
             {activity.data.registration?.registrationUrl ? (
