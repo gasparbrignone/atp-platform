@@ -84,39 +84,72 @@ actividad solo.
    // ====== CONFIGURACIÓN ======
    var SENDER_NAME = 'ATP - Ciencias Médicas';
    var PROMO_JSON_URL = 'https://atpfcm.com.ar/actividades-newsletter.json';
+   var SITE_URL = 'https://atpfcm.com.ar';
    var BRAND_COLOR = '#2e5699';
+   var ACCENT_COLOR = '#c6299e';
 
    // ====== PUNTOS DE ENTRADA ======
 
    function doPost(e) {
-     var params = e.parameter;
-     var sheetName = sanitizeSheetName(params.activityTitle || 'Sin actividad');
-     var sheet = getOrCreateSheet(sheetName);
-
-     var wantsReminder = params.wantsReminder === 'true';
-     var sessions = safeParseJson(params.sessions) || [];
-
-     sheet.appendRow([
-       new Date(),
-       params.name || '',
-       params.email || '',
-       params.phone || '',
-       wantsReminder,
-       false, // Dado de baja
-       JSON.stringify(sessions),
-       JSON.stringify([]), // Recordatorios ya enviados
-     ]);
-
      try {
-       sendConfirmationEmail(params.email, params.name, params.activityTitle, sessions, sheetName);
-     } catch (err) {
-       // Si falla el mail no revertimos el guardado: la inscripción ya
-       // quedó en la planilla, que es lo importante.
-     }
+       var params = e.parameter;
+       var sheetName = sanitizeSheetName(params.activityTitle || 'Sin actividad');
+       var sheet = getOrCreateSheet(sheetName);
 
-     return ContentService
-       .createTextOutput(JSON.stringify({ result: 'success' }))
-       .setMimeType(ContentService.MimeType.JSON);
+       var wantsReminder = params.wantsReminder === 'true';
+       var sessions = safeParseJson(params.sessions) || [];
+
+       sheet.appendRow([
+         new Date(),
+         params.name || '',
+         params.email || '',
+         params.phone || '',
+         wantsReminder,
+         false, // Dado de baja
+         JSON.stringify(sessions),
+         JSON.stringify([]), // Recordatorios ya enviados
+         params.activityId || '',
+       ]);
+
+       try {
+         sendConfirmationEmail(params.email, params.name, params.activityTitle, params.activityId, sessions, sheetName);
+       } catch (mailErr) {
+         // Si falla el mail no revertimos el guardado: la inscripción ya
+         // quedó en la planilla, que es lo importante. Igual queda
+         // registrado en la pestaña "Errores" para poder revisarlo.
+         logError('mail', mailErr, params);
+       }
+
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'success' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     } catch (err) {
+       // La interfaz de "Ejecuciones" de Apps Script no siempre muestra el
+       // texto del error cuando lo dispara un pedido real (Aplicación web) en
+       // vez del editor — por eso, además, lo guardamos nosotros mismos acá.
+       logError('doPost', err, e && e.parameter);
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'error' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     }
+   }
+
+   function logError(context, err, params) {
+     try {
+       var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Errores');
+       if (!sheet) {
+         sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('Errores');
+         sheet.appendRow(['Fecha', 'Dónde', 'Error', 'Datos']);
+       }
+       sheet.appendRow([
+         new Date(),
+         context,
+         String(err && err.message ? err.message : err),
+         JSON.stringify(params || {}),
+       ]);
+     } catch (loggingErr) {
+       // Si ni guardar el error funciona, no hay nada más que hacer acá.
+     }
    }
 
    function doGet(e) {
@@ -144,6 +177,7 @@ actividad solo.
 
          var sessions = safeParseJson(row[6]) || [];
          var alreadySent = safeParseJson(row[7]) || [];
+         var activityId = row[8] || '';
 
          var tomorrowSessions = sessions.filter(function (session) {
            var key = session.date + '|' + session.title;
@@ -153,7 +187,7 @@ actividad solo.
          if (tomorrowSessions.length === 0) continue;
 
          try {
-           sendReminderEmail(email, name, sheet.getName(), tomorrowSessions);
+           sendReminderEmail(email, name, sheet.getName(), activityId, tomorrowSessions);
            tomorrowSessions.forEach(function (session) {
              alreadySent.push(session.date + '|' + session.title);
            });
@@ -189,93 +223,107 @@ actividad solo.
        }
      }
      return HtmlService.createHtmlOutput(
-       '<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:' + BRAND_COLOR + ';">' +
-       '<h1 style="font-size:20px;">Listo, te diste de baja</h1>' +
-       '<p style="color:#555;">No vas a recibir más mails de ATP para esta actividad.</p>' +
+       '<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:' + ACCENT_COLOR + ';">' +
+       '<h1 style="font-size:20px;">Listo, te dimos de baja</h1>' +
+       '<p style="color:#555;">No te va a llegar más ningún mail nuestro para esta actividad.</p>' +
        '</div>'
      );
    }
 
    // ====== MAILS ======
 
-   function sendConfirmationEmail(email, name, activityTitle, sessions, sheetName) {
+   function sendConfirmationEmail(email, name, activityTitle, activityId, sessions, sheetName) {
      if (!email) return;
      var unsubscribeUrl = buildUnsubscribeUrl(sheetName, email);
-     var body = buildConfirmationBody(name, activityTitle, sessions);
+     var body = buildConfirmationBody(name, activityTitle, activityId, sessions);
      var html = wrapEmailHtml(body, unsubscribeUrl);
 
-     GmailApp.sendEmail(email, 'Te anotaste a ' + activityTitle + ' — ATP', '', {
+     GmailApp.sendEmail(email, 'Confirmamos tu inscripción a ' + activityTitle, '', {
        htmlBody: html,
        name: SENDER_NAME,
      });
    }
 
-   function sendReminderEmail(email, name, sheetName, sessions) {
+   function sendReminderEmail(email, name, sheetName, activityId, sessions) {
      var unsubscribeUrl = buildUnsubscribeUrl(sheetName, email);
-     var body = buildReminderBody(name, sessions);
+     var body = buildReminderBody(name, sheetName, activityId, sessions);
      var html = wrapEmailHtml(body, unsubscribeUrl);
 
-     GmailApp.sendEmail(email, 'Mañana: ' + sheetName + ' — ATP', '', {
+     GmailApp.sendEmail(email, 'Mañana: ' + sheetName, '', {
        htmlBody: html,
        name: SENDER_NAME,
      });
    }
 
-   function buildConfirmationBody(name, activityTitle, sessions) {
-     var greeting =
-       '<p>Hola ' + (name || '') + ',</p>' +
-       '<p><strong>Te anotaste a "' + activityTitle + '"</strong> — ¡te esperamos!</p>';
-
-     var sessionsHtml = '';
-     if (sessions.length > 0) {
-       var rows = sessions.map(function (session) {
-         var when = formatDateEs(session.date);
-         var time = formatTimeRangeEs(session.time, session.endTime);
-         var line = [when, time, session.location].filter(Boolean).join(' · ');
-         return (
-           '<tr><td style="padding:10px 0;border-bottom:1px solid #eeeeee;">' +
-           '<div style="font-weight:600;">' + session.title + '</div>' +
-           '<div style="color:#555555;font-size:14px;margin-top:2px;">' + line + '</div>' +
-           '</td></tr>'
-         );
-       }).join('');
-       sessionsHtml = '<table style="width:100%;border-collapse:collapse;margin-top:16px;">' + rows + '</table>';
-     }
-
-     return greeting + sessionsHtml + getPromoActivitiesHtml();
+   // Logo real de ATP (fuerza el color a blanco, ver
+   // public/branding/logo-white.svg en el repo) sobre fondo rosa, en vez de
+   // un círculo con las letras "ATP" — se referencia por URL (no en base64
+   // adentro del mail) porque muchos clientes de mail bloquean por default
+   // las imágenes en base64 pero sí cargan una imagen de una URL normal.
+   function wrapEmailHtml(bodyHtml, unsubscribeUrl) {
+     return (
+       '<div style="background:#eef1f6;padding:32px 16px;font-family:Helvetica,Arial,sans-serif;">' +
+       '<div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 16px rgba(198,41,158,0.12);">' +
+       '<div style="background:' + ACCENT_COLOR + ';padding:32px 28px;text-align:center;">' +
+       '<img src="' + SITE_URL + '/branding/logo-white.svg" alt="ATP" width="88" style="height:auto;max-width:88px;display:inline-block;">' +
+       '<div style="color:#ffffff;opacity:0.9;font-size:13px;margin-top:14px;">Agrupación estudiantil de la Facultad de Ciencias Médicas</div>' +
+       '</div>' +
+       '<div style="padding:36px 32px;color:#1f2937;font-size:15px;line-height:1.65;">' + bodyHtml + '</div>' +
+       '<div style="padding:22px 32px;background:#f8f9fb;border-top:1px solid #eef1f6;color:#9aa3af;font-size:12px;text-align:center;line-height:1.6;">' +
+       'ATP, Facultad de Ciencias Médicas (UNR).<br>' +
+       '<a href="' + unsubscribeUrl.replace(/&/g, '&amp;') + '" style="color:#9aa3af;text-decoration:underline;">Darme de baja de estos mails</a>' +
+       '</div>' +
+       '</div>' +
+       '</div>'
+     );
    }
 
-   function buildReminderBody(name, sessions) {
-     var greeting = '<p>Hola ' + (name || '') + ',</p><p><strong>Te esperamos mañana:</strong></p>';
+   // Tono compañero, no de campaña de marketing: nada de "confirmamos tu
+   // registro", nada de mayúsculas de urgencia. Sin guion largo (—): se
+   // reemplaza siempre por punto y aparte o una oración corta nueva.
+   function buildConfirmationBody(name, activityTitle, activityId, sessions) {
+     var greeting =
+       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + (name || '') + ',</p>' +
+       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Quedaste anotado/a a<br>"' + activityTitle + '"</h1>' +
+       '<p style="margin:0 0 24px;color:#374151;">Te esperamos. Guardá este mail que tiene el cronograma con las clases.</p>';
 
-     var rows = sessions.map(function (session) {
+     var sessionsHtml = sessions.length > 0 ? buildSessionCards(sessions, true) : '';
+     var ctaHtml = buildCtaButton(activityId, 'Ver la actividad');
+
+     return greeting + sessionsHtml + ctaHtml + getPromoActivitiesHtml();
+   }
+
+   function buildReminderBody(name, activityTitle, activityId, sessions) {
+     var greeting =
+       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + (name || '') + ',</p>' +
+       '<div style="display:inline-block;background:' + ACCENT_COLOR + '1a;color:' + ACCENT_COLOR + ';font-weight:700;font-size:12px;padding:4px 12px;border-radius:999px;margin-bottom:12px;">MAÑANA</div>' +
+       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Te esperamos en<br>"' + activityTitle + '"</h1>';
+
+     return greeting + buildSessionCards(sessions, false) + buildCtaButton(activityId, 'Ver la actividad');
+   }
+
+   function buildSessionCards(sessions, includeDate) {
+     var cards = sessions.map(function (session) {
+       var when = includeDate ? formatDateEs(session.date) : null;
        var time = formatTimeRangeEs(session.time, session.endTime);
-       var line = [time, session.location].filter(Boolean).join(' · ');
+       var line = [when, time, session.location].filter(Boolean).join(' · ');
        return (
-         '<tr><td style="padding:10px 0;border-bottom:1px solid #eeeeee;">' +
-         '<div style="font-weight:600;">' + session.title + '</div>' +
-         '<div style="color:#555555;font-size:14px;margin-top:2px;">' + line + '</div>' +
-         '</td></tr>'
+         '<div style="border:1px solid #e5e9f0;border-radius:10px;padding:14px 16px;margin-bottom:10px;">' +
+         '<div style="font-weight:700;color:#111827;font-size:14.5px;">' + session.title + '</div>' +
+         '<div style="color:#6b7280;font-size:13.5px;margin-top:4px;">' + line + '</div>' +
+         '</div>'
        );
      }).join('');
 
-     return greeting + '<table style="width:100%;border-collapse:collapse;margin-top:8px;">' + rows + '</table>';
+     return '<div style="margin:8px 0 24px;">' + cards + '</div>';
    }
 
-   function wrapEmailHtml(bodyHtml, unsubscribeUrl) {
+   function buildCtaButton(activityId, label) {
+     if (!activityId) return '';
+     var url = SITE_URL + '/actividades/' + activityId;
      return (
-       '<div style="background:#f4f4f7;padding:24px 0;font-family:Arial,Helvetica,sans-serif;">' +
-       '<div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;">' +
-       '<div style="background:' + BRAND_COLOR + ';padding:24px;text-align:center;">' +
-       '<span style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:0.5px;">ATP</span>' +
-       '<div style="color:#ffffff;opacity:0.85;font-size:13px;margin-top:4px;">Agrupación estudiantil · Facultad de Ciencias Médicas (UNR)</div>' +
-       '</div>' +
-       '<div style="padding:32px 28px;color:#222222;font-size:15px;line-height:1.6;">' + bodyHtml + '</div>' +
-       '<div style="padding:20px 28px;border-top:1px solid #eeeeee;color:#999999;font-size:12px;text-align:center;">' +
-       'ATP · Facultad de Ciencias Médicas, UNR<br>' +
-       '<a href="' + unsubscribeUrl + '" style="color:#999999;">Darme de baja de estos mails</a>' +
-       '</div>' +
-       '</div>' +
+       '<div style="text-align:center;margin:8px 0 4px;">' +
+       '<a href="' + url + '" style="display:inline-block;background:' + ACCENT_COLOR + ';color:#ffffff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:999px;text-decoration:none;">' + label + '</a>' +
        '</div>'
      );
    }
@@ -289,16 +337,16 @@ actividad solo.
 
        var items = activities.map(function (activity) {
          return (
-           '<tr><td style="padding:8px 0;border-bottom:1px solid #e5e5e5;">' +
-           '<a href="' + activity.url + '" style="color:' + BRAND_COLOR + ';font-weight:600;text-decoration:none;">' + activity.title + '</a>' +
-           '<div style="color:#666666;font-size:13px;margin-top:4px;">' + activity.summary + '</div>' +
-           '</td></tr>'
+           '<a href="' + activity.url + '" style="display:block;border:1px solid #e5e9f0;border-radius:10px;padding:14px 16px;margin-bottom:10px;text-decoration:none;">' +
+           '<div style="font-weight:700;color:' + BRAND_COLOR + ';font-size:14px;">' + activity.title + '</div>' +
+           '<div style="color:#6b7280;font-size:13px;margin-top:4px;">' + activity.summary + '</div>' +
+           '</a>'
          );
        }).join('');
 
        return (
-         '<h3 style="color:' + BRAND_COLOR + ';font-size:16px;margin:32px 0 12px;">Próximas actividades de ATP</h3>' +
-         '<table style="width:100%;border-collapse:collapse;">' + items + '</table>'
+         '<h3 style="color:' + BRAND_COLOR + ';font-size:15px;margin:36px 0 14px;font-weight:700;">Además, te puede interesar</h3>' +
+         items
        );
      } catch (err) {
        return '';
@@ -336,7 +384,7 @@ actividad solo.
        sheet = spreadsheet.insertSheet(sheetName);
        sheet.appendRow([
          'Fecha', 'Nombre y apellido', 'Email', 'Teléfono',
-         'Quiere recordatorio', 'Dado de baja', 'Sessions', 'Recordatorios enviados',
+         'Quiere recordatorio', 'Dado de baja', 'Sessions', 'Recordatorios enviados', 'ActivityId',
        ]);
      }
      return sheet;
