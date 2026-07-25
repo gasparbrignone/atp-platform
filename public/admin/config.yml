@@ -249,6 +249,124 @@ collections:
       - { label: Portada, name: cover, widget: image, required: false }
       - { label: Orden, name: order, widget: number, required: false, value_type: int }
 
+  # Fechas que publica la FCM (inscripción al cursado, cursada, mesas de
+  # examen) por área/materia. Carga manual desde acá cuando la facultad
+  # actualiza esas páginas — no hay ningún proceso automático leyéndolas.
+  - name: academicCalendar
+    label: Calendario académico
+    folder: src/content/academicCalendar
+    create: true
+    delete: true
+    slug: '{{career}}-{{slug}}'
+    extension: json
+    format: json
+    fields:
+      - {
+          label: Carrera,
+          name: career,
+          widget: select,
+          options:
+            [
+              { label: Medicina, value: medicina },
+              { label: Enfermería, value: enfermeria },
+              { label: Fonoaudiología, value: fonoaudiologia },
+              { label: Terapia Ocupacional, value: terapia-ocupacional },
+            ],
+        }
+      - { label: Área / Materia, name: name, widget: string }
+      - {
+          label: Año de la carrera,
+          name: year,
+          widget: number,
+          required: false,
+          value_type: int,
+          hint: 'Opcional, solo para mostrar un cartel (ej. "3° año") junto al nombre.',
+        }
+      - {
+          label: 'Inscripción al cursado: desde',
+          name: registrationStart,
+          widget: datetime,
+          required: false,
+          format: 'YYYY-MM-DD',
+          date_format: true,
+          time_format: false,
+          picker_utc: true,
+        }
+      - {
+          label: 'Inscripción al cursado: hasta',
+          name: registrationEnd,
+          widget: datetime,
+          required: false,
+          format: 'YYYY-MM-DD',
+          date_format: true,
+          time_format: false,
+          picker_utc: true,
+        }
+      - {
+          label: 'Cursada: inicio',
+          name: courseStart,
+          widget: datetime,
+          required: false,
+          format: 'YYYY-MM-DD',
+          date_format: true,
+          time_format: false,
+          picker_utc: true,
+        }
+      - {
+          label: 'Cursada: finalización',
+          name: courseEnd,
+          widget: datetime,
+          required: false,
+          format: 'YYYY-MM-DD',
+          date_format: true,
+          time_format: false,
+          picker_utc: true,
+        }
+      - {
+          label: Mesas de examen,
+          name: examBoards,
+          widget: list,
+          required: false,
+          summary: '{{period}}, {{call}}',
+          fields:
+            [
+              {
+                label: Período,
+                name: period,
+                widget: string,
+                hint: 'Ej. "Julio-Agosto 2026".',
+              },
+              {
+                label: Llamado,
+                name: call,
+                widget: string,
+                required: false,
+                hint: 'Opcional, ej. "1er llamado".',
+              },
+              {
+                label: Fecha de presente,
+                name: presentDate,
+                widget: datetime,
+                required: false,
+                format: 'YYYY-MM-DD',
+                date_format: true,
+                time_format: false,
+                picker_utc: true,
+              },
+              {
+                label: Fecha de examen,
+                name: examDate,
+                widget: datetime,
+                required: false,
+                format: 'YYYY-MM-DD',
+                date_format: true,
+                time_format: false,
+                picker_utc: true,
+              },
+            ],
+        }
+      - { label: Orden, name: order, widget: number, required: false, value_type: int }
+
   - name: subjects
     label: Materias
     folder: src/content/subjects

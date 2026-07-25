@@ -177,6 +177,40 @@ const books = defineCollection({
   }),
 });
 
+// Una fecha de examen para un área/materia (ver `academicCalendar` abajo).
+// `call` (ej. "1er llamado") es libre en vez de un enum porque la cantidad de
+// llamados por período varía según la FCM, no vale la pena un enum fijo para
+// esto.
+const examBoard = z.object({
+  period: z.string(),
+  call: z.string().nullish(),
+  presentDate: z.string().nullish(),
+  examDate: z.string().nullish(),
+});
+
+// Calendario académico por área/materia, publicado por la FCM (páginas de
+// inscripción al cursado y de mesas de examen) y cargado a mano desde el CMS
+// cuando la facultad actualiza esas fechas — no hay scraping automático (más
+// frágil, se rompe en silencio si la FCM cambia el HTML de su página). Una
+// colección en vez de campos fijos en `careers` porque la cantidad de áreas
+// por carrera varía y crece con el tiempo.
+const academicCalendar = defineCollection({
+  loader: glob({ pattern: '**/*.json', base: './src/content/academicCalendar' }),
+  schema: z.object({
+    career: z.enum(['medicina', 'enfermeria', 'fonoaudiologia', 'terapia-ocupacional']),
+    name: z.string(),
+    // Año de cursada dentro de la carrera (ej. 3), solo para agrupar/mostrar
+    // — no afecta el orden real, eso lo maneja `order`.
+    year: z.number().nullish(),
+    registrationStart: z.string().nullish(),
+    registrationEnd: z.string().nullish(),
+    courseStart: z.string().nullish(),
+    courseEnd: z.string().nullish(),
+    examBoards: z.array(examBoard).nullish(),
+    order: z.number().nullish(),
+  }),
+});
+
 // Materias (ej. "Fisiología") y tipos de recurso (ej. "Cuaderno del
 // alumno") como colecciones editables desde el CMS en vez de listas fijas
 // en código — así ATP puede crear una categoría nueva (ej. al cargar el
@@ -303,4 +337,12 @@ const tools = defineCollection({
   }),
 });
 
-export const collections = { activities, books, careers, tools, subjects, resourceTypes };
+export const collections = {
+  activities,
+  books,
+  careers,
+  tools,
+  subjects,
+  resourceTypes,
+  academicCalendar,
+};

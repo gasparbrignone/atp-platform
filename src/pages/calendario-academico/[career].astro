@@ -1,0 +1,185 @@
+---
+/**
+ * Calendario académico. Una página por carrera (mismo patrón dinámico que
+ * src/pages/carreras/[career].astro), con las fechas de inscripción al
+ * cursado, inicio/finalización de cursada y mesas de examen por área —
+ * cargadas a mano desde el CMS (colección `academicCalendar`, ver
+ * content.config.ts) porque la FCM no publica esto en un formato que se
+ * pueda leer automáticamente sin romperse cada vez que cambia su página.
+ *
+ * Búsqueda por área con la misma lógica tolerante a tipeo que Biblioteca
+ * (src/lib/textSearch.ts) — sin filtros de carrera acá porque cada página ya
+ * es de una sola carrera.
+ */
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Section from '@/components/Section.astro';
+import Container from '@/components/Container.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import SearchBar from '@/components/SearchBar.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import Badge from '@/components/Badge.astro';
+import { getCollection } from 'astro:content';
+import { careerLabels, type CareerSlug } from '@/lib/labels';
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  return (Object.keys(careerLabels) as CareerSlug[]).map((career) => ({ params: { career } }));
+};
+
+const { career } = Astro.params as { career: CareerSlug };
+const careerName = careerLabels[career];
+
+const areas = (await getCollection('academicCalendar', ({ data }) => data.career === career)).sort(
+  (a, b) => (a.data.order ?? 0) - (b.data.order ?? 0) || a.data.name.localeCompare(b.data.name, 'es'),
+);
+
+/**
+ * Fechas guardadas como `YYYY-MM-DD` (mismo formato que activities). Locale
+ * hardcodeado a `es-AR` por el mismo motivo que activitySchedule.ts: el
+ * contenido es en español sí o sí, no depende del navegador de quien visita.
+ */
+function formatDateEs(dateStr?: string | null): string | null {
+  if (!dateStr) return null;
+  const date = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+}
+
+function formatRange(start?: string | null, end?: string | null): string | null {
+  const startLabel = formatDateEs(start);
+  const endLabel = formatDateEs(end);
+  if (startLabel && endLabel) return `Del ${startLabel} al ${endLabel}`;
+  if (startLabel) return `Desde el ${startLabel}`;
+  if (endLabel) return `Hasta el ${endLabel}`;
+  return null;
+}
+---
+
+<BaseLayout
+  title={`Calendario académico de ${careerName}`}
+  description={`Fechas de inscripción al cursado, inicio y finalización de cursada, y mesas de examen por área de ${careerName}.`}
+  canonicalPath={`/calendario-academico/${career}`}
+>
+  <Section spacing="lg">
+    <Container class="flex flex-col gap-10">
+      <SectionHeader
+        as="h1"
+        title="Calendario académico"
+        description={`Inscripción al cursado, cursada y mesas de examen de ${careerName}, área por área.`}
+      />
+
+      {
+        areas.length > 0 && (
+          <div class="max-w-md">
+            <SearchBar data-calendar-search label="Buscar por área" placeholder="Buscar por área" />
+          </div>
+        )
+      }
+
+      {
+        areas.length > 0 ? (
+          <ol data-calendar-list class="border-border divide-border flex flex-col divide-y rounded-md border">
+            {areas.map((area) => {
+              const registrationRange = formatRange(
+                area.data.registrationStart,
+                area.data.registrationEnd,
+              );
+              const courseRange = formatRange(area.data.courseStart, area.data.courseEnd);
+              const examBoards = area.data.examBoards ?? [];
+
+              return (
+                <li data-calendar-row data-search={area.data.name} class="flex flex-col gap-4 p-5">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h2 class="text-h4 text-text font-bold">{area.data.name}</h2>
+                    {area.data.year && <Badge variant="secondary">{area.data.year}° año</Badge>}
+                  </div>
+
+                  {(registrationRange || courseRange) && (
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {registrationRange && (
+                        <div class="flex flex-col gap-1">
+                          <p class="text-caption text-text-secondary font-semibold">
+                            Inscripción al cursado
+                          </p>
+                          <p class="text-body-sm text-text">{registrationRange}</p>
+                        </div>
+                      )}
+                      {courseRange && (
+                        <div class="flex flex-col gap-1">
+                          <p class="text-caption text-text-secondary font-semibold">Cursada</p>
+                          <p class="text-body-sm text-text">{courseRange}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {examBoards.length > 0 && (
+                    <div class="flex flex-col gap-2">
+                      <p class="text-caption text-text-secondary font-semibold">Mesas de examen</p>
+                      <ul class="flex flex-col gap-1">
+                        {examBoards.map((board) => {
+                          const presentLabel = formatDateEs(board.presentDate);
+                          const examLabel = formatDateEs(board.examDate);
+                          const parts = [
+                            [board.period, board.call].filter(Boolean).join(', '),
+                            presentLabel && `Presente: ${presentLabel}`,
+                            examLabel && `Examen: ${examLabel}`,
+                          ].filter(Boolean);
+                          return <li class="text-body-sm text-text-secondary">{parts.join(' · ')}</li>;
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <EmptyState
+            title="Todavía no hay fechas cargadas para esta carrera"
+            description="Muy pronto vas a encontrar acá las fechas de inscripción, cursada y mesas de examen."
+          />
+        )
+      }
+
+      <EmptyState
+        data-calendar-empty
+        class="hidden"
+        title="No encontramos ningún área con esa búsqueda"
+        description="Probá con otra palabra."
+      />
+    </Container>
+  </Section>
+</BaseLayout>
+
+<script>
+  import { toSearchWords, matchesQuery } from '@/lib/textSearch';
+
+  const rows = document.querySelectorAll<HTMLElement>('[data-calendar-row]');
+  const list = document.querySelector<HTMLElement>('[data-calendar-list]');
+  const searchInput = document.querySelector<HTMLInputElement>('[data-calendar-search]');
+  const emptyState = document.querySelector<HTMLElement>('[data-calendar-empty]');
+
+  const rowWords = new Map<HTMLElement, string[]>();
+  rows.forEach((row) => {
+    rowWords.set(row, toSearchWords(row.dataset.search ?? ''));
+  });
+
+  function applyFilters() {
+    const query = searchInput?.value ?? '';
+    let visibleCount = 0;
+
+    rows.forEach((row) => {
+      const words = rowWords.get(row) ?? [];
+      const matches = matchesQuery(query, words);
+      row.classList.toggle('hidden', !matches);
+      if (matches) visibleCount += 1;
+    });
+
+    list?.classList.toggle('hidden', visibleCount === 0);
+    emptyState?.classList.toggle('hidden', visibleCount !== 0 || rows.length === 0);
+  }
+
+  searchInput?.addEventListener('input', applyFilters);
+  applyFilters();
+</script>

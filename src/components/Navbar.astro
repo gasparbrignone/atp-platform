@@ -37,11 +37,17 @@ const toolChildren = publishedTools.map((tool) => ({
   href: `/herramientas/${tool.id}`,
 }));
 
+const calendarChildren = (Object.keys(careerLabels) as CareerSlug[]).map((slug) => ({
+  label: careerLabels[slug],
+  href: `/calendario-academico/${slug}`,
+}));
+
 const navLinks = [
   { label: 'Inicio', href: '/' },
   { label: 'Biblioteca', href: '/biblioteca' },
   { label: 'Actividades', href: '/actividades' },
   { label: 'Carreras', href: '/carreras', children: careerChildren },
+  { label: 'Calendario académico', href: calendarChildren[0].href, children: calendarChildren },
   { label: '+info', href: '/herramientas', children: toolChildren },
 ];
 ---

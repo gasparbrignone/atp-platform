@@ -188,6 +188,8 @@ const filterChips = [
 </BaseLayout>
 
 <script>
+  import { toSearchWords, matchesQuery } from '@/lib/textSearch';
+
   // Fase 12 — Analíticas: qué buscan los estudiantes (GoatCounter, ver
   // BaseLayout.astro). Debounced: un evento por búsqueda "asentada", no uno
   // por tecla — evitar ruido en el panel de analíticas.
@@ -206,54 +208,16 @@ const filterChips = [
   const grid = document.querySelector<HTMLElement>('[data-library-grid]');
   const emptyState = document.querySelector<HTMLElement>('[data-library-empty]');
 
-  // Búsqueda tolerante a errores de tipeo y tildes: "neter"/"more"/"pro" deben
-  // encontrar "Netter"/"Moore"/"Pró". Se normaliza (sin acentos) y se compara
-  // por palabra con distancia de edición, no con includes() exacto.
-  function normalize(text: string) {
-    return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  }
-
-  function levenshtein(a: string, b: string) {
-    const dp: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [
-      i,
-      ...Array(b.length).fill(0),
-    ]);
-    for (let j = 0; j <= b.length; j += 1) dp[0][j] = j;
-    for (let i = 1; i <= a.length; i += 1) {
-      for (let j = 1; j <= b.length; j += 1) {
-        dp[i][j] =
-          a[i - 1] === b[j - 1]
-            ? dp[i - 1][j - 1]
-            : 1 + Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]);
-      }
-    }
-    return dp[a.length][b.length];
-  }
-
-  function wordMatches(queryWord: string, cardWord: string) {
-    if (cardWord.includes(queryWord)) return true;
-    const maxDistance = queryWord.length <= 4 ? 1 : 2;
-    return levenshtein(queryWord, cardWord) <= maxDistance;
-  }
-
   const cardWords = new Map<HTMLElement, string[]>();
   cards.forEach((card) => {
-    cardWords.set(
-      card,
-      normalize(card.dataset.search ?? '')
-        .split(/[^a-z0-9]+/)
-        .filter(Boolean),
-    );
+    cardWords.set(card, toSearchWords(card.dataset.search ?? ''));
   });
 
   function applyFilters() {
     const career = careerSelect?.value ?? 'all';
     const subject = subjectSelect?.value ?? 'all';
     const type = typeSelect?.value ?? 'all';
-    const queryWords = normalize(searchInput?.value ?? '')
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
+    const query = searchInput?.value ?? '';
     let visibleCount = 0;
 
     cards.forEach((card) => {
@@ -262,10 +226,7 @@ const filterChips = [
       const matchesSubject = subject === 'all' || card.dataset.subject === subject;
       const matchesType = type === 'all' || card.dataset.resourceType === type;
       const words = cardWords.get(card) ?? [];
-      const matchesQuery =
-        queryWords.length === 0 ||
-        queryWords.every((queryWord) => words.some((word) => wordMatches(queryWord, word)));
-      const matches = matchesCareer && matchesSubject && matchesType && matchesQuery;
+      const matches = matchesCareer && matchesSubject && matchesType && matchesQuery(query, words);
       card.classList.toggle('hidden', !matches);
       if (matches) visibleCount += 1;
     });
