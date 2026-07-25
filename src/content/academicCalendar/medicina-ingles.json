@@ -1,0 +1,20 @@
+{
+  "career": "medicina",
+  "name": "Inglés",
+  "registrationStart": "2026-03-20",
+  "courseStart": "2026-03-30",
+  "courseEnd": "2026-11-13",
+  "examBoards": [
+    { "period": "Febrero-Marzo 2026", "call": "1er llamado", "presentDate": "2026-02-04", "examDate": "2026-02-09" },
+    { "period": "Febrero-Marzo 2026", "call": "2do llamado", "presentDate": "2026-02-18", "examDate": "2026-02-23" },
+    { "period": "Febrero-Marzo 2026", "call": "Mayo adelantado", "presentDate": "2026-03-04", "examDate": "2026-03-09" },
+    { "period": "Julio-Agosto 2026", "presentDate": "2026-06-25", "examDate": "2026-06-30" },
+    { "period": "Septiembre 2026", "presentDate": "2026-08-27", "examDate": "2026-09-02" },
+    { "period": "Noviembre-Diciembre 2026", "call": "1er llamado", "presentDate": "2026-11-18", "examDate": "2026-11-23" },
+    { "period": "Noviembre-Diciembre 2026", "call": "2do llamado", "presentDate": "2026-12-01", "examDate": "2026-12-04" },
+    { "period": "Febrero-Marzo 2027", "call": "1er llamado", "presentDate": "2027-02-01", "examDate": "2027-02-04" },
+    { "period": "Febrero-Marzo 2027", "call": "2do llamado", "presentDate": "2027-02-15", "examDate": "2027-02-18" },
+    { "period": "Febrero-Marzo 2027", "call": "3er llamado", "presentDate": "2027-03-01", "examDate": "2027-03-04" }
+  ],
+  "order": 14
+}

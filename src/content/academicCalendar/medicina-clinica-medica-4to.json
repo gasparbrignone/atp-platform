@@ -1,0 +1,20 @@
+{
+  "career": "medicina",
+  "name": "Clínica Médica 4to",
+  "year": 4,
+  "registrationStart": "2026-03-16",
+  "courseStart": "2026-03-23",
+  "courseEnd": "2026-11-20",
+  "examBoards": [
+    { "period": "Febrero-Marzo 2026", "call": "1er llamado", "presentDate": "2026-02-08", "examDate": "2026-02-11" },
+    { "period": "Febrero-Marzo 2026", "call": "2do llamado", "presentDate": "2026-02-23", "examDate": "2026-02-26" },
+    { "period": "Mayo 2026", "presentDate": "2026-05-21", "examDate": "2026-05-27" },
+    { "period": "Julio-Agosto 2026", "presentDate": "2026-07-20", "examDate": "2026-07-22" },
+    { "period": "Septiembre 2026", "presentDate": "2026-09-11", "examDate": "2026-09-16" },
+    { "period": "Noviembre-Diciembre 2026", "call": "1er llamado", "presentDate": "2026-11-18", "examDate": "2026-11-24" },
+    { "period": "Noviembre-Diciembre 2026", "call": "2do llamado", "presentDate": "2026-12-04", "examDate": "2026-12-09" },
+    { "period": "Febrero-Marzo 2027", "call": "1er llamado", "presentDate": "2027-02-05", "examDate": "2027-02-10" },
+    { "period": "Febrero-Marzo 2027", "call": "2do llamado", "presentDate": "2027-02-19", "examDate": "2027-02-24" }
+  ],
+  "order": 12
+}

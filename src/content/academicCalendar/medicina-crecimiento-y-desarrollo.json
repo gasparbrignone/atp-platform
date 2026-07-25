@@ -1,0 +1,20 @@
+{
+  "career": "medicina",
+  "name": "Crecimiento y Desarrollo",
+  "registrationStart": "2026-02-02",
+  "courseStart": "2026-02-09",
+  "courseEnd": "2026-08-11",
+  "examBoards": [
+    { "period": "Febrero-Marzo 2026", "call": "1er llamado", "presentDate": "2026-02-02", "examDate": "2026-02-05" },
+    { "period": "Febrero-Marzo 2026", "call": "2do llamado", "presentDate": "2026-02-12", "examDate": "2026-02-19" },
+    { "period": "Febrero-Marzo 2026", "call": "Mayo adelantado", "presentDate": "2026-03-02", "examDate": "2026-03-05" },
+    { "period": "Julio-Agosto 2026", "presentDate": "2026-08-12", "examDate": "2026-08-17" },
+    { "period": "Septiembre 2026", "presentDate": "2026-08-26", "examDate": "2026-08-31" },
+    { "period": "Noviembre-Diciembre 2026", "call": "1er llamado", "presentDate": "2026-11-18", "examDate": "2026-11-23" },
+    { "period": "Noviembre-Diciembre 2026", "call": "2do llamado", "presentDate": "2026-12-02", "examDate": "2026-12-07" },
+    { "period": "Febrero-Marzo 2027", "call": "1er llamado", "presentDate": "2027-02-01", "examDate": "2027-02-04" },
+    { "period": "Febrero-Marzo 2027", "call": "2do llamado", "presentDate": "2027-02-15", "examDate": "2027-02-18" },
+    { "period": "Febrero-Marzo 2027", "call": "3er llamado", "presentDate": "2027-03-01", "examDate": "2027-03-04" }
+  ],
+  "order": 1
+}
