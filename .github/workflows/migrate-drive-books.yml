@@ -63,7 +63,16 @@ jobs:
         # El push puede perder la carrera contra un commit nuevo en `main`
         # (alguien editando el CMS, u otro push) que llegó después del
         # checkout de este job — reintenta con rebase en vez de fallar la
-        # corrida entera, que es lo que pasaba antes (visto en producción).
+        # corrida entera. 10 intentos con espera aleatoria (no siempre el
+        # mismo intervalo, para no perder la carrera contra otro reintento
+        # con el mismo timing) en vez de 5 con backoff fijo: en producción,
+        # con varios commits seguidos llegando a `main` (edición activa por
+        # CMS), 5 intentos alcanzaron a agotarse igual.
+        #
+        # Si el rebase mismo falla (conflicto real, no solo una carrera —
+        # rarísimo, implicaría que alguien tocó a mano el mismo campo que
+        # este bot en el mismo libro) se aborta ese intento en vez de
+        # segir con un rebase a medio terminar.
         run: |
           if git diff --quiet -- src/content/books; then
             echo "Sin cambios para commitear."
@@ -73,15 +82,21 @@ jobs:
           git add src/content/books
           git commit -m "chore: migrar libros de Google Drive a GitHub Releases"
 
-          for attempt in 1 2 3 4 5; do
+          for attempt in $(seq 1 10); do
             if git push; then
               exit 0
             fi
             echo "Push rechazado (intento $attempt), reintentando con rebase..."
             git fetch origin main
-            git rebase origin/main
-            sleep $((attempt * 3))
+            if ! git rebase origin/main; then
+              echo "Rebase con conflicto real, no solo una carrera — abortando."
+              git rebase --abort
+              exit 1
+            fi
+            sleep $((RANDOM % 10 + attempt * 2))
           done
 
-          echo "No se pudo pushear después de varios intentos."
+          echo "No se pudo pushear después de varios intentos. Es seguro volver a" \
+               "correr este workflow más tarde (workflow_dispatch): el script solo" \
+               "toca los libros que todavía no tienen downloadUrl."
           exit 1
