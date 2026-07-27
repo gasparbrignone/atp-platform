@@ -60,11 +60,28 @@ jobs:
           GIT_AUTHOR_EMAIL: atp-bot@users.noreply.github.com
           GIT_COMMITTER_NAME: atp-bot
           GIT_COMMITTER_EMAIL: atp-bot@users.noreply.github.com
+        # El push puede perder la carrera contra un commit nuevo en `main`
+        # (alguien editando el CMS, u otro push) que llegó después del
+        # checkout de este job — reintenta con rebase en vez de fallar la
+        # corrida entera, que es lo que pasaba antes (visto en producción).
         run: |
           if git diff --quiet -- src/content/books; then
             echo "Sin cambios para commitear."
-          else
-            git add src/content/books
-            git commit -m "chore: migrar libros de Google Drive a GitHub Releases"
-            git push
+            exit 0
           fi
+
+          git add src/content/books
+          git commit -m "chore: migrar libros de Google Drive a GitHub Releases"
+
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              exit 0
+            fi
+            echo "Push rechazado (intento $attempt), reintentando con rebase..."
+            git fetch origin main
+            git rebase origin/main
+            sleep $((attempt * 3))
+          done
+
+          echo "No se pudo pushear después de varios intentos."
+          exit 1
