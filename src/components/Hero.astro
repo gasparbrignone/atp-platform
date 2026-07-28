@@ -85,6 +85,15 @@ const isCentered = alignment === 'center';
   {
     backgroundImage && (
       <>
+        {
+          /*
+           * Este es el LCP de la home (foto de fondo a pantalla completa) —
+           * Lighthouse marcaba el compression factor de "mid" (quality 50)
+           * como insuficiente (~18KB de ahorro posible en el candidato de
+           * 1024w). 35 recorta eso sin verse peor: hay un degradado encima
+           * (más abajo) que ya tapa el detalle fino de la foto.
+           */
+        }
         <Image
           src={backgroundImage}
           alt=""
@@ -93,7 +102,7 @@ const isCentered = alignment === 'center';
           fetchpriority="high"
           widths={[640, 1024, 1536, 1920]}
           sizes="100vw"
-          quality="mid"
+          quality={35}
           class="absolute inset-0 -z-20 size-full object-cover"
         />
         {

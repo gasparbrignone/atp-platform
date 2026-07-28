@@ -66,13 +66,17 @@ const filterChips = [
 ---
 
 <BaseLayout
-  title="Biblioteca"
-  description="Buscá apuntes, libros y guías de todas las materias."
+  title="Biblioteca: apuntes y material de estudio"
+  description="Material de estudio de la Facultad de Ciencias Médicas (UNR): apuntes, resúmenes y guías de Medicina, Enfermería, Fonoaudiología y Terapia Ocupacional, organizados por materia y carrera."
   canonicalPath="/biblioteca/"
 >
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
-      <SectionHeader as="h1" title="Biblioteca" />
+      <SectionHeader
+        as="h1"
+        title="Biblioteca"
+        description="Apuntes, resúmenes y guías de estudio de la FCM (UNR), organizados por materia y carrera."
+      />
 
       <FilterPanel title="Buscar">
         <div class="flex min-w-64 flex-1 flex-col gap-1">
