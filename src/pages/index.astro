@@ -33,10 +33,10 @@ import HandHeart from '@lucide/astro/icons/hand-heart';
 import { getCollection } from 'astro:content';
 
 const quickLinks = [
-  { icon: BookOpen, title: 'Biblioteca', href: '/biblioteca' },
-  { icon: CalendarCheck, title: 'Actividades', href: '/actividades' },
+  { icon: BookOpen, title: 'Biblioteca', href: '/biblioteca/' },
+  { icon: CalendarCheck, title: 'Actividades', href: '/actividades/' },
   { icon: GraduationCap, title: 'Carreras', href: '#carreras' },
-  { icon: Info, title: '+info', href: '/herramientas' },
+  { icon: Info, title: '+info', href: '/herramientas/' },
 ];
 
 const featuredActivities = await getCollection(
@@ -45,10 +45,10 @@ const featuredActivities = await getCollection(
 );
 
 const careers = [
-  { icon: Stethoscope, name: 'Medicina', href: '/carreras/medicina' },
-  { icon: HeartPulse, name: 'Enfermería', href: '/carreras/enfermeria' },
-  { icon: Ear, name: 'Fonoaudiología', href: '/carreras/fonoaudiologia' },
-  { icon: HandHeart, name: 'Terapia Ocupacional', href: '/carreras/terapia-ocupacional' },
+  { icon: Stethoscope, name: 'Medicina', href: '/carreras/medicina/' },
+  { icon: HeartPulse, name: 'Enfermería', href: '/carreras/enfermeria/' },
+  { icon: Ear, name: 'Fonoaudiología', href: '/carreras/fonoaudiologia/' },
+  { icon: HandHeart, name: 'Terapia Ocupacional', href: '/carreras/terapia-ocupacional/' },
 ];
 ---
 
@@ -62,7 +62,7 @@ const careers = [
     subtitle="De estudiantes para estudiantes"
     backgroundImage={homeHero}
     hideTitleVisually
-    primaryAction={{ label: 'Sumate a ATP', href: '/sumate', icon: AtpMark }}
+    primaryAction={{ label: 'Sumate a ATP', href: '/sumate/', icon: AtpMark }}
   >
     <Logo slot="logo" class="h-14 w-auto text-white sm:h-16 lg:h-20" />
     <div slot="extra" class="mt-4 flex flex-wrap items-center justify-center gap-3">
@@ -130,7 +130,7 @@ const careers = [
   <Section id="sumate" spacing="lg" background="surface-alt">
     <Container class="flex flex-col items-center gap-6 text-center">
       <SectionHeader title="Sumate a transformar la facultad" alignment="center" />
-      <Button href="/sumate" size="lg">
+      <Button href="/sumate/" size="lg">
         <AtpMark slot="icon-start" class="size-4" />
         Sumate a ATP
       </Button>

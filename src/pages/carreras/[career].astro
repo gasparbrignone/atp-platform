@@ -54,7 +54,7 @@ const instagramHandle = career.data.instagram
 <BaseLayout
   title={career.data.name}
   description={`Recursos, herramientas y actividades de ATP para estudiantes de ${career.data.name}.`}
-  canonicalPath={`/carreras/${career.id}`}
+  canonicalPath={`/carreras/${career.id}/`}
 >
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
@@ -187,8 +187,8 @@ const instagramHandle = career.data.instagram
       <div class="border-border flex flex-col items-center gap-4 border-t pt-10 text-center">
         <p class="text-h4 text-text font-bold">¿Querés participar de ATP?</p>
         <div class="flex flex-col gap-3 sm:flex-row">
-          <Button href="/actividades" variant="outline"> Ver actividades </Button>
-          <Button href="/sumate">
+          <Button href="/actividades/" variant="outline"> Ver actividades </Button>
+          <Button href="/sumate/">
             <AtpMark slot="icon-start" class="size-4" />
             Sumate a ATP
           </Button>

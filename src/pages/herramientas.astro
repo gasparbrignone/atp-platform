@@ -41,7 +41,7 @@ const publishedTools = await getCollection('tools', ({ data }) => data.published
 <BaseLayout
   title="+info"
   description="Atlas, simuladores y accesos útiles para estudiar."
-  canonicalPath="/herramientas"
+  canonicalPath="/herramientas/"
 >
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
@@ -62,7 +62,7 @@ const publishedTools = await getCollection('tools', ({ data }) => data.published
                   </h3>
                   <p set:html={renderInlineMarkdown(tool.data.description)} />
                   <div slot="actions" class="flex flex-wrap items-center gap-2">
-                    <Button href={`/herramientas/${tool.id}`} variant="outline" size="sm">
+                    <Button href={`/herramientas/${tool.id}/`} variant="outline" size="sm">
                       Ver más
                     </Button>
                     {tool.data.url && (

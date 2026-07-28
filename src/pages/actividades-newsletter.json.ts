@@ -22,7 +22,7 @@ export const GET: APIRoute = async () => {
     .map((activity) => ({
       title: activity.data.title,
       summary: activity.data.summary,
-      url: `https://atpfcm.com.ar/actividades/${activity.id}`,
+      url: `https://atpfcm.com.ar/actividades/${activity.id}/`,
     }));
 
   return new Response(JSON.stringify({ activities: items }), {

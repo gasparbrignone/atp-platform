@@ -52,11 +52,11 @@ const Icon = toolIcons[tool.data.icon];
 <BaseLayout
   title={tool.data.name}
   description={markdownToPlainText(tool.data.description)}
-  canonicalPath={`/herramientas/${tool.id}`}
+  canonicalPath={`/herramientas/${tool.id}/`}
 >
   <Section spacing="lg">
     <Container class="flex flex-col gap-8">
-      <Button href="/herramientas" variant="ghost" size="sm" class="self-start">
+      <Button href="/herramientas/" variant="ghost" size="sm" class="self-start">
         ← Volver a +info
       </Button>
 

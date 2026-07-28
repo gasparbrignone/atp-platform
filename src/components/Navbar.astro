@@ -29,20 +29,20 @@ import { careerLabels, type CareerSlug } from '@/lib/labels';
 const careers = await getCollection('careers');
 const careerChildren = (Object.keys(careerLabels) as CareerSlug[])
   .filter((slug) => careers.some((career) => career.id === slug))
-  .map((slug) => ({ label: careerLabels[slug], href: `/carreras/${slug}` }));
+  .map((slug) => ({ label: careerLabels[slug], href: `/carreras/${slug}/` }));
 
 const publishedTools = await getCollection('tools', ({ data }) => data.published);
 const toolChildren = publishedTools.map((tool) => ({
   label: tool.data.name,
-  href: `/herramientas/${tool.id}`,
+  href: `/herramientas/${tool.id}/`,
 }));
 
 const navLinks = [
   { label: 'Inicio', href: '/' },
-  { label: 'Biblioteca', href: '/biblioteca' },
-  { label: 'Actividades', href: '/actividades' },
-  { label: 'Carreras', href: '/carreras', children: careerChildren },
-  { label: '+info', href: '/herramientas', children: toolChildren },
+  { label: 'Biblioteca', href: '/biblioteca/' },
+  { label: 'Actividades', href: '/actividades/' },
+  { label: 'Carreras', href: '/carreras/', children: careerChildren },
+  { label: '+info', href: '/herramientas/', children: toolChildren },
 ];
 ---
 
@@ -114,7 +114,7 @@ const navLinks = [
     </ul>
 
     <div class="flex items-center gap-2">
-      <Button href="/sumate" size="sm" class="hidden md:inline-flex">
+      <Button href="/sumate/" size="sm" class="hidden md:inline-flex">
         <AtpMark slot="icon-start" class="size-4" />
         Sumate a ATP
       </Button>

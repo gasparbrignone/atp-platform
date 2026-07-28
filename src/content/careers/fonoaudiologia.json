@@ -5,7 +5,7 @@
   "resources": [
     {
       "label": "Materiales de Fonoaudiología en la Biblioteca",
-      "href": "/biblioteca",
+      "href": "/biblioteca/",
       "external": false
     }
   ]
