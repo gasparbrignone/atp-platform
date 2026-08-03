@@ -40,7 +40,7 @@
   ],
   "status": "proxima",
   "registration": {
-    "useRegistrationForm": false,
+    "useRegistrationForm": true,
     "registrationUrl": ""
   },
   "featured": true,
