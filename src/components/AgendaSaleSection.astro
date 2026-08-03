@@ -1,0 +1,218 @@
+---
+/**
+ * Venta puntual de la agenda ATP para el 2do cuatrimestre 2026 — contenido
+ * fijo en el componente, no en el CMS/una content collection: es un
+ * producto único de temporada, no una lista que vaya a crecer (mismo
+ * criterio que la copy institucional de sumate.astro). Cuando termine la
+ * venta, esta sección se saca del home a mano.
+ *
+ * El formulario de reserva reutiliza el mismo Apps Script Web App que
+ * ActivityRegistrationForm (ver docs/GOOGLE_SHEETS_FORM_SETUP.md): un
+ * `formType` distinto en el POST le dice al script que esta es una reserva
+ * de agenda, no una inscripción a actividad, así escribe en su propia hoja
+ * y manda un mail distinto (con el alias para transferir y cómo mandar el
+ * comprobante) en vez del de confirmación de inscripción.
+ */
+import { Image } from 'astro:assets';
+import Section from '@/components/Section.astro';
+import Container from '@/components/Container.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import Input from '@/components/Input.astro';
+import Button from '@/components/Button.astro';
+import Check from '@lucide/astro/icons/check';
+import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+import agendaPortada from '@/assets/agenda/portada.jpg';
+
+const PRICE = 3500;
+
+const features = [
+  'Vista mensual, de agosto a diciembre',
+  'Vista semanal de todas las semanas del 1/8 al 31/12, con espacio para notas y checklist',
+  'Mesas de examen de todas las áreas del 2do cuatrimestre',
+  'Calendario académico con fechas de inscripción, inicio y finalización del cursado',
+  'A5, a color, 61 páginas',
+];
+---
+
+<Section id="agenda" spacing="lg" background="surface-alt">
+  <Container class="flex flex-col gap-10">
+    <SectionHeader
+      title="Agenda ATP · 2do cuatrimestre 2026"
+      description="Pensada para organizar la cursada de la FCM, con todo lo que necesitás en un solo lugar."
+    />
+
+    <div class="grid grid-cols-1 gap-10 lg:grid-cols-2">
+      <div class="flex flex-col gap-6">
+        <Image
+          src={agendaPortada}
+          alt="Agenda ATP, calendario cuatrimestral del segundo cuatrimestre 2026"
+          loading="lazy"
+          widths={[400, 640, 800]}
+          sizes="(min-width: 1024px) 40vw, 90vw"
+          class="w-full rounded-md object-cover"
+        />
+        <ul class="flex flex-col gap-3">
+          {
+            features.map((feature) => (
+              <li class="flex items-start gap-3">
+                <Check class="text-secondary-strong mt-0.5 size-5 shrink-0" aria-hidden="true" />
+                <span class="text-body text-text-secondary">{feature}</span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="text-h3 text-text font-bold">${PRICE}</p>
+        <Button href="#reservar-agenda" size="lg" class="self-start">
+          Reservar la mía
+        </Button>
+      </div>
+
+      <div id="reservar-agenda" class="bg-surface border-border flex flex-col gap-6 rounded-md border p-6">
+        <div class="flex flex-col gap-2">
+          <h3 class="text-h4 text-text font-bold">Reservar</h3>
+          <p class="text-body-sm text-text-secondary">
+            Completá tus datos. Te vamos a mandar por mail el alias para transferir y cómo
+            enviarnos el comprobante.
+          </p>
+        </div>
+
+        <form
+          data-agenda-form
+          data-endpoint={GOOGLE_FORMS_ENDPOINT}
+          data-price={PRICE}
+          novalidate
+          class="flex flex-col gap-4"
+        >
+          <input type="hidden" name="formType" value="agenda" />
+
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="flex flex-col gap-2">
+              <label for="agenda-name" class="text-caption text-text-secondary font-semibold">
+                Nombre
+              </label>
+              <Input id="agenda-name" name="name" autocomplete="given-name" required />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label for="agenda-lastname" class="text-caption text-text-secondary font-semibold">
+                Apellido
+              </label>
+              <Input id="agenda-lastname" name="lastName" autocomplete="family-name" required />
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="agenda-email" class="text-caption text-text-secondary font-semibold">
+              Email
+            </label>
+            <Input id="agenda-email" name="email" type="email" autocomplete="email" required />
+            <span class="text-caption text-text-secondary">Para mandarte las instrucciones de pago.</span>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="agenda-phone" class="text-caption text-text-secondary font-semibold">
+              Teléfono
+            </label>
+            <Input id="agenda-phone" name="phone" type="tel" autocomplete="tel" required />
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="agenda-quantity" class="text-caption text-text-secondary font-semibold">
+              Cantidad
+            </label>
+            <Input
+              id="agenda-quantity"
+              name="quantity"
+              type="number"
+              inputmode="numeric"
+              min="1"
+              value="1"
+              required
+              data-agenda-quantity
+            />
+          </div>
+
+          <p class="text-body text-text">
+            Total a transferir: <strong data-agenda-total>${PRICE}</strong>
+          </p>
+
+          <div class="bg-surface-alt flex flex-col gap-2 rounded-sm p-4">
+            <p class="text-body-sm text-text">
+              1. Transferí el total al alias <strong>ATP.FCM</strong>.
+            </p>
+            <p class="text-body-sm text-text">
+              2. Mandanos el comprobante por WhatsApp al{' '}
+              <a href="https://wa.me/5493406404841" class="text-secondary-strong underline underline-offset-2">
+                3406 40-4841
+              </a>.
+            </p>
+            <p class="text-body-sm text-text">
+              3. La retirás por nuestra mesita a partir del lunes 10/8, de 10 a 14hs.
+            </p>
+          </div>
+
+          <Button type="submit" size="lg" data-agenda-submit class="self-start" trackId="reserva:agenda">
+            Reservar
+          </Button>
+        </form>
+      </div>
+    </div>
+  </Container>
+</Section>
+
+<script>
+  import { showToast } from '@/lib/toast';
+
+  const form = document.querySelector<HTMLFormElement>('[data-agenda-form]');
+  const submitButton = form?.querySelector<HTMLButtonElement>('[data-agenda-submit]');
+  const quantityInput = form?.querySelector<HTMLInputElement>('[data-agenda-quantity]');
+  const totalEl = form?.querySelector<HTMLElement>('[data-agenda-total]');
+  const endpoint = form?.dataset.endpoint;
+  const price = Number(form?.dataset.price ?? 0);
+
+  function updateTotal() {
+    const quantity = Math.max(1, Number(quantityInput?.value) || 1);
+    if (totalEl) totalEl.textContent = `$${quantity * price}`;
+  }
+
+  quantityInput?.addEventListener('input', updateTotal);
+  updateTotal();
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!submitButton || submitButton.disabled || !endpoint) return;
+
+    if (!form.reportValidity()) return;
+
+    const originalLabel = submitButton.textContent;
+    submitButton.disabled = true;
+    submitButton.textContent = 'Enviando…';
+
+    try {
+      const params = new URLSearchParams();
+      for (const [key, value] of new FormData(form).entries()) {
+        params.append(key, String(value));
+      }
+
+      await fetch(endpoint, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: params,
+      });
+
+      showToast({
+        message: 'Listo, reservamos tu agenda. Revisá tu mail para las instrucciones de pago.',
+        variant: 'success',
+      });
+      form.reset();
+      updateTotal();
+    } catch {
+      showToast({
+        message: 'No pudimos enviar la reserva. Probá de nuevo en un rato.',
+        variant: 'error',
+      });
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = originalLabel;
+    }
+  });
+</script>

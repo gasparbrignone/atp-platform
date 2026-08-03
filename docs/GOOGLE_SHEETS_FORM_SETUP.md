@@ -88,11 +88,27 @@ actividad solo.
    var BRAND_COLOR = '#2e5699';
    var ACCENT_COLOR = '#c6299e';
 
+   // Venta puntual de la agenda ATP (2do cuatrimestre 2026) — ver
+   // src/components/AgendaSaleSection.astro. Cuando termine la venta, este
+   // bloque y esa sección se pueden borrar juntos.
+   var AGENDA_PRICE = 3500;
+   var AGENDA_ALIAS = 'ATP.FCM';
+   var AGENDA_WHATSAPP = '5493406404841';
+   var AGENDA_SHEET_NAME = 'Reserva Agenda 2C 2026';
+
    // ====== PUNTOS DE ENTRADA ======
 
    function doPost(e) {
      try {
        var params = e.parameter;
+
+       // La reserva de la agenda no es una inscripción a actividad — mismo
+       // Web App, mismo Sheet, pero una rama y una hoja completamente
+       // aparte (ver AgendaSaleSection.astro, que manda `formType=agenda`).
+       if (params.formType === 'agenda') {
+         return handleAgendaReservation(params);
+       }
+
        var sheetName = sanitizeSheetName(params.activityTitle || 'Sin actividad');
        var sheet = getOrCreateSheet(sheetName);
 
@@ -157,6 +173,51 @@ actividad solo.
        return handleUnsubscribe(e.parameter.sheet, e.parameter.email);
      }
      return HtmlService.createHtmlOutput('ATP');
+   }
+
+   // ====== RESERVA DE LA AGENDA ======
+
+   function handleAgendaReservation(params) {
+     try {
+       var sheet = getOrCreateAgendaSheet();
+       var quantity = Math.max(1, Number(params.quantity) || 1);
+       var total = quantity * AGENDA_PRICE;
+
+       sheet.appendRow([
+         new Date(),
+         params.name || '',
+         params.lastName || '',
+         params.email || '',
+         params.phone || '',
+         quantity,
+         total,
+       ]);
+
+       try {
+         sendAgendaConfirmationEmail(params.email, params.name, quantity, total);
+       } catch (mailErr) {
+         logError('mail-agenda', mailErr, params);
+       }
+
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'success' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     } catch (err) {
+       logError('agenda', err, params);
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'error' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     }
+   }
+
+   function getOrCreateAgendaSheet() {
+     var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+     var sheet = spreadsheet.getSheetByName(AGENDA_SHEET_NAME);
+     if (!sheet) {
+       sheet = spreadsheet.insertSheet(AGENDA_SHEET_NAME);
+       sheet.appendRow(['Fecha', 'Nombre', 'Apellido', 'Email', 'Teléfono', 'Cantidad', 'Total']);
+     }
+     return sheet;
    }
 
    // ====== RECORDATORIOS (correr sendReminders con un disparador diario) ======
@@ -260,7 +321,14 @@ actividad solo.
    // un círculo con las letras "ATP" — se referencia por URL (no en base64
    // adentro del mail) porque muchos clientes de mail bloquean por default
    // las imágenes en base64 pero sí cargan una imagen de una URL normal.
+   // `unsubscribeUrl` es opcional: los mails de reserva de la agenda son
+   // transaccionales (la persona acaba de pedir algo puntual, no es una
+   // suscripción a una lista), así que no llevan pie de "darme de baja".
    function wrapEmailHtml(bodyHtml, unsubscribeUrl) {
+     var footerLink = unsubscribeUrl
+       ? '<br><a href="' + unsubscribeUrl.replace(/&/g, '&amp;') + '" style="color:#9aa3af;text-decoration:underline;">Darme de baja de estos mails</a>'
+       : '';
+
      return (
        '<div style="background:#eef1f6;padding:32px 16px;font-family:Helvetica,Arial,sans-serif;">' +
        '<div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 16px rgba(198,41,158,0.12);">' +
@@ -270,12 +338,37 @@ actividad solo.
        '</div>' +
        '<div style="padding:36px 32px;color:#1f2937;font-size:15px;line-height:1.65;">' + bodyHtml + '</div>' +
        '<div style="padding:22px 32px;background:#f8f9fb;border-top:1px solid #eef1f6;color:#9aa3af;font-size:12px;text-align:center;line-height:1.6;">' +
-       'ATP, Facultad de Ciencias Médicas (UNR).<br>' +
-       '<a href="' + unsubscribeUrl.replace(/&/g, '&amp;') + '" style="color:#9aa3af;text-decoration:underline;">Darme de baja de estos mails</a>' +
+       'ATP, Facultad de Ciencias Médicas (UNR).' + footerLink +
        '</div>' +
        '</div>' +
        '</div>'
      );
+   }
+
+   function sendAgendaConfirmationEmail(email, name, quantity, total) {
+     if (!email) return;
+     var html = wrapEmailHtml(buildAgendaConfirmationBody(name, quantity, total));
+
+     GmailApp.sendEmail(email, 'Reservamos tu agenda ATP', '', {
+       htmlBody: html,
+       name: SENDER_NAME,
+     });
+   }
+
+   function buildAgendaConfirmationBody(name, quantity, total) {
+     var greeting =
+       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + (name || '') + ',</p>' +
+       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Reservamos tu agenda ATP</h1>' +
+       '<p style="margin:0 0 24px;color:#374151;">Cantidad: ' + quantity + '. Total: $' + total + '.</p>';
+
+     var steps =
+       '<div style="border:1px solid #e5e9f0;border-radius:10px;padding:18px 20px;">' +
+       '<p style="margin:0 0 12px;color:#111827;"><strong>1.</strong> Transferí $' + total + ' al alias <strong>' + AGENDA_ALIAS + '</strong>.</p>' +
+       '<p style="margin:0 0 12px;color:#111827;"><strong>2.</strong> Mandanos el comprobante por WhatsApp al <a href="https://wa.me/' + AGENDA_WHATSAPP + '" style="color:' + BRAND_COLOR + ';">3406 40-4841</a>.</p>' +
+       '<p style="margin:0;color:#111827;"><strong>3.</strong> La retirás por nuestra mesita a partir del lunes 10/8, de 10 a 14hs.</p>' +
+       '</div>';
+
+     return greeting + steps;
    }
 
    // Tono compañero, no de campaña de marketing: nada de "confirmamos tu
@@ -423,6 +516,20 @@ actividad solo.
 
    function testSendReminders() {
      sendReminders();
+   }
+
+   function testAgendaReservation() {
+     var fakeEvent = {
+       parameter: {
+         formType: 'agenda',
+         name: 'Test Nombre',
+         lastName: 'Test Apellido',
+         email: 'test@test.com',
+         phone: '123456789',
+         quantity: '2',
+       },
+     };
+     doPost(fakeEvent);
    }
    ```
 
