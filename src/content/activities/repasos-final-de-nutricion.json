@@ -1,0 +1,49 @@
+{
+  "title": "Repasos final de Nutrición",
+  "summary": "Rendís nutrición el 10/8? sumate a repasar!",
+  "description": "",
+  "image": "",
+  "schedule": null,
+  "sessions": [
+    {
+      "title": "Anatomía: órganos supradiafragmáticos",
+      "date": "2026-08-06",
+      "weekday": "",
+      "time": "14:00",
+      "endTime": "16:00",
+      "location": "Aula a confirmar"
+    },
+    {
+      "title": "Anatomía: órganos infradiafragmáticos",
+      "date": "2026-08-06",
+      "weekday": "",
+      "time": "16:00",
+      "endTime": "18:00",
+      "location": "Aula a confirmar"
+    },
+    {
+      "title": "Anatomía: irrigación de la cavidad abdominal y retorno venoso. Formación de la vena porta.",
+      "date": "2026-08-07",
+      "weekday": "",
+      "time": "12:00",
+      "endTime": "14:00",
+      "location": "Aula a confirmar"
+    },
+    {
+      "title": "Integrador de fisiología y química: digestión, absorción y metabolismo de los macronutrientes",
+      "date": "2026-08-07",
+      "weekday": "",
+      "time": "14:00",
+      "endTime": "16:00",
+      "location": "Aula a confirmar"
+    }
+  ],
+  "status": "proxima",
+  "registration": {
+    "useRegistrationForm": false,
+    "registrationUrl": ""
+  },
+  "featured": true,
+  "published": true,
+  "order": null
+}
