@@ -93,11 +93,12 @@ const { label, autoplay = false, interval = 6000, class: className, ...rest }: P
     const prevButton = root.querySelector<HTMLButtonElement>('[data-carousel-prev]');
     const nextButton = root.querySelector<HTMLButtonElement>('[data-carousel-next]');
     if (!track || !dotsContainer || !statusEl) return;
-    // Re-bound as a definitely-non-null const: TS narrowing from the guard
+    // Re-bound as definitely-non-null consts: TS narrowing from the guard
     // above doesn't carry into the nested functions below.
     const status = statusEl;
+    const trackEl = track;
 
-    const slides = Array.from(track.children) as HTMLElement[];
+    const slides = Array.from(trackEl.children) as HTMLElement[];
     if (slides.length === 0) return;
 
     // Mark each slide per the APG carousel pattern, without requiring the
@@ -123,7 +124,7 @@ const { label, autoplay = false, interval = 6000, class: className, ...rest }: P
       dot.innerHTML =
         '<span class="size-2 rounded-full bg-border transition-colors duration-150 ease-standard"></span>';
       dot.addEventListener('click', () => {
-        slide.scrollIntoView({ behavior: scrollBehavior, block: 'nearest', inline: 'center' });
+        scrollToSlide(slide);
       });
       dotsContainer.appendChild(dot);
       return dot;
@@ -142,6 +143,19 @@ const { label, autoplay = false, interval = 6000, class: className, ...rest }: P
       }
     }
 
+    // `Element.scrollIntoView()` (incluso con `block: 'nearest'`) puede
+    // mover el scroll vertical de la página entera si el carrusel no está
+    // 100% visible, no solo el eje horizontal del track — visto en
+    // producción: cada tick del autoplay hacía saltar la página entera a la
+    // sección de Actividades. Se calcula el `scrollLeft` a mano y se llama
+    // `track.scrollTo()` (no `slide.scrollIntoView()`) para tocar únicamente
+    // el scroll horizontal del track, nunca el de la página.
+    function scrollToSlide(slide: HTMLElement) {
+      const left =
+        slide.offsetLeft - (trackEl.clientWidth - slide.clientWidth) / 2;
+      trackEl.scrollTo({ left, behavior: scrollBehavior });
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -158,11 +172,8 @@ const { label, autoplay = false, interval = 6000, class: className, ...rest }: P
 
     function goTo(index: number) {
       const clamped = Math.min(Math.max(index, 0), slides.length - 1);
-      slides[clamped]?.scrollIntoView({
-        behavior: scrollBehavior,
-        block: 'nearest',
-        inline: 'center',
-      });
+      const slide = slides[clamped];
+      if (slide) scrollToSlide(slide);
     }
 
     prevButton?.addEventListener('click', () => goTo(activeIndex - 1));
