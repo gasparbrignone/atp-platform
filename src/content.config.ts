@@ -246,6 +246,19 @@ const careers = defineCollection({
         external: z.boolean(),
       }),
     ),
+    // Aparte de `resources` (que es un batiburrillo de links genéricos):
+    // estructurado así porque tanto el home (WhatsAppGroupsSection) como la
+    // página de la carrera necesitan listarlos de forma destacada, no como
+    // una card más entre PDFs y links institucionales. Nullish porque hoy
+    // solo Medicina tiene grupos por año.
+    whatsappGroups: z
+      .array(
+        z.object({
+          label: z.string(),
+          href: z.string().url(),
+        }),
+      )
+      .nullish(),
   }),
 });
 

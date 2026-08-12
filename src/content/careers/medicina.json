@@ -71,26 +71,24 @@
       "label": "Mails secretarías",
       "href": "https://docs.google.com/document/d/1-GMiqWuzwCSLR4GEk90pOFJR6yt7pxm4MBfiajZ8xXk/edit?tab=t.0",
       "external": true
+    }
+  ],
+  "whatsappGroups": [
+    {
+      "label": "Primer año 2026",
+      "href": "https://chat.whatsapp.com/EKM0VY2WEPjIT0bj6iKVsE"
     },
     {
-      "label": "Grupo de WhatsApp: Primer año 2026",
-      "href": "https://chat.whatsapp.com/EKM0VY2WEPjIT0bj6iKVsE",
-      "external": true
+      "label": "Segundo año 2026",
+      "href": "https://chat.whatsapp.com/El2EK5IAWvjEDvX6EpXlAy"
     },
     {
-      "label": "Grupo de WhatsApp: Segundo año 2026",
-      "href": "https://chat.whatsapp.com/El2EK5IAWvjEDvX6EpXlAy",
-      "external": true
+      "label": "Tercer año 2026",
+      "href": "https://chat.whatsapp.com/HEkvCosbu7Y4k5nWC4pxvd"
     },
     {
-      "label": "Grupo de WhatsApp: Tercer año 2026",
-      "href": "https://chat.whatsapp.com/HEkvCosbu7Y4k5nWC4pxvd",
-      "external": true
-    },
-    {
-      "label": "Grupo de WhatsApp: Nutrición 2026",
-      "href": "https://chat.whatsapp.com/CDbrec90LpdJdTcypDAecu",
-      "external": true
+      "label": "Nutrición 2026",
+      "href": "https://chat.whatsapp.com/CDbrec90LpdJdTcypDAecu"
     }
   ]
 }

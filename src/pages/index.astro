@@ -5,6 +5,9 @@
  * card copy stays to name + action, no explanatory paragraphs. "Actividades"
  * sources featured activities from src/content/activities.ts — same data
  * src/pages/actividades.astro uses, no hardcoded duplicate.
+ *
+ * No sale campaign running right now — see AgendaSaleSection.astro (kept,
+ * unused) for the pattern to bring back a seasonal sale section here.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Hero from '@/components/Hero.astro';
@@ -16,7 +19,7 @@ import Card from '@/components/Card.astro';
 import ActivityCard from '@/components/ActivityCard.astro';
 import Button from '@/components/Button.astro';
 import Carousel from '@/components/Carousel.astro';
-import AgendaSaleSection from '@/components/AgendaSaleSection.astro';
+import WhatsAppGroupsSection from '@/components/WhatsAppGroupsSection.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import YouTubeVideoGrid from '@/components/YouTubeVideoGrid.astro';
 import SocialLinks from '@/components/SocialLinks.astro';
@@ -31,6 +34,7 @@ import Stethoscope from '@lucide/astro/icons/stethoscope';
 import HeartPulse from '@lucide/astro/icons/heart-pulse';
 import Ear from '@lucide/astro/icons/ear';
 import HandHeart from '@lucide/astro/icons/hand-heart';
+import Download from '@lucide/astro/icons/download';
 import { getCollection } from 'astro:content';
 
 const quickLinks = [
@@ -78,7 +82,21 @@ const careers = [
     </div>
   </Hero>
 
-  <AgendaSaleSection />
+  <Section spacing="sm">
+    <Container class="flex justify-center">
+      <Button
+        href="https://drive.google.com/uc?export=download&id=1NLaftdQ2RpbVmG3yhoFrSWbfoWoiXwhh"
+        target="_blank"
+        variant="outline"
+        trackId="descarga:checklist-cyd"
+      >
+        <Download slot="icon-start" class="size-4" />
+        Descargar checklist de Crecimiento y Desarrollo
+      </Button>
+    </Container>
+  </Section>
+
+  <WhatsAppGroupsSection />
 
   <Section id="actividades" spacing="md">
     <Container class="flex flex-col gap-10">

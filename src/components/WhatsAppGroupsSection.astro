@@ -1,0 +1,54 @@
+---
+/**
+ * Home. Llama la atención sobre los grupos de WhatsApp por año de Medicina
+ * — hoy la única carrera con grupos cargados, ver `whatsappGroups` en
+ * src/content.config.ts. Si otra carrera suma los suyos, esto deja de
+ * asumir "medicina" y pasa a iterar `getCollection('careers')` filtrando
+ * por `data.whatsappGroups?.length`.
+ */
+import { getEntry } from 'astro:content';
+import Section from '@/components/Section.astro';
+import Container from '@/components/Container.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import Grid from '@/components/Grid.astro';
+import Card from '@/components/Card.astro';
+import Button from '@/components/Button.astro';
+import MessageCircle from '@lucide/astro/icons/message-circle';
+
+const medicina = await getEntry('careers', 'medicina');
+const groups = medicina?.data.whatsappGroups ?? [];
+---
+
+{
+  groups.length > 0 && (
+    <Section id="whatsapp" spacing="lg" background="surface-alt">
+      <Container class="flex flex-col gap-10">
+        <SectionHeader
+          eyebrow="Comunidad"
+          title="Sumate al grupo de WhatsApp de tu año"
+          description="Novedades de la cursada, avisos de ATP y consultas con tus compañeros, todo en un solo grupo."
+        />
+
+        <Grid cols={4} gap="md">
+          {groups.map((group) => (
+            <Card data-reveal>
+              <div slot="image" class="p-6 pb-0">
+                <div class="bg-secondary/10 text-secondary-strong inline-flex size-12 items-center justify-center rounded-full">
+                  <MessageCircle class="size-6" aria-hidden="true" />
+                </div>
+              </div>
+              <h3 slot="title" class="text-h4 text-text font-bold">
+                {group.label}
+              </h3>
+              <div slot="actions">
+                <Button href={group.href} target="_blank" variant="outline" size="sm">
+                  Unirme
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </Grid>
+      </Container>
+    </Section>
+  )
+}
