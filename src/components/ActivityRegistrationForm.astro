@@ -20,6 +20,7 @@ import Checkbox from '@/components/Checkbox.astro';
 import Button from '@/components/Button.astro';
 import type { ReminderSession } from '@/lib/activitySchedule';
 import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+import Check from '@lucide/astro/icons/check';
 
 interface Props {
   activityId: string;
@@ -32,69 +33,122 @@ interface Props {
    * no tiene un "día antes" que recordar).
    */
   reminderSessions: ReminderSession[];
+  /**
+   * Mensaje puntual de esta actividad (ej. link de Meet) — reemplaza el
+   * formulario apenas se confirma el envío (ver el script más abajo) y viaja
+   * también al Apps Script para que lo incluya en el mail de confirmación.
+   */
+  confirmationMessage?: string | null;
+  confirmationLinkLabel?: string | null;
+  confirmationLinkUrl?: string | null;
 }
 
-const { activityId, activityTitle, reminderSessions } = Astro.props;
+const {
+  activityId,
+  activityTitle,
+  reminderSessions,
+  confirmationMessage,
+  confirmationLinkLabel,
+  confirmationLinkUrl,
+} = Astro.props;
+
+const hasConfirmationLink = Boolean(confirmationLinkLabel && confirmationLinkUrl);
 ---
 
-<form
-  data-activity-registration-form
-  data-endpoint={GOOGLE_FORMS_ENDPOINT}
-  novalidate
-  class="flex w-full max-w-xl flex-col gap-4"
->
-  <input type="hidden" name="activityId" value={activityId} />
-  <input type="hidden" name="activityTitle" value={activityTitle} />
-  <input type="hidden" name="sessions" value={JSON.stringify(reminderSessions)} />
-
-  <div class="flex flex-col gap-2">
-    <label for="registration-name" class="text-caption text-text-secondary font-semibold">
-      Nombre y apellido
-    </label>
-    <Input id="registration-name" name="name" autocomplete="name" required />
-  </div>
-
-  <div class="flex flex-col gap-2">
-    <label for="registration-email" class="text-caption text-text-secondary font-semibold">
-      Email
-    </label>
-    <Input id="registration-email" name="email" type="email" autocomplete="email" required />
-  </div>
-
-  <div class="flex flex-col gap-2">
-    <label for="registration-phone" class="text-caption text-text-secondary font-semibold">
-      Teléfono
-    </label>
-    <Input id="registration-phone" name="phone" type="tel" autocomplete="tel" required />
-  </div>
-
-  {
-    reminderSessions.length > 0 && (
-      <Checkbox
-        id="registration-reminder"
-        name="wantsReminder"
-        value="true"
-        label="Quiero que me recuerden por mail el día antes de cada clase."
-      />
-    )
-  }
-
-  <Button
-    type="submit"
-    size="lg"
-    data-activity-registration-submit
-    class="self-start"
-    trackId={`inscripcion:${activityId}`}
+<div class="w-full max-w-xl">
+  <form
+    data-activity-registration-form
+    data-endpoint={GOOGLE_FORMS_ENDPOINT}
+    novalidate
+    class="flex flex-col gap-4"
   >
-    Inscribirme
-  </Button>
-</form>
+    <input type="hidden" name="activityId" value={activityId} />
+    <input type="hidden" name="activityTitle" value={activityTitle} />
+    <input type="hidden" name="sessions" value={JSON.stringify(reminderSessions)} />
+    {confirmationMessage && <input type="hidden" name="confirmationMessage" value={confirmationMessage} />}
+    {hasConfirmationLink && (
+      <>
+        <input type="hidden" name="confirmationLinkLabel" value={confirmationLinkLabel} />
+        <input type="hidden" name="confirmationLinkUrl" value={confirmationLinkUrl} />
+      </>
+    )}
+
+    <div class="flex flex-col gap-2">
+      <label for="registration-name" class="text-caption text-text-secondary font-semibold">
+        Nombre y apellido
+      </label>
+      <Input id="registration-name" name="name" autocomplete="name" required />
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label for="registration-email" class="text-caption text-text-secondary font-semibold">
+        Email
+      </label>
+      <Input id="registration-email" name="email" type="email" autocomplete="email" required />
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label for="registration-phone" class="text-caption text-text-secondary font-semibold">
+        Teléfono
+      </label>
+      <Input id="registration-phone" name="phone" type="tel" autocomplete="tel" required />
+    </div>
+
+    {
+      reminderSessions.length > 0 && (
+        <Checkbox
+          id="registration-reminder"
+          name="wantsReminder"
+          value="true"
+          label="Quiero que me recuerden por mail el día antes de cada clase."
+        />
+      )
+    }
+
+    <Button
+      type="submit"
+      size="lg"
+      data-activity-registration-submit
+      class="self-start"
+      trackId={`inscripcion:${activityId}`}
+    >
+      Inscribirme
+    </Button>
+  </form>
+
+  <div
+    data-activity-registration-success
+    hidden
+    class="border-border bg-surface flex flex-col items-start gap-4 rounded-md border p-6"
+  >
+    <div class="bg-success/15 text-success inline-flex size-10 items-center justify-center rounded-full">
+      <Check class="size-5" aria-hidden="true" />
+    </div>
+    <div class="flex flex-col gap-1">
+      <h3 class="text-h4 text-text font-bold">Quedaste inscripto/a</h3>
+      <p class="text-body text-text-secondary">Te esperamos. También te mandamos esto por mail.</p>
+    </div>
+    {
+      confirmationMessage && (
+        <p class="text-body text-text whitespace-pre-line">{confirmationMessage}</p>
+      )
+    }
+    {
+      hasConfirmationLink && (
+        <Button href={confirmationLinkUrl ?? undefined} target="_blank">
+          {confirmationLinkLabel}
+        </Button>
+      )
+    }
+  </div>
+</div>
 
 <script>
   import { showToast } from '@/lib/toast';
 
   const form = document.querySelector<HTMLFormElement>('[data-activity-registration-form]');
   const submitButton = form?.querySelector<HTMLButtonElement>('[data-activity-registration-submit]');
+  const successPanel = document.querySelector<HTMLElement>('[data-activity-registration-success]');
   const endpoint = form?.dataset.endpoint;
 
   form?.addEventListener('submit', async (event) => {
@@ -127,11 +181,12 @@ const { activityId, activityTitle, reminderSessions } = Astro.props;
         body: params,
       });
 
-      showToast({
-        message: 'Listo, quedaste inscripto/a. Nos vemos ahí.',
-        variant: 'success',
-      });
-      form.reset();
+      // Panel fijo en vez de toast: el mensaje puede traer un link (ej. de
+      // Meet) que la persona necesita poder volver a leer/clickear con
+      // calma, no algo que se autodestruye a los pocos segundos.
+      form.hidden = true;
+      if (successPanel) successPanel.hidden = false;
+      successPanel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch {
       showToast({
         message: 'No pudimos enviar la inscripción. Probá de nuevo en un rato.',

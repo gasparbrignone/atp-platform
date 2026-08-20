@@ -104,6 +104,18 @@ const activityRegistration = z.object({
   // — nunca ambos a la vez (ver src/pages/actividades/[slug].astro).
   useRegistrationForm: z.boolean().nullish(),
   registrationUrl: optionalUrl,
+  // Solo tiene efecto cuando `useRegistrationForm` está activo: el mensaje
+  // que ve la persona apenas se inscribe (reemplaza el formulario) y que
+  // además viaja en el mail de confirmación (ver
+  // ActivityRegistrationForm.astro y docs/GOOGLE_SHEETS_FORM_SETUP.md).
+  // Pensado para el link de una clase virtual (Meet/Zoom) o cualquier aviso
+  // puntual que solo aplique a esa actividad.
+  confirmationMessage: z.string().nullish(),
+  // Botón opcional debajo del mensaje — separado del texto en vez de un
+  // único campo con markdown, para que cargarlo en el CMS no exija conocer
+  // sintaxis alguna: dos campos simples, el link siempre sale como botón.
+  confirmationLinkLabel: z.string().nullish(),
+  confirmationLinkUrl: optionalUrl,
 });
 
 const activities = defineCollection({

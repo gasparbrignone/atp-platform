@@ -27,6 +27,14 @@ preferencia; un disparador diario (que hay que crear una sola vez, paso 5)
 revisa todas las inscripciones y le manda un mail recordatorio a quien tenga
 una clase al día siguiente. Todo mail incluye un link de "darme de baja".
 
+Cada actividad puede tener, además, un mensaje puntual propio (campos
+"Mensaje después de inscribirse" / "Texto del botón" / "Link del botón" en
+el CMS) — pensado para el link de una clase virtual (Meet/Zoom) o cualquier
+aviso que solo aplique a esa actividad. Si está cargado, apenas la persona
+se inscribe el formulario se reemplaza por una tarjeta fija con ese mensaje
+(no un toast: así puede volver a leerlo con calma), y el mismo mensaje viaja
+también en el mail de confirmación.
+
 El bloque "Próximas actividades de ATP" que aparece al final del mail de
 confirmación no está escrito a mano en el script: lo trae en el momento desde
 `https://atpfcm.com.ar/actividades-newsletter.json` (generado solo en cada
@@ -50,15 +58,24 @@ inscripción" — nunca ambos a la vez.
   "el día antes") y se las pasa al formulario.
 - `src/pages/actividades-newsletter.json.ts`: el endpoint de "próximas
   actividades" que consume el script.
-- `src/content.config.ts` / `public/admin/config.yml`: el campo
-  `useRegistrationForm` en el CMS.
+- `src/content.config.ts` / `public/admin/config.yml`: los campos
+  `useRegistrationForm`, `confirmationMessage`, `confirmationLinkLabel` y
+  `confirmationLinkUrl` en el CMS.
 - `src/pages/actividades/[slug].astro`: elige formulario propio vs. botón
-  externo según ese campo.
+  externo según `useRegistrationForm`.
 
 Falta un solo paso externo: (re)cargar el código nuevo del Apps Script y
 crear el disparador diario de recordatorios (pasos 2 y 5 de abajo). Si ya
 tenías el script del formulario simple andando, es exactamente el mismo
 Google Sheet — solo hay que reemplazar el código.
+
+**Si ya tenías el script cargado de antes:** el mensaje puntual por
+actividad (`confirmationMessage`/`confirmationLinkLabel`/
+`confirmationLinkUrl`) no va a viajar en el mail de confirmación hasta que
+vuelvas a pegar el código del paso 2 (versión actualizada más abajo) y
+publiques una nueva versión de la implementación (paso 4, "Nueva versión").
+En el sitio ya funciona igual (la tarjeta que reemplaza el formulario no
+depende del script) — lo único que falta actualizar es el mail.
 
 ---
 
@@ -128,7 +145,17 @@ actividad solo.
        ]);
 
        try {
-         sendConfirmationEmail(params.email, params.name, params.activityTitle, params.activityId, sessions, sheetName);
+         sendConfirmationEmail(
+           params.email,
+           params.name,
+           params.activityTitle,
+           params.activityId,
+           sessions,
+           sheetName,
+           params.confirmationMessage,
+           params.confirmationLinkLabel,
+           params.confirmationLinkUrl
+         );
        } catch (mailErr) {
          // Si falla el mail no revertimos el guardado: la inscripción ya
          // quedó en la planilla, que es lo importante. Igual queda
@@ -293,10 +320,10 @@ actividad solo.
 
    // ====== MAILS ======
 
-   function sendConfirmationEmail(email, name, activityTitle, activityId, sessions, sheetName) {
+   function sendConfirmationEmail(email, name, activityTitle, activityId, sessions, sheetName, confirmationMessage, confirmationLinkLabel, confirmationLinkUrl) {
      if (!email) return;
      var unsubscribeUrl = buildUnsubscribeUrl(sheetName, email);
-     var body = buildConfirmationBody(name, activityTitle, activityId, sessions);
+     var body = buildConfirmationBody(name, activityTitle, activityId, sessions, confirmationMessage, confirmationLinkLabel, confirmationLinkUrl);
      var html = wrapEmailHtml(body, unsubscribeUrl);
 
      GmailApp.sendEmail(email, 'Confirmamos tu inscripción a ' + activityTitle, '', {
@@ -374,16 +401,40 @@ actividad solo.
    // Tono compañero, no de campaña de marketing: nada de "confirmamos tu
    // registro", nada de mayúsculas de urgencia. Sin guion largo (—): se
    // reemplaza siempre por punto y aparte o una oración corta nueva.
-   function buildConfirmationBody(name, activityTitle, activityId, sessions) {
+   function buildConfirmationBody(name, activityTitle, activityId, sessions, confirmationMessage, confirmationLinkLabel, confirmationLinkUrl) {
      var greeting =
        '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + (name || '') + ',</p>' +
        '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Quedaste anotado/a a<br>"' + activityTitle + '"</h1>' +
        '<p style="margin:0 0 24px;color:#374151;">Te esperamos. Guardá este mail que tiene el cronograma con las clases.</p>';
 
      var sessionsHtml = sessions.length > 0 ? buildSessionCards(sessions, true) : '';
+     var confirmationMessageHtml = buildConfirmationMessageBox(confirmationMessage, confirmationLinkLabel, confirmationLinkUrl);
      var ctaHtml = buildCtaButton(activityId, 'Ver la actividad');
 
-     return greeting + sessionsHtml + ctaHtml + getPromoActivitiesHtml();
+     return greeting + sessionsHtml + confirmationMessageHtml + ctaHtml + getPromoActivitiesHtml();
+   }
+
+   // Mensaje puntual de la actividad (ej. link de Meet), cargado en el CMS
+   // (campos "Mensaje después de inscribirse" / "Texto del botón" / "Link
+   // del botón" de esa actividad) — ver
+   // src/components/ActivityRegistrationForm.astro, que manda estos mismos
+   // tres valores como campos ocultos del formulario.
+   function buildConfirmationMessageBox(message, linkLabel, linkUrl) {
+     if (!message && !(linkLabel && linkUrl)) return '';
+
+     var messageHtml = message
+       ? '<p style="margin:0 0 ' + (linkLabel && linkUrl ? '16px' : '0') + ';color:#111827;white-space:pre-line;">' + message + '</p>'
+       : '';
+
+     var linkHtml = (linkLabel && linkUrl)
+       ? '<a href="' + linkUrl + '" style="display:inline-block;background:' + BRAND_COLOR + ';color:#ffffff;font-weight:700;font-size:14px;padding:10px 22px;border-radius:999px;text-decoration:none;">' + linkLabel + '</a>'
+       : '';
+
+     return (
+       '<div style="border:1px solid #e5e9f0;background:#f8f9fb;border-radius:10px;padding:18px 20px;margin-bottom:24px;">' +
+       messageHtml + linkHtml +
+       '</div>'
+     );
    }
 
    function buildReminderBody(name, activityTitle, activityId, sessions) {

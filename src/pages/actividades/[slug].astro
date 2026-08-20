@@ -95,6 +95,9 @@ const meta = sessions.length > 0 ? undefined : getActivityScheduleLabel(activity
             activityId={activity.id}
             activityTitle={activity.data.title}
             reminderSessions={getReminderSessions(activity.data)}
+            confirmationMessage={activity.data.registration?.confirmationMessage}
+            confirmationLinkLabel={activity.data.registration?.confirmationLinkLabel}
+            confirmationLinkUrl={activity.data.registration?.confirmationLinkUrl}
           />
         ) : (
           <div class="flex flex-wrap gap-3">
