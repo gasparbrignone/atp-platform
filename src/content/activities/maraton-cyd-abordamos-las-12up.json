@@ -1,0 +1,26 @@
+{
+  "title": "MARATÓN CyD 🙌: abordamos las 12UP!",
+  "summary": "Sumate a este intensivo pre-final para introducir e integrar todas las Unidades Problema.",
+  "description": "",
+  "image": "",
+  "schedule": {
+    "recurring": false,
+    "weekday": "",
+    "date": "2026-08-22",
+    "time": "16:00",
+    "endTime": "18:00",
+    "location": "Virtual por Meet"
+  },
+  "sessions": [],
+  "status": "proxima",
+  "registration": {
+    "useRegistrationForm": true,
+    "registrationUrl": "",
+    "confirmationMessage": "https://meet.google.com/xgh-mkhi-dis",
+    "confirmationLinkLabel": "Copiá el link",
+    "confirmationLinkUrl": "https://meet.google.com/xgh-mkhi-dis"
+  },
+  "featured": false,
+  "published": true,
+  "order": null
+}
