@@ -20,7 +20,7 @@
     "confirmationLinkLabel": "",
     "confirmationLinkUrl": ""
   },
-  "featured": false,
+  "featured": true,
   "published": true,
   "order": null
 }
