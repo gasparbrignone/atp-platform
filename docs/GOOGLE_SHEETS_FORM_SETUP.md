@@ -35,6 +35,15 @@ se inscribe el formulario se reemplaza por una tarjeta fija con ese mensaje
 (no un toast: así puede volver a leerlo con calma), y el mismo mensaje viaja
 también en el mail de confirmación.
 
+Si una actividad se reprograma (cambia de fecha, lugar, o se cancela), la
+planilla tiene un menú propio, **ATP → "Reprogramar esta actividad (mail a
+inscriptos)"**: abrís la pestaña de esa actividad, elegís esa opción del
+menú, escribís el mensaje ("Pasamos la clase al viernes 22/8 a las 18hs,
+mismo lugar.") y se manda por mail a todos los inscriptos de esa pestaña que
+no se dieron de baja. No actualiza nada del sitio — si la fecha visible en
+`atpfcm.com.ar` también tiene que cambiar, eso se edita aparte en el CMS,
+como cualquier otro dato de la actividad.
+
 El bloque "Próximas actividades de ATP" que aparece al final del mail de
 confirmación no está escrito a mano en el script: lo trae en el momento desde
 `https://atpfcm.com.ar/actividades-newsletter.json` (generado solo en cada
@@ -200,6 +209,106 @@ actividad solo.
        return handleUnsubscribe(e.parameter.sheet, e.parameter.email);
      }
      return HtmlService.createHtmlOutput('ATP');
+   }
+
+   // ====== REPROGRAMAR ACTIVIDAD (menú "ATP" de la planilla) ======
+
+   // Corre solo al abrir la planilla — agrega el menú "ATP" de arriba.
+   function onOpen() {
+     SpreadsheetApp.getUi()
+       .createMenu('ATP')
+       .addItem('Reprogramar esta actividad (mail a inscriptos)', 'promptReschedule')
+       .addToUi();
+   }
+
+   // Usa la pestaña que la persona tiene abierta como "la actividad" — así
+   // no hay que escribir el nombre a mano ni elegirlo de una lista. Manda un
+   // mail con el mensaje tipeado a cada inscripto/a de esa pestaña que no se
+   // haya dado de baja (misma columna F que usan sendReminders/doPost).
+   function promptReschedule() {
+     var ui = SpreadsheetApp.getUi();
+     var sheet = SpreadsheetApp.getActiveSheet();
+     var sheetName = sheet.getName();
+
+     if (sheetName === 'Errores' || sheetName === AGENDA_SHEET_NAME) {
+       ui.alert('Abrí la pestaña de la actividad que querés reprogramar (no esta) y probá de nuevo.');
+       return;
+     }
+
+     var response = ui.prompt(
+       'Reprogramar "' + sheetName + '"',
+       'Escribí el mensaje que va a recibir cada inscripto/a, por ejemplo:\n' +
+       '"Pasamos la clase al viernes 22/8 a las 18hs, mismo lugar."\n\n' +
+       'Se manda por mail a todos los inscriptos de esta pestaña que no se dieron de baja.',
+       ui.ButtonSet.OK_CANCEL
+     );
+
+     if (response.getSelectedButton() !== ui.Button.OK) return;
+
+     var message = response.getResponseText().trim();
+     if (!message) {
+       ui.alert('No escribiste ningún mensaje. No se mandó nada.');
+       return;
+     }
+
+     var data = sheet.getDataRange().getValues();
+     var recipients = [];
+     for (var i = 1; i < data.length; i++) {
+       var email = data[i][2];
+       var unsubscribed = data[i][5] === true;
+       if (email && !unsubscribed) {
+         recipients.push({ name: data[i][1], email: email });
+       }
+     }
+
+     if (recipients.length === 0) {
+       ui.alert('No hay inscriptos activos (sin dar de baja) en esta pestaña. No se mandó nada.');
+       return;
+     }
+
+     var confirm = ui.alert(
+       'Confirmar envío',
+       'Se va a mandar este mail a ' + recipients.length + ' persona(s) inscripta(s) en "' + sheetName + '":\n\n' +
+       '"' + message + '"\n\n¿Confirmás?',
+       ui.ButtonSet.YES_NO
+     );
+     if (confirm !== ui.Button.YES) return;
+
+     var sent = 0;
+     recipients.forEach(function (recipient) {
+       try {
+         sendRescheduleEmail(recipient.email, recipient.name, sheetName, message);
+         sent++;
+       } catch (err) {
+         logError('reschedule', err, { email: recipient.email, sheet: sheetName });
+       }
+     });
+
+     ui.alert('Listo: se mandó el mail a ' + sent + ' de ' + recipients.length + ' persona(s).');
+   }
+
+   function sendRescheduleEmail(email, name, sheetName, message) {
+     var unsubscribeUrl = buildUnsubscribeUrl(sheetName, email);
+     var body = buildRescheduleBody(name, sheetName, message);
+     var html = wrapEmailHtml(body, unsubscribeUrl);
+
+     GmailApp.sendEmail(email, 'Cambio en ' + sheetName, '', {
+       htmlBody: html,
+       name: SENDER_NAME,
+     });
+   }
+
+   function buildRescheduleBody(name, activityTitle, message) {
+     var greeting =
+       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + (name || '') + ',</p>' +
+       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Hubo un cambio en<br>"' + activityTitle + '"</h1>';
+
+     var messageHtml =
+       '<div style="border:1px solid #e5e9f0;background:#f8f9fb;border-radius:10px;padding:18px 20px;">' +
+       '<p style="margin:0;color:#111827;white-space:pre-line;">' + message + '</p>' +
+       '</div>';
+
+     return greeting + messageHtml;
    }
 
    // ====== RESERVA DE LA AGENDA ======
@@ -658,6 +767,13 @@ rompe nada.
    (no hace falta esperar al disparador diario para probarlo).
 5. Si algo no llega: revisar el **Registro de ejecución** (ícono del reloj
    con flecha, o `Ver → Registros`) del editor para ver el error exacto.
+6. Para el menú de reprogramar: volvé a la pestaña del navegador con la
+   planilla abierta y recargala (F5) — el menú **ATP** solo aparece al abrir
+   la planilla, así que si la tenías abierta desde antes de pegar el código
+   nuevo no va a estar todavía. Abrí la pestaña de la actividad de prueba,
+   **ATP → Reprogramar esta actividad**, escribí cualquier mensaje y
+   confirmá — debería llegarte el mail a la misma casilla con la que te
+   inscribiste en el paso 2.
 
 ---
 
