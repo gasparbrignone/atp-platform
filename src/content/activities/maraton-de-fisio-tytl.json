@@ -1,0 +1,44 @@
+{
+  "title": "Maratón de fisio TyTL",
+  "summary": "Sumate a repasar fisiología para el 3er parcial y para el final de Trabajo!",
+  "description": "",
+  "image": "/uploads/01-portada.png",
+  "schedule": null,
+  "sessions": [
+    {
+      "title": "Fisiología del estrés y glándula suprarrenal",
+      "date": "2026-08-27",
+      "weekday": "",
+      "time": "14:00",
+      "endTime": "16:00",
+      "location": "Virtual por Meet"
+    },
+    {
+      "title": "Fisiología del envejecimiento",
+      "date": "2026-08-27",
+      "weekday": "",
+      "time": "16:00",
+      "endTime": "18:00",
+      "location": "Virtual por Meet"
+    },
+    {
+      "title": "Fisiología del ejercicio",
+      "date": "2026-08-28",
+      "weekday": "",
+      "time": "16:00",
+      "endTime": "18:00",
+      "location": "Virtual por Meet"
+    }
+  ],
+  "status": "proxima",
+  "registration": {
+    "useRegistrationForm": false,
+    "registrationUrl": "",
+    "confirmationMessage": "Copiá el link de Meet: https://meet.google.com/sdv-ieon-jnw",
+    "confirmationLinkLabel": "",
+    "confirmationLinkUrl": ""
+  },
+  "featured": true,
+  "published": true,
+  "order": null
+}
