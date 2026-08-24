@@ -32,7 +32,7 @@
   ],
   "status": "proxima",
   "registration": {
-    "useRegistrationForm": false,
+    "useRegistrationForm": true,
     "registrationUrl": "",
     "confirmationMessage": "Copiá el link de Meet: https://meet.google.com/sdv-ieon-jnw",
     "confirmationLinkLabel": "",
