@@ -58,6 +58,16 @@ más de un encuentro — el staff tipea el nombre del encuentro una sola vez
 al empezar a escanear, ej. "Encuentro 1", y eso es lo que queda guardado
 junto con cada asistencia).
 
+Como cualquier Web App público de Apps Script, este endpoint lo puede
+invocar cualquiera (no solo el sitio) — el script tiene tres protecciones
+para eso, salidas de la auditoría de seguridad de agosto de 2026:
+un freno de envíos por email/global (`isRateLimited`), todo campo que un
+formulario manda se **escapa** antes de meterlo en el HTML de un mail
+(`escapeHtml`, evita que alguien use el campo "actividad" o "nombre" para
+inyectar un link/botón falso en un mail que sale con el remitente real de
+ATP), y el link de "darme de baja" va **firmado** (`signUnsubscribe`) para
+que no se pueda dar de baja a otra persona sabiendo solo su email.
+
 El bloque "Próximas actividades de ATP" que aparece al final del mail de
 confirmación no está escrito a mano en el script: lo trae en el momento desde
 `https://atpfcm.com.ar/actividades-newsletter.json` (generado solo en cada
@@ -94,11 +104,18 @@ inscripción" — nunca ambos a la vez.
   del script).
 
 Falta un solo paso externo: (re)cargar el código nuevo del Apps Script,
-**cambiar `STAFF_CHECKIN_SECRET` por una clave propia** antes de publicarlo
-(si vas a usar el check-in de charlas), y crear el disparador diario de
+**cambiar `STAFF_CHECKIN_SECRET` y `UNSUBSCRIBE_SECRET` por claves
+propias** antes de publicarlo, y crear el disparador diario de
 recordatorios (pasos 2 y 5 de abajo). Si ya tenías el script del formulario
 simple andando, es exactamente el mismo
 Google Sheet — solo hay que reemplazar el código.
+
+**Si cambiás `UNSUBSCRIBE_SECRET` después de que ya salieron mails con el
+link viejo:** esos links de "darme de baja" van a dejar de funcionar (van a
+mostrar "Este link no es válido"), porque la firma se calcula con la clave
+que esté puesta en ese momento. No pasa nada grave — la persona puede
+escribirle a ATP para darse de baja a mano — pero por eso conviene fijar
+esta clave una vez y no andar cambiándola sin necesidad.
 
 **Si ya tenías el script cargado de antes:** el mensaje puntual por
 actividad (`confirmationMessage`/`confirmationLinkLabel`/
@@ -151,11 +168,27 @@ actividad solo.
    // marcar a nadie como presente aunque encuentre esa URL.
    var STAFF_CHECKIN_SECRET = 'CAMBIAR-ESTA-CLAVE';
 
+   // Firma el link de "darme de baja" para que nadie pueda dar de baja a
+   // otra persona adivinando su email + el nombre de una hoja (ver
+   // handleUnsubscribe). CAMBIAR también este valor por uno propio.
+   var UNSUBSCRIBE_SECRET = 'CAMBIAR-ESTA-OTRA-CLAVE';
+
    // ====== PUNTOS DE ENTRADA ======
 
    function doPost(e) {
      try {
        var params = e.parameter;
+
+       // Freno básico de spam/abuso: máximo 5 envíos por email por hora, y
+       // 40 en total cada 10 minutos entre todo el mundo — ver
+       // isRateLimited(). No es infalible (alguien puede rotar de email),
+       // pero corta cualquier script que golpee el endpoint en loop.
+       if (isRateLimited('rl_email_' + String(params.email || 'sin-email').toLowerCase(), 5, 3600) ||
+           isRateLimited('rl_global', 40, 600)) {
+         return ContentService
+           .createTextOutput(JSON.stringify({ result: 'rate_limited' }))
+           .setMimeType(ContentService.MimeType.JSON);
+       }
 
        // La reserva de la agenda no es una inscripción a actividad — mismo
        // Web App, mismo Sheet, pero una rama y una hoja completamente
@@ -242,7 +275,7 @@ actividad solo.
 
    function doGet(e) {
      if (e.parameter.action === 'unsubscribe') {
-       return handleUnsubscribe(e.parameter.sheet, e.parameter.email);
+       return handleUnsubscribe(e.parameter.sheet, e.parameter.email, e.parameter.sig);
      }
      // JSONP, no una respuesta JSON común: un Web App de Apps Script no manda
      // headers CORS, así que un `fetch` normal del navegador no puede leer la
@@ -331,8 +364,8 @@ actividad solo.
 
    function buildCharlaConfirmationBody(params) {
      var greeting =
-       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + (params.firstName || '') + ',</p>' +
-       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Quedaste anotado/a a<br>"' + params.activityTitle + '"</h1>' +
+       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + escapeHtml(params.firstName) + ',</p>' +
+       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Quedaste anotado/a a<br>"' + escapeHtml(params.activityTitle) + '"</h1>' +
        '<p style="margin:0 0 24px;color:#374151;">Este es tu QR de acceso: te lo van a escanear en la entrada. Guardá este mail o sacale una captura.</p>';
 
      var qrHtml =
@@ -343,7 +376,7 @@ actividad solo.
      var dataRecap =
        '<div style="border:1px solid #e5e9f0;background:#f8f9fb;border-radius:10px;padding:18px 20px;">' +
        '<p style="margin:0 0 4px;color:#6b7280;font-size:12px;">El certificado se emite con estos datos:</p>' +
-       '<p style="margin:0;color:#111827;">' + params.firstName + ' ' + params.lastName + ' · DNI ' + params.dni + '</p>' +
+       '<p style="margin:0;color:#111827;">' + escapeHtml(params.firstName) + ' ' + escapeHtml(params.lastName) + ' · DNI ' + escapeHtml(params.dni) + '</p>' +
        '</div>';
 
      return greeting + qrHtml + dataRecap;
@@ -494,12 +527,12 @@ actividad solo.
 
    function buildRescheduleBody(name, activityTitle, message) {
      var greeting =
-       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + (name || '') + ',</p>' +
-       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Hubo un cambio en<br>"' + activityTitle + '"</h1>';
+       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + escapeHtml(name) + ',</p>' +
+       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Hubo un cambio en<br>"' + escapeHtml(activityTitle) + '"</h1>';
 
      var messageHtml =
        '<div style="border:1px solid #e5e9f0;background:#f8f9fb;border-radius:10px;padding:18px 20px;">' +
-       '<p style="margin:0;color:#111827;white-space:pre-line;">' + message + '</p>' +
+       '<p style="margin:0;color:#111827;white-space:pre-line;">' + escapeHtml(message) + '</p>' +
        '</div>';
 
      return greeting + messageHtml;
@@ -603,9 +636,22 @@ actividad solo.
 
    // ====== DARSE DE BAJA ======
 
-   function handleUnsubscribe(sheetName, email) {
-     var sheet = sheetName ? SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName) : null;
-     if (sheet && email) {
+   function handleUnsubscribe(sheetName, email, sig) {
+     // Sin la firma correcta, no se toca nada — evita que alguien dé de baja
+     // a otra persona a partir de adivinar/conocer su email y el nombre de
+     // una hoja (ambos son fáciles de adivinar: el nombre de la hoja es el
+     // título de la actividad).
+     if (!sheetName || !email || sig !== signUnsubscribe(sheetName, email)) {
+       return HtmlService.createHtmlOutput(
+         '<div style="font-family:Arial,sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#555;">' +
+         '<h1 style="font-size:20px;">Este link no es válido</h1>' +
+         '<p>Puede que esté incompleto. Probá abrirlo directamente desde el mail original.</p>' +
+         '</div>'
+       );
+     }
+
+     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+     if (sheet) {
        var data = sheet.getDataRange().getValues();
        for (var i = 1; i < data.length; i++) {
          if (String(data[i][2]).toLowerCase() === String(email).toLowerCase()) {
@@ -687,7 +733,7 @@ actividad solo.
 
    function buildAgendaConfirmationBody(name, quantity, total) {
      var greeting =
-       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + (name || '') + ',</p>' +
+       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + escapeHtml(name) + ',</p>' +
        '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Reservamos tu agenda ATP</h1>' +
        '<p style="margin:0 0 24px;color:#374151;">Cantidad: ' + quantity + '. Total: $' + total + '.</p>';
 
@@ -706,8 +752,8 @@ actividad solo.
    // reemplaza siempre por punto y aparte o una oración corta nueva.
    function buildConfirmationBody(name, activityTitle, activityId, sessions, confirmationMessage, confirmationLinkLabel, confirmationLinkUrl) {
      var greeting =
-       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + (name || '') + ',</p>' +
-       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Quedaste anotado/a a<br>"' + activityTitle + '"</h1>' +
+       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + escapeHtml(name) + ',</p>' +
+       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Quedaste anotado/a a<br>"' + escapeHtml(activityTitle) + '"</h1>' +
        '<p style="margin:0 0 24px;color:#374151;">Te esperamos. Guardá este mail que tiene el cronograma con las clases.</p>';
 
      var sessionsHtml = sessions.length > 0 ? buildSessionCards(sessions, true) : '';
@@ -725,12 +771,14 @@ actividad solo.
    function buildConfirmationMessageBox(message, linkLabel, linkUrl) {
      if (!message && !(linkLabel && linkUrl)) return '';
 
+     var hasLink = linkLabel && linkUrl && isSafeUrl(linkUrl);
+
      var messageHtml = message
-       ? '<p style="margin:0 0 ' + (linkLabel && linkUrl ? '16px' : '0') + ';color:#111827;white-space:pre-line;">' + message + '</p>'
+       ? '<p style="margin:0 0 ' + (hasLink ? '16px' : '0') + ';color:#111827;white-space:pre-line;">' + escapeHtml(message) + '</p>'
        : '';
 
-     var linkHtml = (linkLabel && linkUrl)
-       ? '<a href="' + linkUrl + '" style="display:inline-block;background:' + BRAND_COLOR + ';color:#ffffff;font-weight:700;font-size:14px;padding:10px 22px;border-radius:999px;text-decoration:none;">' + linkLabel + '</a>'
+     var linkHtml = hasLink
+       ? '<a href="' + escapeHtml(linkUrl) + '" style="display:inline-block;background:' + BRAND_COLOR + ';color:#ffffff;font-weight:700;font-size:14px;padding:10px 22px;border-radius:999px;text-decoration:none;">' + escapeHtml(linkLabel) + '</a>'
        : '';
 
      return (
@@ -742,9 +790,9 @@ actividad solo.
 
    function buildReminderBody(name, activityTitle, activityId, sessions) {
      var greeting =
-       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + (name || '') + ',</p>' +
+       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + escapeHtml(name) + ',</p>' +
        '<div style="display:inline-block;background:' + ACCENT_COLOR + '1a;color:' + ACCENT_COLOR + ';font-weight:700;font-size:12px;padding:4px 12px;border-radius:999px;margin-bottom:12px;">MAÑANA</div>' +
-       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Te esperamos en<br>"' + activityTitle + '"</h1>';
+       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Te esperamos en<br>"' + escapeHtml(activityTitle) + '"</h1>';
 
      return greeting + buildSessionCards(sessions, false) + buildCtaButton(activityId, 'Ver la actividad');
    }
@@ -753,10 +801,10 @@ actividad solo.
      var cards = sessions.map(function (session) {
        var when = includeDate ? formatDateEs(session.date) : null;
        var time = formatTimeRangeEs(session.time, session.endTime);
-       var line = [when, time, session.location].filter(Boolean).join(' · ');
+       var line = escapeHtml([when, time, session.location].filter(Boolean).join(' · '));
        return (
          '<div style="border:1px solid #e5e9f0;border-radius:10px;padding:14px 16px;margin-bottom:10px;">' +
-         '<div style="font-weight:700;color:#111827;font-size:14.5px;">' + session.title + '</div>' +
+         '<div style="font-weight:700;color:#111827;font-size:14.5px;">' + escapeHtml(session.title) + '</div>' +
          '<div style="color:#6b7280;font-size:13.5px;margin-top:4px;">' + line + '</div>' +
          '</div>'
        );
@@ -767,10 +815,10 @@ actividad solo.
 
    function buildCtaButton(activityId, label) {
      if (!activityId) return '';
-     var url = SITE_URL + '/actividades/' + activityId;
+     var url = SITE_URL + '/actividades/' + encodeURIComponent(activityId) + '/';
      return (
        '<div style="text-align:center;margin:8px 0 4px;">' +
-       '<a href="' + url + '" style="display:inline-block;background:' + ACCENT_COLOR + ';color:#ffffff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:999px;text-decoration:none;">' + label + '</a>' +
+       '<a href="' + url + '" style="display:inline-block;background:' + ACCENT_COLOR + ';color:#ffffff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:999px;text-decoration:none;">' + escapeHtml(label) + '</a>' +
        '</div>'
      );
    }
@@ -782,14 +830,16 @@ actividad solo.
        var activities = json.activities || [];
        if (activities.length === 0) return '';
 
-       var items = activities.map(function (activity) {
-         return (
-           '<a href="' + activity.url + '" style="display:block;border:1px solid #e5e9f0;border-radius:10px;padding:14px 16px;margin-bottom:10px;text-decoration:none;">' +
-           '<div style="font-weight:700;color:' + BRAND_COLOR + ';font-size:14px;">' + activity.title + '</div>' +
-           '<div style="color:#6b7280;font-size:13px;margin-top:4px;">' + activity.summary + '</div>' +
-           '</a>'
-         );
-       }).join('');
+       var items = activities
+         .filter(function (activity) { return isSafeUrl(activity.url); })
+         .map(function (activity) {
+           return (
+             '<a href="' + escapeHtml(activity.url) + '" style="display:block;border:1px solid #e5e9f0;border-radius:10px;padding:14px 16px;margin-bottom:10px;text-decoration:none;">' +
+             '<div style="font-weight:700;color:' + BRAND_COLOR + ';font-size:14px;">' + escapeHtml(activity.title) + '</div>' +
+             '<div style="color:#6b7280;font-size:13px;margin-top:4px;">' + escapeHtml(activity.summary) + '</div>' +
+             '</a>'
+           );
+         }).join('');
 
        return (
          '<h3 style="color:' + BRAND_COLOR + ';font-size:15px;margin:36px 0 14px;font-weight:700;">Además, te puede interesar</h3>' +
@@ -821,7 +871,57 @@ actividad solo.
    }
 
    function buildUnsubscribeUrl(sheetName, email) {
-     return ScriptApp.getService().getUrl() + '?action=unsubscribe&sheet=' + encodeURIComponent(sheetName) + '&email=' + encodeURIComponent(email);
+     return ScriptApp.getService().getUrl() +
+       '?action=unsubscribe&sheet=' + encodeURIComponent(sheetName) +
+       '&email=' + encodeURIComponent(email) +
+       '&sig=' + signUnsubscribe(sheetName, email);
+   }
+
+   // HMAC-SHA256 de "hoja|email" con UNSUBSCRIBE_SECRET, en hex — sin esto,
+   // cualquiera podría armar a mano una URL de "darme de baja" para el email
+   // de otra persona con solo saber (o adivinar) el nombre de la actividad.
+   function signUnsubscribe(sheetName, email) {
+     var raw = String(sheetName) + '|' + String(email).toLowerCase();
+     var bytes = Utilities.computeHmacSha256Signature(raw, UNSUBSCRIBE_SECRET);
+     return bytes.map(function (b) {
+       var hex = (b < 0 ? b + 256 : b).toString(16);
+       return hex.length === 1 ? '0' + hex : hex;
+     }).join('');
+   }
+
+   // Cuenta envíos dentro de una ventana de tiempo usando el cache del
+   // propio script (compartido entre todas las ejecuciones, hasta 6hs de
+   // vida por entrada). No reemplaza un rate limit "de verdad" (por IP) —
+   // Apps Script no expone la IP de quien llama — pero frena un script que
+   // golpee el endpoint en loop con el mismo email o en general.
+   function isRateLimited(key, maxPerWindow, windowSeconds) {
+     var cache = CacheService.getScriptCache();
+     var current = Number(cache.get(key) || '0');
+     if (current >= maxPerWindow) return true;
+     cache.put(key, String(current + 1), windowSeconds);
+     return false;
+   }
+
+   // Convierte texto a HTML seguro para insertar dentro de un mail — sin
+   // esto, alguien podría mandar como "nombre" o "actividad" un pedacito de
+   // HTML que termine pareciendo parte legítima del mail (ver auditoría de
+   // seguridad, hallazgo "Endpoints de Apps Script sin autenticación, con
+   // HTML sin escapar en mails salientes"). Se aplica a TODO campo que
+   // venga de un parámetro del formulario antes de meterlo en un mail.
+   function escapeHtml(value) {
+     return String(value == null ? '' : value)
+       .replace(/&/g, '&amp;')
+       .replace(/</g, '&lt;')
+       .replace(/>/g, '&gt;')
+       .replace(/"/g, '&quot;')
+       .replace(/'/g, '&#39;');
+   }
+
+   // Antes de usar una URL como href, exigir que sea http(s) de verdad —
+   // sin esto, alguien podría cargar `confirmationLinkUrl` con algo como
+   // "javascript:..." y que termine como link clickeable en el mail.
+   function isSafeUrl(url) {
+     return typeof url === 'string' && /^https?:\/\//i.test(url);
    }
 
    function getOrCreateSheet(sheetName) {
@@ -981,6 +1081,17 @@ rompe nada.
    "presente" solo, sin tocar nada, y mostrar tu nombre. Escaneá el mismo QR
    de nuevo: tiene que avisar que ya había entrado a ese encuentro en vez de
    duplicar.
+9. Para el link de "darme de baja": abrí el mail de confirmación del paso 3
+   y clickeá "Darme de baja de estos mails" — te tiene que llevar a "Listo,
+   te dimos de baja". Después, probá pegar esa misma URL pero cambiándole
+   el email por otro cualquiera (dejando el resto igual): tiene que mostrar
+   "Este link no es válido" en vez de dar de baja a esa otra dirección.
+10. Para el freno de envíos: no hace falta probarlo a mano (implica mandar
+    varios formularios seguidos) — si alguna vez ves en la planilla que
+    dejaron de llegar inscripciones nuevas por un rato después de una racha
+    de envíos, revisá la pestaña "Errores" y el registro de ejecución del
+    editor; un resultado `rate_limited` es esperado si se mandaron muchas
+    en poco tiempo, no un bug.
 
 ---
 
