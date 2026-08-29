@@ -206,6 +206,13 @@ collections:
                 required: false,
                 hint: 'Ej: el link de Meet/Zoom de la clase. Debe empezar con http:// o https://.',
               },
+              {
+                label: '¿Recolectar datos completos para certificado + QR de acceso?',
+                name: collectCertificateData,
+                widget: boolean,
+                default: false,
+                hint: 'Para charlas/capacitaciones. Activalo para pedir nombre, apellido, DNI, teléfono, email, carrera y año (en vez del formulario simple), hacer confirmar los datos antes de enviar, y entregar un QR de acceso que el staff escanea el día del evento para tomar asistencia. Requiere "¿Usar formulario propio...?" activado.',
+              },
             ],
         }
       - { label: Destacada, name: featured, widget: boolean, default: false }

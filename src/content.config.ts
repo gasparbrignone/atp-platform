@@ -116,6 +116,13 @@ const activityRegistration = z.object({
   // sintaxis alguna: dos campos simples, el link siempre sale como botón.
   confirmationLinkLabel: z.string().nullish(),
   confirmationLinkUrl: optionalUrl,
+  // Charlas/capacitaciones con certificado: en vez del formulario simple
+  // (nombre, email, teléfono) muestra ActivityCertificateRegistrationForm.astro
+  // — pide los datos completos que van a figurar en el certificado, los hace
+  // confirmar antes de enviar, y entrega un QR de acceso (en pantalla y por
+  // mail) que el staff escanea el día del evento para tomar asistencia. Ver
+  // docs/GOOGLE_SHEETS_FORM_SETUP.md.
+  collectCertificateData: z.boolean().nullish(),
 });
 
 const activities = defineCollection({

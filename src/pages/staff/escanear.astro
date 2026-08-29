@@ -1,0 +1,299 @@
+---
+/**
+ * Herramienta interna del staff, no una página del sitio: escanea con la
+ * cámara el QR de acceso que ActivityCertificateRegistrationForm.astro le
+ * entrega a cada inscripto/a a una charla/capacitación, y marca presente en
+ * el Google Sheet vía el Apps Script (acción `checkin`, ver
+ * docs/GOOGLE_SHEETS_FORM_SETUP.md). Sin Navbar/Footer (misma idea que
+ * public/admin/index.html) y `noindex`: no es contenido del sitio.
+ *
+ * La única protección es la clave que valida el Apps Script en cada
+ * escaneo — nunca queda en el código de esta página, así que no hay nada
+ * que "filtrar" mirando el código fuente. Sin login real porque no hace
+ * falta identificar a la persona del staff, solo evitar que cualquiera que
+ * encuentre la URL pueda marcar gente como presente.
+ */
+import '@/styles/global.css';
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Escanear asistencia — ATP</title>
+  </head>
+  <body class="bg-background text-text min-h-screen">
+    <div class="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 p-4">
+      <h1 class="text-h4 text-text pt-4 text-center font-bold">Escanear asistencia</h1>
+
+      <form data-setup-form class="border-border bg-surface flex flex-col gap-4 rounded-md border p-6">
+        <div class="flex flex-col gap-2">
+          <label for="staff-secret" class="text-caption text-text-secondary font-semibold">
+            Clave del staff
+          </label>
+          <input
+            id="staff-secret"
+            type="password"
+            required
+            autocomplete="off"
+            class="border-border-strong bg-surface text-body text-text focus:border-secondary-strong h-10 w-full rounded-xs border px-4"
+          />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label for="staff-session" class="text-caption text-text-secondary font-semibold">
+            Nombre de este encuentro
+          </label>
+          <input
+            id="staff-session"
+            type="text"
+            required
+            placeholder="Ej: Encuentro 1"
+            class="border-border-strong bg-surface text-body text-text focus:border-secondary-strong h-10 w-full rounded-xs border px-4"
+          />
+          <span class="text-caption text-text-secondary">
+            Usá el mismo nombre en todos los puntos de escaneo de este encuentro, y uno distinto
+            para cada encuentro (ej. "Encuentro 1", "Encuentro 2") si la actividad tiene varios.
+          </span>
+        </div>
+        <button
+          type="submit"
+          class="bg-primary-fill text-primary-fill-foreground hover:brightness-110 h-12 rounded-sm font-semibold transition-[filter] duration-150"
+        >
+          Empezar a escanear
+        </button>
+      </form>
+
+      <div data-scan-view hidden class="flex flex-1 flex-col gap-4">
+        <div class="border-border bg-surface flex items-center justify-between rounded-md border p-3">
+          <span class="text-body-sm text-text-secondary">
+            Encuentro: <strong data-session-label class="text-text"></strong>
+          </span>
+          <button type="button" data-change-session class="text-body-sm text-secondary-strong font-semibold underline underline-offset-2">
+            Cambiar
+          </button>
+        </div>
+
+        <div class="relative aspect-square w-full overflow-hidden rounded-md bg-black">
+          <video data-camera-video class="size-full object-cover" playsinline muted></video>
+          <canvas data-camera-canvas hidden></canvas>
+        </div>
+
+        <p data-scan-hint class="text-body-sm text-text-secondary text-center">
+          Apuntá la cámara al QR de la entrada. Se marca solo, sin tocar nada.
+        </p>
+
+        <div
+          data-result-banner
+          hidden
+          class="fixed inset-x-4 bottom-6 z-50 rounded-md p-5 text-center shadow-lg"
+        >
+          <p data-result-title class="text-h4 font-bold"></p>
+          <p data-result-subtitle class="text-body-sm mt-1"></p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      import jsQR from 'jsqr';
+      import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+
+      const SESSION_STORAGE_SECRET = 'atp-staff-secret';
+      const SESSION_STORAGE_SESSION = 'atp-staff-session-label';
+      // Ventana durante la que se ignoran nuevas lecturas después de un
+      // escaneo exitoso — si no, el mismo QR frente a la cámara dispara el
+      // check-in decenas de veces por segundo mientras la persona se aleja.
+      const SCAN_COOLDOWN_MS = 2500;
+
+      const setupForm = document.querySelector<HTMLFormElement>('[data-setup-form]');
+      const secretInput = document.querySelector<HTMLInputElement>('#staff-secret');
+      const sessionInput = document.querySelector<HTMLInputElement>('#staff-session');
+      const scanView = document.querySelector<HTMLElement>('[data-scan-view]');
+      const sessionLabelEl = document.querySelector<HTMLElement>('[data-session-label]');
+      const changeSessionButton = document.querySelector<HTMLButtonElement>('[data-change-session]');
+      const video = document.querySelector<HTMLVideoElement>('[data-camera-video]');
+      const canvas = document.querySelector<HTMLCanvasElement>('[data-camera-canvas]');
+      const resultBanner = document.querySelector<HTMLElement>('[data-result-banner]');
+      const resultTitle = document.querySelector<HTMLElement>('[data-result-title]');
+      const resultSubtitle = document.querySelector<HTMLElement>('[data-result-subtitle]');
+
+      const context = canvas?.getContext('2d', { willReadFrequently: true });
+
+      let scanning = false;
+      let cooldownUntil = 0;
+      let lastDecodeAttempt = 0;
+      // Decodificar en cada uno de los ~60 frames/seg de requestAnimationFrame
+      // es trabajo de más para el CPU/batería del celular del staff — el QR
+      // no se mueve tan rápido, 5 intentos por segundo alcanza de sobra.
+      const DECODE_INTERVAL_MS = 200;
+      let cameraStream: MediaStream | null = null;
+
+      function getSecret(): string {
+        return sessionStorage.getItem(SESSION_STORAGE_SECRET) ?? '';
+      }
+
+      function getSessionLabel(): string {
+        return sessionStorage.getItem(SESSION_STORAGE_SESSION) ?? '';
+      }
+
+      function showBanner(variant: 'ok' | 'duplicate' | 'error', title: string, subtitle: string) {
+        if (!resultBanner || !resultTitle || !resultSubtitle) return;
+        const variantClasses: Record<typeof variant, string> = {
+          ok: 'bg-success text-success-foreground',
+          duplicate: 'bg-warning text-warning-foreground',
+          error: 'bg-error text-error-foreground',
+        };
+        resultBanner.className = [
+          'fixed inset-x-4 bottom-6 z-50 rounded-md p-5 text-center shadow-lg',
+          variantClasses[variant],
+        ].join(' ');
+        resultTitle.textContent = title;
+        resultSubtitle.textContent = subtitle;
+        resultBanner.hidden = false;
+        window.setTimeout(() => {
+          resultBanner.hidden = true;
+        }, SCAN_COOLDOWN_MS - 200);
+      }
+
+      // JSONP, no fetch: un Web App de Apps Script no manda headers CORS, así
+      // que un fetch normal no puede leer la respuesta (mismo motivo por el
+      // que el resto de los formularios del sitio usa `mode: 'no-cors'` y
+      // asume éxito) — acá sí necesitamos leer el resultado (nombre, si ya
+      // había entrado) para avisarle al staff, así que se pide vía un
+      // <script> con `callback`, que no está sujeto a CORS.
+      function requestCheckin(id: string, sessionLabel: string, secret: string): void {
+        const callbackName = `atpCheckin_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+        const script = document.createElement('script');
+
+        const cleanup = () => {
+          delete (window as unknown as Record<string, unknown>)[callbackName];
+          script.remove();
+          window.clearTimeout(timeoutId);
+        };
+
+        const timeoutId = window.setTimeout(() => {
+          cleanup();
+          showBanner('error', 'Sin respuesta', 'Revisá la conexión y probá de nuevo.');
+        }, 8000);
+
+        (window as unknown as Record<string, (response: CheckinResponse) => void>)[callbackName] = (
+          response,
+        ) => {
+          cleanup();
+          handleCheckinResponse(response);
+        };
+
+        const url = new URL(GOOGLE_FORMS_ENDPOINT);
+        url.searchParams.set('action', 'checkin');
+        url.searchParams.set('id', id);
+        url.searchParams.set('session', sessionLabel);
+        url.searchParams.set('secret', secret);
+        url.searchParams.set('callback', callbackName);
+        script.src = url.toString();
+        script.onerror = () => {
+          cleanup();
+          showBanner('error', 'Sin respuesta', 'Revisá la conexión y probá de nuevo.');
+        };
+        document.body.appendChild(script);
+      }
+
+      interface CheckinResponse {
+        result: 'ok' | 'duplicate' | 'not_found' | 'unauthorized' | 'error';
+        name?: string;
+      }
+
+      function handleCheckinResponse(response: CheckinResponse) {
+        switch (response.result) {
+          case 'ok':
+            showBanner('ok', `✓ ${response.name ?? 'Presente'}`, 'Asistencia registrada.');
+            break;
+          case 'duplicate':
+            showBanner('duplicate', response.name ?? 'Ya había entrado', 'Ya estaba marcado en este encuentro.');
+            break;
+          case 'not_found':
+            showBanner('error', 'QR no reconocido', 'No corresponde a ninguna inscripción.');
+            break;
+          case 'unauthorized':
+            showBanner('error', 'Clave incorrecta', 'Tocá "Cambiar" y volvé a escribirla bien.');
+            break;
+          default:
+            showBanner('error', 'Error', 'Probá escanear de nuevo.');
+        }
+      }
+
+      function tick() {
+        if (!scanning || !video || !canvas || !context) return;
+
+        const now = Date.now();
+        if (
+          video.readyState === video.HAVE_ENOUGH_DATA &&
+          now >= cooldownUntil &&
+          now - lastDecodeAttempt >= DECODE_INTERVAL_MS
+        ) {
+          lastDecodeAttempt = now;
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
+          if (code?.data) {
+            cooldownUntil = Date.now() + SCAN_COOLDOWN_MS;
+            requestCheckin(code.data, getSessionLabel(), getSecret());
+          }
+        }
+
+        window.requestAnimationFrame(tick);
+      }
+
+      async function startCamera() {
+        try {
+          cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment' },
+          });
+          if (video) {
+            video.srcObject = cameraStream;
+            await video.play();
+          }
+          scanning = true;
+          window.requestAnimationFrame(tick);
+        } catch {
+          showBanner('error', 'No se pudo abrir la cámara', 'Revisá los permisos del navegador.');
+        }
+      }
+
+      function enterScanView() {
+        if (setupForm) setupForm.hidden = true;
+        if (scanView) scanView.hidden = false;
+        if (sessionLabelEl) sessionLabelEl.textContent = getSessionLabel();
+        void startCamera();
+      }
+
+      setupForm?.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const secret = secretInput?.value.trim();
+        const sessionLabel = sessionInput?.value.trim();
+        if (!secret || !sessionLabel) return;
+        sessionStorage.setItem(SESSION_STORAGE_SECRET, secret);
+        sessionStorage.setItem(SESSION_STORAGE_SESSION, sessionLabel);
+        enterScanView();
+      });
+
+      changeSessionButton?.addEventListener('click', () => {
+        scanning = false;
+        cameraStream?.getTracks().forEach((track) => track.stop());
+        sessionStorage.removeItem(SESSION_STORAGE_SECRET);
+        sessionStorage.removeItem(SESSION_STORAGE_SESSION);
+        if (scanView) scanView.hidden = true;
+        if (setupForm) setupForm.hidden = false;
+        if (secretInput) secretInput.value = '';
+        if (sessionInput) sessionInput.value = '';
+      });
+
+      if (getSecret() && getSessionLabel()) {
+        enterScanView();
+      }
+    </script>
+  </body>
+</html>

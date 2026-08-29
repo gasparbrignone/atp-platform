@@ -44,6 +44,20 @@ no se dieron de baja. No actualiza nada del sitio — si la fecha visible en
 `atpfcm.com.ar` también tiene que cambiar, eso se edita aparte en el CMS,
 como cualquier otro dato de la actividad.
 
+Para charlas/capacitaciones que emiten certificado, activá además
+**"¿Recolectar datos completos para certificado + QR de acceso?"** en el CMS.
+En vez del formulario simple, la persona completa nombre, apellido, DNI,
+teléfono, email, carrera y año, confirma en una pantalla de revisión que
+esos datos están bien (el certificado se emite tal cual), y recibe un QR de
+acceso — en pantalla (para capturar) y por mail. Ese QR es lo que el staff
+escanea el día del evento en `atpfcm.com.ar/staff/escanear/` (con la clave
+`STAFF_CHECKIN_SECRET` de este script) para tomar asistencia: cada escaneo
+marca presente al toque, sin tocar nada más, y avisa si esa persona ya
+había sido escaneada para ese mismo encuentro (una actividad puede tener
+más de un encuentro — el staff tipea el nombre del encuentro una sola vez
+al empezar a escanear, ej. "Encuentro 1", y eso es lo que queda guardado
+junto con cada asistencia).
+
 El bloque "Próximas actividades de ATP" que aparece al final del mail de
 confirmación no está escrito a mano en el script: lo trae en el momento desde
 `https://atpfcm.com.ar/actividades-newsletter.json` (generado solo en cada
@@ -68,14 +82,22 @@ inscripción" — nunca ambos a la vez.
 - `src/pages/actividades-newsletter.json.ts`: el endpoint de "próximas
   actividades" que consume el script.
 - `src/content.config.ts` / `public/admin/config.yml`: los campos
-  `useRegistrationForm`, `confirmationMessage`, `confirmationLinkLabel` y
-  `confirmationLinkUrl` en el CMS.
-- `src/pages/actividades/[slug].astro`: elige formulario propio vs. botón
-  externo según `useRegistrationForm`.
+  `useRegistrationForm`, `confirmationMessage`, `confirmationLinkLabel`,
+  `confirmationLinkUrl` y `collectCertificateData` en el CMS.
+- `src/pages/actividades/[slug].astro`: elige formulario propio, formulario
+  de charla con certificado, o botón externo, según esos campos.
+- `src/components/ActivityCertificateRegistrationForm.astro`: el formulario
+  de charla/capacitación (datos completos, revisión antes de enviar, QR de
+  acceso generado en el navegador con la librería `qrcode`).
+- `src/pages/staff/escanear.astro`: la herramienta de check-in (cámara +
+  librería `jsqr`, sin login, protegida por la clave `STAFF_CHECKIN_SECRET`
+  del script).
 
-Falta un solo paso externo: (re)cargar el código nuevo del Apps Script y
-crear el disparador diario de recordatorios (pasos 2 y 5 de abajo). Si ya
-tenías el script del formulario simple andando, es exactamente el mismo
+Falta un solo paso externo: (re)cargar el código nuevo del Apps Script,
+**cambiar `STAFF_CHECKIN_SECRET` por una clave propia** antes de publicarlo
+(si vas a usar el check-in de charlas), y crear el disparador diario de
+recordatorios (pasos 2 y 5 de abajo). Si ya tenías el script del formulario
+simple andando, es exactamente el mismo
 Google Sheet — solo hay que reemplazar el código.
 
 **Si ya tenías el script cargado de antes:** el mensaje puntual por
@@ -122,6 +144,13 @@ actividad solo.
    var AGENDA_WHATSAPP = '5493406404841';
    var AGENDA_SHEET_NAME = 'Reserva Agenda 2C 2026';
 
+   // Charlas/capacitaciones con certificado + QR de acceso (ver
+   // ActivityCertificateRegistrationForm.astro y src/pages/staff/escanear.astro).
+   // CAMBIAR este valor por una clave propia antes de publicar el script —
+   // es lo único que protege /staff/escanear/: quien no la sepa no puede
+   // marcar a nadie como presente aunque encuentre esa URL.
+   var STAFF_CHECKIN_SECRET = 'CAMBIAR-ESTA-CLAVE';
+
    // ====== PUNTOS DE ENTRADA ======
 
    function doPost(e) {
@@ -133,6 +162,13 @@ actividad solo.
        // aparte (ver AgendaSaleSection.astro, que manda `formType=agenda`).
        if (params.formType === 'agenda') {
          return handleAgendaReservation(params);
+       }
+
+       // Charla/capacitación con certificado: otra rama y otra hoja aparte
+       // (columnas distintas — DNI, carrera, año, QR — ver
+       // ActivityCertificateRegistrationForm.astro, que manda `formType=charla`).
+       if (params.formType === 'charla') {
+         return handleCharlaRegistration(params);
        }
 
        var sheetName = sanitizeSheetName(params.activityTitle || 'Sin actividad');
@@ -208,7 +244,165 @@ actividad solo.
      if (e.parameter.action === 'unsubscribe') {
        return handleUnsubscribe(e.parameter.sheet, e.parameter.email);
      }
+     // JSONP, no una respuesta JSON común: un Web App de Apps Script no manda
+     // headers CORS, así que un `fetch` normal del navegador no puede leer la
+     // respuesta — src/pages/staff/escanear.astro pide esto con un <script>
+     // (callback=nombreDeFunción), que no está sujeto a CORS.
+     if (e.parameter.action === 'checkin') {
+       return handleCheckin(e.parameter);
+     }
      return HtmlService.createHtmlOutput('ATP');
+   }
+
+   // ====== CHARLAS/CAPACITACIONES CON CERTIFICADO + QR DE ACCESO ======
+
+   function handleCharlaRegistration(params) {
+     try {
+       var sheetName = sanitizeSheetName(params.activityTitle || 'Sin actividad');
+       var sheet = getOrCreateCharlaSheet(sheetName);
+
+       sheet.appendRow([
+         new Date(),
+         params.firstName || '',
+         params.lastName || '',
+         params.dni || '',
+         params.phone || '',
+         params.email || '',
+         params.career || '',
+         params.year || '',
+         params.registrationId || '',
+         JSON.stringify([]), // Asistencias (una entrada por encuentro confirmado)
+         false, // Dado de baja
+         params.activityId || '',
+       ]);
+
+       try {
+         sendCharlaConfirmationEmail(params, sheetName);
+       } catch (mailErr) {
+         logError('mail-charla', mailErr, params);
+       }
+
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'success' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     } catch (err) {
+       logError('charla', err, params);
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'error' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     }
+   }
+
+   function getOrCreateCharlaSheet(sheetName) {
+     var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+     var sheet = spreadsheet.getSheetByName(sheetName);
+     if (!sheet) {
+       sheet = spreadsheet.insertSheet(sheetName);
+       sheet.appendRow([
+         'Fecha', 'Nombres', 'Apellidos', 'DNI', 'Teléfono', 'Email',
+         'Carrera', 'Año', 'RegistrationId', 'Asistencias', 'Dado de baja', 'ActivityId',
+       ]);
+     }
+     return sheet;
+   }
+
+   function sendCharlaConfirmationEmail(params, sheetName) {
+     if (!params.email) return;
+     var unsubscribeUrl = buildUnsubscribeUrl(sheetName, params.email);
+     var body = buildCharlaConfirmationBody(params);
+     var html = wrapEmailHtml(body, unsubscribeUrl);
+
+     GmailApp.sendEmail(params.email, 'Tu entrada a ' + params.activityTitle, '', {
+       htmlBody: html,
+       name: SENDER_NAME,
+     });
+   }
+
+   // El QR se genera igual (mismo contenido: el registrationId a secas) que
+   // el que ve la persona en pantalla al inscribirse
+   // (ActivityCertificateRegistrationForm.astro, con la librería `qrcode` en
+   // el navegador) — acá, en cambio, vía una API pública gratuita
+   // (api.qrserver.com) referenciada por URL, porque Apps Script no tiene
+   // forma nativa de dibujar un QR. El contenido codificado es el mismo, así
+   // que da igual con qué se haya dibujado: cualquier lector lo lee igual.
+   function buildQrImageUrl(data) {
+     return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(data);
+   }
+
+   function buildCharlaConfirmationBody(params) {
+     var greeting =
+       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + (params.firstName || '') + ',</p>' +
+       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Quedaste anotado/a a<br>"' + params.activityTitle + '"</h1>' +
+       '<p style="margin:0 0 24px;color:#374151;">Este es tu QR de acceso: te lo van a escanear en la entrada. Guardá este mail o sacale una captura.</p>';
+
+     var qrHtml =
+       '<div style="text-align:center;margin:0 0 24px;">' +
+       '<img src="' + buildQrImageUrl(params.registrationId) + '" width="220" height="220" alt="Código QR de acceso" style="display:inline-block;">' +
+       '</div>';
+
+     var dataRecap =
+       '<div style="border:1px solid #e5e9f0;background:#f8f9fb;border-radius:10px;padding:18px 20px;">' +
+       '<p style="margin:0 0 4px;color:#6b7280;font-size:12px;">El certificado se emite con estos datos:</p>' +
+       '<p style="margin:0;color:#111827;">' + params.firstName + ' ' + params.lastName + ' · DNI ' + params.dni + '</p>' +
+       '</div>';
+
+     return greeting + qrHtml + dataRecap;
+   }
+
+   // Busca el registrationId del QR en todas las hojas de charlas (no hace
+   // falta saber de antemano en cuál está: el id es un UUID generado en el
+   // navegador, único entre todas las actividades). Ubica las columnas por
+   // nombre de encabezado en vez de un índice fijo, así no se rompe si el
+   // orden de columnas de esta hoja cambia el día de mañana.
+   function handleCheckin(params) {
+     var result;
+     if (params.secret !== STAFF_CHECKIN_SECRET) {
+       result = { result: 'unauthorized' };
+     } else {
+       result = findAndMarkAttendance(params.id, params.session);
+     }
+     return jsonpResponse(result, params.callback);
+   }
+
+   function findAndMarkAttendance(registrationId, sessionLabel) {
+     if (!registrationId) return { result: 'not_found' };
+
+     var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+     for (var s = 0; s < sheets.length; s++) {
+       var sheet = sheets[s];
+       var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+       var idCol = headers.indexOf('RegistrationId');
+       var attendanceCol = headers.indexOf('Asistencias');
+       if (idCol === -1 || attendanceCol === -1) continue; // no es una hoja de charla
+
+       var data = sheet.getDataRange().getValues();
+       for (var i = 1; i < data.length; i++) {
+         if (String(data[i][idCol]) !== String(registrationId)) continue;
+
+         var name = (data[i][1] || '') + ' ' + (data[i][2] || '');
+         var attendance = safeParseJson(data[i][attendanceCol]) || [];
+
+         if (attendance.indexOf(sessionLabel) !== -1) {
+           return { result: 'duplicate', name: name.trim() };
+         }
+
+         attendance.push(sessionLabel);
+         sheet.getRange(i + 1, attendanceCol + 1).setValue(JSON.stringify(attendance));
+         return { result: 'ok', name: name.trim() };
+       }
+     }
+
+     return { result: 'not_found' };
+   }
+
+   // El nombre del callback lo manda el navegador (uno nuevo por escaneo) —
+   // se valida el charset antes de interpolarlo en JS para no permitir nada
+   // raro ahí, aunque solo lo ejecuta el propio celular del staff que lo pidió.
+   function jsonpResponse(data, callbackName) {
+     var safeCallback = /^[a-zA-Z0-9_]+$/.test(callbackName || '') ? callbackName : 'callback';
+     return ContentService
+       .createTextOutput(safeCallback + '(' + JSON.stringify(data) + ')')
+       .setMimeType(ContentService.MimeType.JAVASCRIPT);
    }
 
    // ====== REPROGRAMAR ACTIVIDAD (menú "ATP" de la planilla) ======
@@ -774,6 +968,19 @@ rompe nada.
    **ATP → Reprogramar esta actividad**, escribí cualquier mensaje y
    confirmá — debería llegarte el mail a la misma casilla con la que te
    inscribiste en el paso 2.
+7. Para charla con certificado + check-in: activá también **"¿Recolectar
+   datos completos para certificado + QR de acceso?"** en esa misma
+   actividad de prueba. Entrá a la actividad en el sitio, completá el
+   formulario nuevo (nombre, apellido, DNI, teléfono, email, carrera, año),
+   confirmá en la pantalla de revisión — te debería aparecer el QR en
+   pantalla y llegarte por mail.
+8. Abrí `atpfcm.com.ar/staff/escanear/` desde el celular. Escribí la clave
+   que pusiste en `STAFF_CHECKIN_SECRET` y un nombre de encuentro cualquiera
+   (ej. "Encuentro 1"), aceptá el permiso de cámara, y apuntá al QR del paso
+   7 (en la pantalla de otro dispositivo o impreso) — debería marcar
+   "presente" solo, sin tocar nada, y mostrar tu nombre. Escaneá el mismo QR
+   de nuevo: tiene que avisar que ya había entrado a ese encuentro en vez de
+   duplicar.
 
 ---
 
@@ -787,3 +994,9 @@ rompe nada.
   header técnico `List-Unsubscribe` que Gmail/Outlook reconocen como
   "unsubscribe nativo") — funciona igual para la persona, pero Gmail/Outlook
   no le agregan su propio botón arriba del mail.
+- El QR que va **en el mail** de las charlas se genera vía una API pública
+  gratuita (api.qrserver.com), no en el propio Apps Script (no tiene forma
+  nativa de dibujar un QR) — le llega el `registrationId` (un identificador
+  al azar, no datos personales) para que dibuje la imagen. El QR que la
+  persona ve **en el sitio** al inscribirse no depende de esto: se genera
+  en su propio navegador, sin salir a ningún servicio externo.

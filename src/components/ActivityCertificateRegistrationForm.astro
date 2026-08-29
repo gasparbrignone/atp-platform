@@ -1,0 +1,293 @@
+---
+/**
+ * Inscripción a charlas/capacitaciones que emiten certificado: en vez del
+ * formulario simple (ActivityRegistrationForm.astro), pide los datos que van
+ * a figurar en el certificado, los hace confirmar en una pantalla de revisión
+ * antes de enviar, y entrega un QR de acceso (en pantalla + por mail) que el
+ * staff escanea el día del evento en /staff/escanear/ para tomar asistencia
+ * — ver docs/GOOGLE_SHEETS_FORM_SETUP.md.
+ *
+ * Se activa con `registration.collectCertificateData` en el CMS (requiere
+ * `useRegistrationForm` también activo) — ver src/pages/actividades/[slug].astro.
+ */
+import { getCollection } from 'astro:content';
+import Input from '@/components/Input.astro';
+import Select from '@/components/Select.astro';
+import Button from '@/components/Button.astro';
+import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+import Check from '@lucide/astro/icons/check';
+
+interface Props {
+  activityId: string;
+  activityTitle: string;
+}
+
+const { activityId, activityTitle } = Astro.props;
+
+const careers = await getCollection('careers');
+
+// 1° a 6° cubre cualquier carrera de la facultad; Egresado/a y Docente para
+// quien ya no cursa pero también participa de estas charlas.
+const yearOptions = ['1°', '2°', '3°', '4°', '5°', '6°', 'Egresado/a', 'Docente'];
+---
+
+<div class="w-full max-w-xl">
+  <form
+    data-certificate-form
+    data-endpoint={GOOGLE_FORMS_ENDPOINT}
+    novalidate
+    class="flex flex-col gap-4"
+  >
+    <input type="hidden" name="formType" value="charla" />
+    <input type="hidden" name="activityId" value={activityId} />
+    <input type="hidden" name="activityTitle" value={activityTitle} />
+    <input type="hidden" name="registrationId" data-certificate-registration-id />
+
+    <div data-certificate-step="datos" class="flex flex-col gap-4">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="flex flex-col gap-2">
+          <label for="certificate-firstname" class="text-caption text-text-secondary font-semibold">
+            Nombres
+          </label>
+          <Input id="certificate-firstname" name="firstName" autocomplete="given-name" required />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label for="certificate-lastname" class="text-caption text-text-secondary font-semibold">
+            Apellidos
+          </label>
+          <Input id="certificate-lastname" name="lastName" autocomplete="family-name" required />
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="certificate-dni" class="text-caption text-text-secondary font-semibold">
+          DNI
+        </label>
+        <Input
+          id="certificate-dni"
+          name="dni"
+          inputmode="numeric"
+          placeholder="xx.xxx.xxx"
+          pattern="\d{1,2}\.\d{3}\.\d{3}"
+          title="Formato xx.xxx.xxx"
+          data-certificate-dni
+          required
+        />
+        <span class="text-caption text-text-secondary">
+          Así va a figurar en el certificado. Formato xx.xxx.xxx.
+        </span>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="certificate-phone" class="text-caption text-text-secondary font-semibold">
+          Teléfono
+        </label>
+        <Input id="certificate-phone" name="phone" type="tel" autocomplete="tel" required />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="certificate-email" class="text-caption text-text-secondary font-semibold">
+          Email
+        </label>
+        <Input id="certificate-email" name="email" type="email" autocomplete="email" required />
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="flex flex-col gap-2">
+          <label for="certificate-career" class="text-caption text-text-secondary font-semibold">
+            Carrera
+          </label>
+          <Select id="certificate-career" name="career" required>
+            <option value="" selected disabled>Elegí una opción</option>
+            {careers.map((career) => <option value={career.data.name}>{career.data.name}</option>)}
+            <option value="Otra">Otra</option>
+          </Select>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label for="certificate-year" class="text-caption text-text-secondary font-semibold">
+            Año
+          </label>
+          <Select id="certificate-year" name="year" required>
+            <option value="" selected disabled>Elegí una opción</option>
+            {yearOptions.map((year) => <option value={year}>{year}</option>)}
+          </Select>
+        </div>
+      </div>
+
+      <Button type="button" size="lg" data-certificate-review-button class="self-start">
+        Revisar mis datos
+      </Button>
+    </div>
+
+    <div data-certificate-step="revision" hidden class="flex flex-col gap-4">
+      <div class="border-border bg-surface-alt flex flex-col gap-2 rounded-md border p-4">
+        <p class="text-body-sm text-text-secondary">
+          Revisá que estén bien: el certificado se emite con estos datos, tal cual.
+        </p>
+        <dl class="text-body grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+          <dt class="text-text-secondary">Nombre</dt>
+          <dd data-certificate-review="fullName" class="text-text font-semibold"></dd>
+          <dt class="text-text-secondary">DNI</dt>
+          <dd data-certificate-review="dni" class="text-text font-semibold"></dd>
+          <dt class="text-text-secondary">Teléfono</dt>
+          <dd data-certificate-review="phone" class="text-text font-semibold"></dd>
+          <dt class="text-text-secondary">Email</dt>
+          <dd data-certificate-review="email" class="text-text font-semibold"></dd>
+          <dt class="text-text-secondary">Carrera</dt>
+          <dd data-certificate-review="career" class="text-text font-semibold"></dd>
+          <dt class="text-text-secondary">Año</dt>
+          <dd data-certificate-review="year" class="text-text font-semibold"></dd>
+        </dl>
+      </div>
+
+      <label class="flex items-start gap-3">
+        <input
+          type="checkbox"
+          data-certificate-confirm-checkbox
+          required
+          class="border-border-strong accent-secondary-strong mt-0.5 size-4 shrink-0 rounded-xs border"
+        />
+        <span class="text-body-sm text-text-secondary">
+          Confirmo que mis datos son correctos: el certificado de participación se va a emitir así.
+        </span>
+      </label>
+
+      <div class="flex flex-wrap gap-3">
+        <Button type="button" variant="outline" data-certificate-edit-button>Editar</Button>
+        <Button type="submit" size="lg" data-certificate-submit trackId={`inscripcion:${activityId}`}>
+          Confirmar e inscribirme
+        </Button>
+      </div>
+    </div>
+  </form>
+
+  <div
+    data-certificate-success
+    hidden
+    class="border-border bg-surface flex flex-col items-start gap-4 rounded-md border p-6"
+  >
+    <div class="bg-success/15 text-success inline-flex size-10 items-center justify-center rounded-full">
+      <Check class="size-5" aria-hidden="true" />
+    </div>
+    <div class="flex flex-col gap-1">
+      <h3 class="text-h4 text-text font-bold">Quedaste inscripto/a</h3>
+      <p class="text-body text-text-secondary">
+        Este es tu QR de acceso: te lo van a escanear en la entrada el día de la capacitación.
+        <strong>Sacale una captura de pantalla ahora</strong> — también te lo mandamos por mail.
+      </p>
+    </div>
+    <img data-certificate-qr alt="Código QR de acceso" width="220" height="220" class="rounded-md" />
+  </div>
+</div>
+
+<script>
+  import QRCode from 'qrcode';
+  import { showToast } from '@/lib/toast';
+
+  const form = document.querySelector<HTMLFormElement>('[data-certificate-form]');
+  const endpoint = form?.dataset.endpoint;
+  const dniInput = form?.querySelector<HTMLInputElement>('[data-certificate-dni]');
+  const registrationIdInput = form?.querySelector<HTMLInputElement>(
+    '[data-certificate-registration-id]',
+  );
+
+  const stepDatos = form?.querySelector<HTMLElement>('[data-certificate-step="datos"]');
+  const stepRevision = form?.querySelector<HTMLElement>('[data-certificate-step="revision"]');
+  const reviewButton = form?.querySelector<HTMLButtonElement>('[data-certificate-review-button]');
+  const editButton = form?.querySelector<HTMLButtonElement>('[data-certificate-edit-button]');
+  const submitButton = form?.querySelector<HTMLButtonElement>('[data-certificate-submit]');
+  const confirmCheckbox = form?.querySelector<HTMLInputElement>(
+    '[data-certificate-confirm-checkbox]',
+  );
+
+  const successPanel = document.querySelector<HTMLElement>('[data-certificate-success]');
+  const qrImage = successPanel?.querySelector<HTMLImageElement>('[data-certificate-qr]');
+
+  // Autoformatea a xx.xxx.xxx (7 u 8 dígitos) mientras se escribe, en vez de
+  // solo validar al final — así se ve de una si algo quedó mal tipeado.
+  dniInput?.addEventListener('input', () => {
+    const digits = dniInput.value.replace(/\D/g, '').slice(0, 8);
+    const last6 = digits.slice(-6);
+    const rest = digits.slice(0, -6);
+    dniInput.value = [rest, last6.slice(0, 3), last6.slice(3)].filter(Boolean).join('.');
+  });
+
+  function getValue(name: string): string {
+    return form?.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${name}"]`)
+      ?.value ?? '';
+  }
+
+  function setReview(field: string, value: string) {
+    const el = form?.querySelector<HTMLElement>(`[data-certificate-review="${field}"]`);
+    if (el) el.textContent = value;
+  }
+
+  reviewButton?.addEventListener('click', () => {
+    if (!form?.reportValidity()) return;
+
+    setReview('fullName', `${getValue('firstName')} ${getValue('lastName')}`);
+    setReview('dni', getValue('dni'));
+    setReview('phone', getValue('phone'));
+    setReview('email', getValue('email'));
+    setReview('career', getValue('career'));
+    setReview('year', getValue('year'));
+
+    if (stepDatos) stepDatos.hidden = true;
+    if (stepRevision) stepRevision.hidden = false;
+    stepRevision?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  editButton?.addEventListener('click', () => {
+    if (stepRevision) stepRevision.hidden = true;
+    if (stepDatos) stepDatos.hidden = false;
+  });
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!submitButton || submitButton.disabled || !endpoint) return;
+    if (!form.reportValidity()) return;
+    if (confirmCheckbox && !confirmCheckbox.checked) {
+      confirmCheckbox.reportValidity();
+      return;
+    }
+
+    const originalLabel = submitButton.textContent;
+    submitButton.disabled = true;
+    submitButton.textContent = 'Enviando…';
+
+    // Un UUID por persona: es lo único que el QR va a llevar adentro. El
+    // check-in busca por este id en todas las pestañas "charla" de la
+    // planilla — no hace falta que el QR indique de qué actividad es.
+    const registrationId = crypto.randomUUID();
+    if (registrationIdInput) registrationIdInput.value = registrationId;
+
+    try {
+      const params = new URLSearchParams();
+      for (const [key, value] of new FormData(form).entries()) {
+        params.append(key, String(value));
+      }
+
+      await fetch(endpoint, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: params,
+      });
+
+      if (qrImage) {
+        qrImage.src = await QRCode.toDataURL(registrationId, { width: 220, margin: 1 });
+      }
+
+      form.hidden = true;
+      if (successPanel) successPanel.hidden = false;
+      successPanel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch {
+      showToast({
+        message: 'No pudimos enviar la inscripción. Probá de nuevo en un rato.',
+        variant: 'error',
+      });
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = originalLabel;
+    }
+  });
+</script>
