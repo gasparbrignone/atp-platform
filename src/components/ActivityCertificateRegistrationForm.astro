@@ -115,7 +115,7 @@ const yearOptions = ['1°', '2°', '3°', '4°', '5°', '6°', 'Egresado/a', 'Do
       </div>
 
       <Button type="button" size="lg" data-certificate-review-button class="self-start">
-        Revisar mis datos
+        Inscribirme
       </Button>
     </div>
 
@@ -144,7 +144,6 @@ const yearOptions = ['1°', '2°', '3°', '4°', '5°', '6°', 'Egresado/a', 'Do
         <input
           type="checkbox"
           data-certificate-confirm-checkbox
-          required
           class="border-border-strong accent-secondary-strong mt-0.5 size-4 shrink-0 rounded-xs border"
         />
         <span class="text-body-sm text-text-secondary">
@@ -223,6 +222,12 @@ const yearOptions = ['1°', '2°', '3°', '4°', '5°', '6°', 'Egresado/a', 'Do
   }
 
   reviewButton?.addEventListener('click', () => {
+    // El checkbox de confirmación vive en el paso de revisión, todavía
+    // oculto acá — sin esto quedaba `required` mientras estaba escondido, y
+    // `reportValidity()` lo contaba como inválido sin mostrar ningún aviso
+    // (el navegador no dibuja la burbuja de error sobre un campo oculto), así
+    // que el botón parecía no hacer nada.
+    if (confirmCheckbox) confirmCheckbox.required = false;
     if (!form?.reportValidity()) return;
 
     setReview('fullName', `${getValue('firstName')} ${getValue('lastName')}`);
@@ -234,10 +239,12 @@ const yearOptions = ['1°', '2°', '3°', '4°', '5°', '6°', 'Egresado/a', 'Do
 
     if (stepDatos) stepDatos.hidden = true;
     if (stepRevision) stepRevision.hidden = false;
+    if (confirmCheckbox) confirmCheckbox.required = true;
     stepRevision?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
 
   editButton?.addEventListener('click', () => {
+    if (confirmCheckbox) confirmCheckbox.required = false;
     if (stepRevision) stepRevision.hidden = true;
     if (stepDatos) stepDatos.hidden = false;
   });
