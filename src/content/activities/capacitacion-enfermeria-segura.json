@@ -1,0 +1,37 @@
+{
+  "title": "Capacitación: Enfermería Segura",
+  "summary": "Capacitación teórico-práctica destinada a estudiantes de Enfermería de todos los años, pensada para fortalecer herramientas fundamentales para la práctica clínica.\nGRATUITA - CERTIFICADO UNR.",
+  "description": "A lo largo de dos encuentros vamos a trabajar valoración inicial, signos vitales, bioseguridad, higiene de manos, uso de EPP, identificación de riesgos, comunicación efectiva, seguridad del paciente, prevención de infecciones, caídas y otros eventos adversos, además de ergonomía y movilización segura.\n\nUna propuesta para integrar conocimientos, desarrollar criterios de actuación y acercarnos a situaciones concretas de la práctica profesional.",
+  "image": "",
+  "schedule": null,
+  "sessions": [
+    {
+      "title": "Primer encuentro",
+      "date": "2026-09-08",
+      "weekday": "",
+      "time": "16:00",
+      "endTime": "18:00",
+      "location": "Aula Anatomía A"
+    },
+    {
+      "title": "Segundo encuentro",
+      "date": "2026-09-10",
+      "weekday": "",
+      "time": "16:00",
+      "endTime": "18:00",
+      "location": "Anfiteatro de Preventiva"
+    }
+  ],
+  "status": "proxima",
+  "registration": {
+    "useRegistrationForm": true,
+    "registrationUrl": "",
+    "confirmationMessage": "",
+    "confirmationLinkLabel": "",
+    "confirmationLinkUrl": "",
+    "collectCertificateData": true
+  },
+  "featured": true,
+  "published": true,
+  "order": null
+}
