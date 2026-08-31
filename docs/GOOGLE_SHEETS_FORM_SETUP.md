@@ -35,6 +35,17 @@ se inscribe el formulario se reemplaza por una tarjeta fija con ese mensaje
 (no un toast: así puede volver a leerlo con calma), y el mismo mensaje viaja
 también en el mail de confirmación.
 
+Los recordatorios no se basan en una foto congelada del día de la
+inscripción: cada corrida diaria de `sendReminders` primero consulta
+`https://atpfcm.com.ar/actividades-sessions.json` (generado en cada deploy
+del sitio, con el cronograma vigente de cada actividad publicada) y lo usa
+como fuente de verdad. Si editás la fecha/hora/lugar de una actividad en el
+CMS, el próximo recordatorio ya sale con el dato nuevo. Si borrás la
+actividad o la despublicás, se dejan de mandar recordatorios para ella — sin
+que haga falta tocar la planilla a mano. Si por algún motivo ese archivo no
+se puede leer (sin red, deploy caído), el script usa como respaldo la foto
+guardada en la planilla en vez de no mandar nada ese día.
+
 Si una actividad se reprograma (cambia de fecha, lugar, o se cancela), la
 planilla tiene un menú propio, **ATP → "Reprogramar esta actividad (mail a
 inscriptos)"**: abrís la pestaña de esa actividad, elegís esa opción del
@@ -73,7 +84,9 @@ confirmación no está escrito a mano en el script: lo trae en el momento desde
 `https://atpfcm.com.ar/actividades-newsletter.json` (generado solo en cada
 deploy del sitio, con las actividades destacadas y publicadas) — así se
 mantiene solo, sin tener que editar el script cada vez que cambian las
-actividades.
+actividades. `https://atpfcm.com.ar/actividades-sessions.json` es el mismo
+tipo de archivo pero para los recordatorios (ver más arriba y la sección de
+recordatorios abajo).
 
 Se activa por actividad: en el CMS, el campo **"¿Usar formulario propio en
 vez de link externo?"** de esa actividad. Si está activado, la página de
@@ -91,6 +104,9 @@ inscripción" — nunca ambos a la vez.
   "el día antes") y se las pasa al formulario.
 - `src/pages/actividades-newsletter.json.ts`: el endpoint de "próximas
   actividades" que consume el script.
+- `src/pages/actividades-sessions.json.ts`: el endpoint con el cronograma
+  vigente de cada actividad, que consume `sendReminders` para no recordar
+  actividades borradas/despublicadas y reflejar ediciones de fecha/hora.
 - `src/content.config.ts` / `public/admin/config.yml`: los campos
   `useRegistrationForm`, `confirmationMessage`, `confirmationLinkLabel`,
   `confirmationLinkUrl` y `collectCertificateData` en el CMS.
@@ -149,6 +165,7 @@ actividad solo.
    // ====== CONFIGURACIÓN ======
    var SENDER_NAME = 'ATP - Ciencias Médicas';
    var PROMO_JSON_URL = 'https://atpfcm.com.ar/actividades-newsletter.json';
+   var ACTIVE_SESSIONS_JSON_URL = 'https://atpfcm.com.ar/actividades-sessions.json';
    var SITE_URL = 'https://atpfcm.com.ar';
    var BRAND_COLOR = '#2e5699';
    var ACCENT_COLOR = '#c6299e';
@@ -587,6 +604,10 @@ actividad solo.
 
    function sendReminders() {
      var tomorrow = getTomorrowDateString();
+     // null si falló el pedido (sin red, deploy caído, etc.) — en ese caso
+     // se sigue usando la foto guardada en la planilla como respaldo, en vez
+     // de no mandar ningún recordatorio ese día por un problema pasajero.
+     var activeSessionsByActivity = fetchActiveSessionsByActivity();
      var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
 
      sheets.forEach(function (sheet) {
@@ -599,9 +620,22 @@ actividad solo.
          var unsubscribed = row[5] === true;
          if (!wantsReminder || unsubscribed || !email) continue;
 
-         var sessions = safeParseJson(row[6]) || [];
-         var alreadySent = safeParseJson(row[7]) || [];
          var activityId = row[8] || '';
+
+         // Si la actividad todavía existe y está publicada, usar su
+         // cronograma actual (recién bajado del sitio) en vez de la foto
+         // vieja de la columna G — así una edición de fecha/hora/lugar se
+         // refleja sola. Si ya no existe (se borró o despublicó), no se
+         // manda más ningún recordatorio para ella.
+         var sessions;
+         if (activeSessionsByActivity && activityId) {
+           if (!Object.prototype.hasOwnProperty.call(activeSessionsByActivity, activityId)) continue;
+           sessions = activeSessionsByActivity[activityId];
+         } else {
+           sessions = safeParseJson(row[6]) || [];
+         }
+
+         var alreadySent = safeParseJson(row[7]) || [];
 
          var tomorrowSessions = sessions.filter(function (session) {
            var key = session.date + '|' + session.title;
@@ -621,6 +655,19 @@ actividad solo.
          }
        }
      });
+   }
+
+   // Ver comentario en sendReminders(): esto es lo que le permite "enterarse"
+   // de que una actividad se borró/despublicó o le cambiaron fecha/hora.
+   function fetchActiveSessionsByActivity() {
+     try {
+       var response = UrlFetchApp.fetch(ACTIVE_SESSIONS_JSON_URL, { muteHttpExceptions: true });
+       if (response.getResponseCode() !== 200) return null;
+       var json = JSON.parse(response.getContentText());
+       return json.activities || {};
+     } catch (err) {
+       return null;
+     }
    }
 
    function getTomorrowDateString() {
