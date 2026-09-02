@@ -13,7 +13,8 @@ trivial en este proyecto debería leer este archivo primero**, junto con
 cada cosa) y [docs/SECURITY_CHANGELOG.md](docs/SECURITY_CHANGELOG.md) (qué
 cambió y cuándo). Ver también la sección "Seguridad" de `CLAUDE.md`.
 
-Última actualización: 2026-09-02.
+Última actualización: 2026-09-02 (Turnstile agregado y verificado
+end-to-end en producción).
 
 ---
 
@@ -71,6 +72,9 @@ CI/CD (GitHub Actions)
 | **`YOUTUBE_API_KEY`** | Pedir los últimos videos del canal de YouTube en build time | Secret de GitHub Actions, `src/lib/youtube.ts`, server-only | Solo el workflow de deploy | Restringida en Google Cloud Console a solo YouTube Data API v3 | Bajo — ya acotada a una sola API | Rotar en Google Cloud Console + actualizar el secret |
 | **`STAFF_CHECKIN_SECRET`** | Protege el endpoint de check-in por QR (`/staff/escanear/`) | Constante dentro del código del Apps Script — nunca en este repo | Solo staff en eventos | Un único endpoint (`action=checkin`) | Medio-bajo — requiere además un `registrationId` válido (viaja en cada QR) para hacer algo | Editar la constante en el editor de Apps Script + publicar "Nueva versión" |
 | **`UNSUBSCRIBE_SECRET`** | Firma HMAC del link de "darme de baja" en cada mail | Constante dentro del código del Apps Script — nunca en este repo | Nadie necesita conocerlo, solo el script | Un único endpoint (`action=unsubscribe`) | Medio — permitiría dar de baja mails de cualquier persona a partir de su email + nombre de actividad (ambos adivinables) | Igual que arriba. **Efecto secundario:** invalida todos los links de baja ya enviados. |
+| **`TURNSTILE_SECRET_KEY`** | Verifica server-side el token de Cloudflare Turnstile (anti-bot) antes de guardar cualquiera de los 3 formularios | Constante dentro del código del Apps Script — nunca en este repo | Nadie necesita conocerlo, solo el script (llama a `challenges.cloudflare.com/turnstile/v0/siteverify`) | Atado a un widget Turnstile específico (dominio `atpfcm.com.ar`) | Bajo — un tercero con esta clave podría llamar a `siteverify` en nombre de ATP, pero no puede forjar tokens válidos sin resolver el widget real | Rotar en Cloudflare (Turnstile → el widget) + pegar la nueva en el Apps Script + publicar "Nueva versión". La **Site Key** correspondiente (pública, distinta de esta) vive en `src/config/site.ts`. |
+
+**Nota sobre `STAFF_CHECKIN_SECRET`/`UNSUBSCRIBE_SECRET`:** en la implementación real, ambas constantes quedaron con el mismo valor (reutilizado) — decisión operativa del dueño del proyecto, no una recomendación: lo ideal es que cada secreto sea distinto, así el compromiso de uno no afecta al otro.
 
 **Ningún valor real de estos secretos debe aparecer nunca en este archivo, en el resto del repo, en logs, ni en ningún doc.**
 
@@ -177,9 +181,18 @@ producción el 2026-09-02:
 Configurada en `astro.config.mjs` (`security.csp`) — Astro genera una
 `<meta http-equiv="content-security-policy">` distinta por página en build
 time, con el hash SHA-256 exacto de cada script/estilo inline propio.
-Orígenes externos permitidos explícitamente: `script.google.com` (Apps
-Script — formularios + check-in JSONP), `gc.zgo.at` / `atpfcm.goatcounter.com`
-(GoatCounter), `i.ytimg.com` / `youtube-nocookie.com` (YouTube).
+Orígenes externos permitidos explícitamente: `script.google.com` +
+`script.googleusercontent.com` (Apps Script — formularios + check-in
+JSONP; toda respuesta de `script.google.com` llega vía un 302 a este
+segundo dominio, así que ambos hacen falta), `gc.zgo.at` /
+`atpfcm.goatcounter.com` (GoatCounter), `i.ytimg.com` /
+`youtube-nocookie.com` (YouTube), `challenges.cloudflare.com` /
+`static.cloudflareinsights.com` (Turnstile, anti-bot), y `data:` en
+`img-src` (el QR de acceso se genera en el navegador como data URI). Los
+tres últimos (redirect de Apps Script, Turnstile, `data:` del QR) se
+encontraron recién al probar el flujo real end-to-end después de agregar
+la CSP — no eran obvios de antemano, quedan documentados acá para que no
+se repita la misma investigación si algo similar se rompe de nuevo.
 
 **Limitación conocida:** `script.google.com` y `connect-src` están
 permitidos como **origen completo**, no acotados al path del deployment
@@ -218,8 +231,15 @@ usan un secreto compartido, no un sistema de permisos.
 
 ## Rate limiting
 
-- Apps Script `doPost`: `isRateLimited` — máx. 5 envíos/hora por email, 40
-  cada 10 min en total.
+- Apps Script `doPost`: `isRateLimited` — máx. 5 envíos/hora por el mismo
+  email, 40 cada 10 min en total (este último cuenta todos los `formType`
+  juntos — inscripción simple, charla, agenda comparten el mismo tope).
+  Se chequea antes que Turnstile, así que también cuenta contra intentos
+  que después fallan el anti-bot.
+- Anti-bot (Cloudflare Turnstile, agregado 2026-09-02): los 3 formularios
+  que postean al Apps Script verifican un token server-side
+  (`verifyTurnstile`) antes de guardar nada — un script sin navegador real
+  nunca tiene uno válido. Verificado end-to-end en producción.
 - Apps Script check-in (`doGet?action=checkin`): demora progresiva (hasta
   8s) solo en intentos con la clave incorrecta — nunca afecta un escaneo
   legítimo, sea cual sea el volumen (agregado 2026-09-02).

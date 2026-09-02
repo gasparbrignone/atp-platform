@@ -12,6 +12,11 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ## 2026-09-02
 
+- **Verificado end-to-end en producción:** inscripción real → Turnstile →
+  guardado en el Sheet → QR en pantalla, todo funcionando. En el camino se
+  encontraron y corrigieron 3 problemas más (redirect de Apps Script,
+  `data:` en img-src para el QR, logging de Turnstile sin detalle) — los 4
+  hallazgos de esta sesión de pruebas quedan abajo.
 - **fix:** CSP `connect-src`/`script-src` bloqueaba la redirección interna
   de Google (`script.google.com` → `script.googleusercontent.com`, la
   misma para cualquier respuesta del Apps Script) — los 3 formularios
