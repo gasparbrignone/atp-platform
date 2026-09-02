@@ -70,14 +70,18 @@ al empezar a escanear, ej. "Encuentro 1", y eso es lo que queda guardado
 junto con cada asistencia).
 
 Como cualquier Web App público de Apps Script, este endpoint lo puede
-invocar cualquiera (no solo el sitio) — el script tiene tres protecciones
-para eso, salidas de la auditoría de seguridad de agosto de 2026:
-un freno de envíos por email/global (`isRateLimited`), todo campo que un
-formulario manda se **escapa** antes de meterlo en el HTML de un mail
+invocar cualquiera (no solo el sitio) — el script tiene varias protecciones
+para eso, salidas de las auditorías de seguridad de agosto y septiembre de
+2026: un freno de envíos por email/global (`isRateLimited`), todo campo que
+un formulario manda se **escapa** antes de meterlo en el HTML de un mail
 (`escapeHtml`, evita que alguien use el campo "actividad" o "nombre" para
 inyectar un link/botón falso en un mail que sale con el remitente real de
-ATP), y el link de "darme de baja" va **firmado** (`signUnsubscribe`) para
-que no se pueda dar de baja a otra persona sabiendo solo su email.
+ATP), el link de "darme de baja" va **firmado** (`signUnsubscribe`) para
+que no se pueda dar de baja a otra persona sabiendo solo su email, y los 3
+formularios que postean acá (inscripción simple, charla con certificado,
+agenda) están protegidos por **Cloudflare Turnstile** (`verifyTurnstile`) —
+un script que le pegue directo a este endpoint sin pasar por un navegador
+real resolviendo el widget nunca va a tener un token válido.
 
 El bloque "Próximas actividades de ATP" que aparece al final del mail de
 confirmación no está escrito a mano en el script: lo trae en el momento desde
@@ -118,12 +122,18 @@ inscripción" — nunca ambos a la vez.
 - `src/pages/staff/escanear.astro`: la herramienta de check-in (cámara +
   librería `jsqr`, sin login, protegida por la clave `STAFF_CHECKIN_SECRET`
   del script).
+- `src/lib/turnstile.ts` + el widget de Cloudflare Turnstile en los 3
+  formularios (`ActivityRegistrationForm.astro`,
+  `ActivityCertificateRegistrationForm.astro`, `AgendaSaleSection.astro`):
+  anti-bot, la Site Key pública vive en `src/config/site.ts`.
 
 Falta un solo paso externo: (re)cargar el código nuevo del Apps Script,
-**cambiar `STAFF_CHECKIN_SECRET` y `UNSUBSCRIBE_SECRET` por claves
-propias** antes de publicarlo, y crear el disparador diario de
-recordatorios (pasos 2 y 5 de abajo). Si ya tenías el script del formulario
-simple andando, es exactamente el mismo
+**cambiar `STAFF_CHECKIN_SECRET`, `UNSUBSCRIBE_SECRET` y
+`TURNSTILE_SECRET_KEY` por claves propias** antes de publicarlo (la Secret
+Key de Turnstile es la que Cloudflare te dio al crear el widget en
+Turnstile → tu sitio — no la Site Key, esa va en el código, no acá), y
+crear el disparador diario de recordatorios (pasos 2 y 5 de abajo). Si ya
+tenías el script del formulario simple andando, es exactamente el mismo
 Google Sheet — solo hay que reemplazar el código.
 
 **Si cambiás `UNSUBSCRIBE_SECRET` después de que ya salieron mails con el
@@ -190,6 +200,13 @@ actividad solo.
    // handleUnsubscribe). CAMBIAR también este valor por uno propio.
    var UNSUBSCRIBE_SECRET = 'CAMBIAR-ESTA-OTRA-CLAVE';
 
+   // Secret Key de Cloudflare Turnstile (anti-bot en los 3 formularios que
+   // postean acá — inscripción simple, charla con certificado, agenda) —
+   // ver verifyTurnstile() más abajo. CAMBIAR por la Secret Key real de tu
+   // widget (Cloudflare → Turnstile → tu sitio). Nunca la Site Key acá:
+   // esa es la pública, va en el código del sitio (src/config/site.ts).
+   var TURNSTILE_SECRET_KEY = 'CAMBIAR-ESTA-CLAVE-DE-TURNSTILE';
+
    // ====== PUNTOS DE ENTRADA ======
 
    function doPost(e) {
@@ -204,6 +221,16 @@ actividad solo.
            isRateLimited('rl_global', 40, 600)) {
          return ContentService
            .createTextOutput(JSON.stringify({ result: 'rate_limited' }))
+           .setMimeType(ContentService.MimeType.JSON);
+       }
+
+       // Anti-bot: un script que le pegue directo a este endpoint (sin pasar
+       // por un navegador real resolviendo el widget de Turnstile) nunca va
+       // a tener un token válido acá — se corta antes de guardar nada.
+       if (!verifyTurnstile(params['cf-turnstile-response'])) {
+         logError('turnstile', new Error('Token de Turnstile inválido o ausente'), params);
+         return ContentService
+           .createTextOutput(JSON.stringify({ result: 'error' }))
            .setMimeType(ContentService.MimeType.JSON);
        }
 
@@ -945,6 +972,27 @@ actividad solo.
    }
 
    // ====== UTILIDADES ======
+
+   // Valida el token de Turnstile contra la API de Cloudflare — es el único
+   // lugar donde realmente se confirma que el envío vino de un navegador
+   // real resolviendo el widget, no de un script pegándole directo a este
+   // endpoint. `muteHttpExceptions` para que un error de red de Cloudflare
+   // no tire una excepción sin controlar: si la verificación en sí falla,
+   // se trata como token inválido (falla cerrado, no abierto).
+   function verifyTurnstile(token) {
+     if (!token) return false;
+     try {
+       var response = UrlFetchApp.fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+         method: 'post',
+         payload: { secret: TURNSTILE_SECRET_KEY, response: token },
+         muteHttpExceptions: true,
+       });
+       var result = JSON.parse(response.getContentText());
+       return result.success === true;
+     } catch (err) {
+       return false;
+     }
+   }
 
    var WEEKDAY_NAMES_ES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
    var MONTH_NAMES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];

@@ -20,6 +20,7 @@ import Checkbox from '@/components/Checkbox.astro';
 import Button from '@/components/Button.astro';
 import type { ReminderSession } from '@/lib/activitySchedule';
 import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+import { siteConfig } from '@/config/site';
 import Check from '@lucide/astro/icons/check';
 
 interface Props {
@@ -105,6 +106,8 @@ const hasConfirmationLink = Boolean(confirmationLinkLabel && confirmationLinkUrl
       )
     }
 
+    <div class="cf-turnstile" data-sitekey={siteConfig.turnstileSiteKey} data-appearance="interaction-only" />
+
     <Button
       type="submit"
       size="lg"
@@ -143,8 +146,13 @@ const hasConfirmationLink = Boolean(confirmationLinkLabel && confirmationLinkUrl
   </div>
 </div>
 
+<!-- Solo se carga en páginas que tienen este formulario (no en BaseLayout,
+     a propósito: minimizar JS en el resto del sitio — ver CLAUDE.md). -->
+<script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
 <script>
   import { showToast } from '@/lib/toast';
+  import { hasTurnstileToken } from '@/lib/turnstile';
 
   const form = document.querySelector<HTMLFormElement>('[data-activity-registration-form]');
   const submitButton = form?.querySelector<HTMLButtonElement>('[data-activity-registration-submit]');
@@ -156,6 +164,11 @@ const hasConfirmationLink = Boolean(confirmationLinkLabel && confirmationLinkUrl
     if (!submitButton || submitButton.disabled || !endpoint) return;
 
     if (!form.reportValidity()) return;
+
+    if (!hasTurnstileToken(form)) {
+      showToast({ message: 'Esperá un instante y volvé a intentar.', variant: 'info' });
+      return;
+    }
 
     const originalLabel = submitButton.textContent;
     submitButton.disabled = true;

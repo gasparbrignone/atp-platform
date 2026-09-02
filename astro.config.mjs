@@ -32,20 +32,29 @@ export default defineConfig({
   //    que además necesita estar en script-src, no solo connect-src).
   //  - gc.zgo.at / *.goatcounter.com: analíticas (GoatCounter).
   //  - i.ytimg.com / youtube-nocookie.com: miniaturas y embed de YouTube.
+  //  - challenges.cloudflare.com: widget de Turnstile (anti-bot) en los
+  //    formularios que postean al Apps Script — necesita script-src (carga
+  //    su propio JS), connect-src (llamadas propias del widget) y
+  //    frame-src (a veces renderiza el desafío dentro de un iframe).
   security: {
     csp: {
       directives: [
         "default-src 'self'",
         "img-src 'self' https://i.ytimg.com https://atpfcm.goatcounter.com",
-        "connect-src 'self' https://script.google.com https://gc.zgo.at https://atpfcm.goatcounter.com",
-        "frame-src 'self' https://www.youtube-nocookie.com",
+        "connect-src 'self' https://script.google.com https://gc.zgo.at https://atpfcm.goatcounter.com https://challenges.cloudflare.com",
+        "frame-src 'self' https://www.youtube-nocookie.com https://challenges.cloudflare.com",
         "font-src 'self'",
         "form-action 'self'",
         "base-uri 'self'",
         "object-src 'none'",
       ],
       scriptDirective: {
-        resources: ["'self'", 'https://script.google.com', 'https://gc.zgo.at'],
+        resources: [
+          "'self'",
+          'https://script.google.com',
+          'https://gc.zgo.at',
+          'https://challenges.cloudflare.com',
+        ],
       },
     },
   },

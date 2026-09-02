@@ -11,4 +11,9 @@ export const siteConfig = {
   // específico de este canal).
   youtubeUploadsPlaylistId: 'UUflMnseCw4PbenQJLBNKKNQ',
   youtubeChannelUrl: 'https://www.youtube.com/@atpcienciasmedicas',
+  // Site Key de Cloudflare Turnstile (anti-bot en los formularios que
+  // postean al Apps Script) — público a propósito, viaja en el HTML de
+  // cada página con un formulario. La Secret Key correspondiente NUNCA va
+  // acá: vive solo en el Apps Script (ver docs/GOOGLE_SHEETS_FORM_SETUP.md).
+  turnstileSiteKey: '0x4AAAAAAElHJ7cNiPDYozuw',
 } as const;

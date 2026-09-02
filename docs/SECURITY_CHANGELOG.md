@@ -12,6 +12,13 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ## 2026-09-02
 
+- **feat:** agregado Cloudflare Turnstile (anti-bot) a los 3 formularios
+  que postean al Apps Script (inscripción simple, charla con certificado,
+  agenda) — widget en modo Managed del lado del cliente
+  (`src/lib/turnstile.ts`), verificación real del token del lado del
+  servidor (`verifyTurnstile` en el Apps Script, antes de cualquier rama de
+  `doPost`). CSP actualizada para permitir `challenges.cloudflare.com`. Ver
+  decisión en `SECURITY_DECISIONS.md`.
 - **fix:** script de GoatCounter (`gc.zgo.at/count.js`) pasado de URL
   protocol-relative a `https://` explícito, con SRI (`integrity` SHA-384) —
   hallazgo de un escaneo externo (Sucuri SiteCheck). Ver decisión en

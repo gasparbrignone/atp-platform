@@ -21,6 +21,7 @@ import Input from '@/components/Input.astro';
 import Button from '@/components/Button.astro';
 import Check from '@lucide/astro/icons/check';
 import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+import { siteConfig } from '@/config/site';
 import agendaPortada from '@/assets/agenda/portada.jpg';
 
 const PRICE = 3500;
@@ -150,6 +151,8 @@ const features = [
             </p>
           </div>
 
+          <div class="cf-turnstile" data-sitekey={siteConfig.turnstileSiteKey} data-appearance="interaction-only" />
+
           <Button type="submit" size="lg" data-agenda-submit class="self-start" trackId="reserva:agenda">
             Reservar
           </Button>
@@ -159,8 +162,13 @@ const features = [
   </Container>
 </Section>
 
+<!-- Solo se carga en páginas que tienen este formulario (no en BaseLayout,
+     a propósito: minimizar JS en el resto del sitio — ver CLAUDE.md). -->
+<script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
 <script>
   import { showToast } from '@/lib/toast';
+  import { hasTurnstileToken } from '@/lib/turnstile';
 
   const form = document.querySelector<HTMLFormElement>('[data-agenda-form]');
   const submitButton = form?.querySelector<HTMLButtonElement>('[data-agenda-submit]');
@@ -182,6 +190,11 @@ const features = [
     if (!submitButton || submitButton.disabled || !endpoint) return;
 
     if (!form.reportValidity()) return;
+
+    if (!hasTurnstileToken(form)) {
+      showToast({ message: 'Esperá un instante y volvé a intentar.', variant: 'info' });
+      return;
+    }
 
     const originalLabel = submitButton.textContent;
     submitButton.disabled = true;

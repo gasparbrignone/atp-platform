@@ -262,6 +262,51 @@ Sveltia → no).
 
 ---
 
+### 2026-09-02 — Cloudflare Turnstile en los 3 formularios que postean al Apps Script
+
+**Contexto:** preocupación concreta del dueño del proyecto — un script
+automatizado podría golpear el endpoint del Apps Script y cargar cientos
+de inscripciones falsas. El rate limiting existente (`isRateLimited`, 40
+cada 10 min global) acota esto a horas, no lo impide.
+
+**Decisión:** agregar el widget de Cloudflare Turnstile (modo Managed,
+`data-appearance="interaction-only"`) a los 3 formularios que postean al
+Apps Script (`ActivityRegistrationForm.astro`,
+`ActivityCertificateRegistrationForm.astro`, `AgendaSaleSection.astro`), y
+verificar el token server-side (`verifyTurnstile`, en `doPost`, antes de
+cualquiera de las 3 ramas) contra la API de Cloudflare, con
+`TURNSTILE_SECRET_KEY` como constante del Apps Script (mismo patrón que
+`STAFF_CHECKIN_SECRET`/`UNSUBSCRIBE_SECRET` — nunca en el repo).
+
+**Alternativas consideradas:** CAPTCHA tradicional (imágenes/checkbox
+siempre visible) — descartado por el dueño del proyecto por la fricción
+que agrega a usuarios reales; Turnstile en modo Managed resuelve la
+mayoría de las sesiones sin ninguna interacción visible, escalando a un
+desafío solo cuando el tráfico parece automatizado.
+
+**Motivo:** cierra específicamente el escenario que preocupaba (un script
+sin navegador real nunca tiene un token válido) sin agregar fricción
+perceptible a la inmensa mayoría de quienes se inscriben.
+
+**Detalle de implementación no obvio:** el widget de
+`ActivityCertificateRegistrationForm.astro` se puso en el primer paso del
+formulario (visible desde que carga la página), no en el paso de revisión
+— ese arranca oculto con `hidden` (`display:none`), y Turnstile puede no
+inicializar bien un widget sin dimensiones reales en el momento del
+render.
+
+**Riesgo residual:** el Site Key es público por diseño (va en
+`src/config/site.ts`, en el HTML de cada página con un formulario) — eso
+es esperado y no es un problema. La Secret Key vive únicamente en el Apps
+Script. Como el resto del sistema, la protección real está en la
+verificación server-side, no en que el widget "se vea" en el navegador.
+
+**Qué NO hacer en el futuro:** no agregar un formulario nuevo que postee a
+este mismo Apps Script sin el mismo widget + verificación — quedaría como
+el único hueco sin cubrir.
+
+---
+
 ### 2026-09-02 — Blast radius: ninguna aprobación humana entre `main` y producción
 
 **Contexto:** revisión de blast radius de credenciales (PAT del CMS,
