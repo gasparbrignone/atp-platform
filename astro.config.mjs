@@ -38,6 +38,10 @@ export default defineConfig({
   //    endpoint real: `Location: https://script.googleusercontent.com/...`.
   //  - gc.zgo.at / *.goatcounter.com: analíticas (GoatCounter).
   //  - i.ytimg.com / youtube-nocookie.com: miniaturas y embed de YouTube.
+  //  - data: en img-src: el QR de acceso (ActivityCertificateRegistrationForm.astro)
+  //    se genera en el propio navegador con la librería `qrcode` como un
+  //    data URI (`QRCode.toDataURL`), no un archivo — sin esto, la imagen
+  //    quedaba bloqueada aunque se generara bien.
   //  - challenges.cloudflare.com: widget de Turnstile (anti-bot) en los
   //    formularios que postean al Apps Script — necesita script-src (carga
   //    su propio JS), connect-src (llamadas propias del widget) y
@@ -49,7 +53,7 @@ export default defineConfig({
     csp: {
       directives: [
         "default-src 'self'",
-        "img-src 'self' https://i.ytimg.com https://atpfcm.goatcounter.com",
+        "img-src 'self' data: https://i.ytimg.com https://atpfcm.goatcounter.com",
         "connect-src 'self' https://script.google.com https://script.googleusercontent.com https://gc.zgo.at https://atpfcm.goatcounter.com https://challenges.cloudflare.com",
         "frame-src 'self' https://www.youtube-nocookie.com https://challenges.cloudflare.com",
         "font-src 'self'",
