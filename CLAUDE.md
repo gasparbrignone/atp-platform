@@ -490,11 +490,19 @@ Do not over-comment obvious code.
 
 # Security
 
-Never expose secrets.
+Security is a permanent architectural constraint, not a feature — evaluate it on every change, not only when explicitly asked.
 
-Never trust user input.
+Before any non-trivial change (new feature, new dependency, new route/endpoint, CI/CD change, CMS change, deployment change), read `SECURITY.md`, `docs/SECURITY_DECISIONS.md`, and `docs/SECURITY_CHECKLIST.md` — they are the persistent source of truth and survive across chats/sessions; this file only holds the summary below. After such a change, if it had real security impact, add an entry to `docs/SECURITY_CHANGELOG.md` (skip it for changes with no security impact — no noise).
 
-Sanitize dynamic content.
+Invariants (apply regardless of what's being built):
+
+- Never expose secrets. Never trust user input. Sanitize dynamic content.
+- Everything sent to the browser is public: HTML, CSS, JS, assets, visible endpoints, frontend config. Never rely on hiding/minifying/obfuscating as a security control (security by obscurity ≠ security).
+- The frontend is never a trust boundary. Real authorization/validation lives server-side (in this project, that means inside the Apps Script — see `docs/GOOGLE_SHEETS_FORM_SETUP.md`) — never trust roles, IDs, flags, or hidden fields sent by the client.
+- Minimum necessary exposure: don't expose data/endpoints/scopes beyond what's needed — but don't strip legitimate public information out of paranoia either.
+- Blast radius: before adding or changing a credential, ask "if this leaks tomorrow, what can an attacker do with it?" — prefer the option that keeps that answer small. This repo is public — GitHub Pages on the Free plan requires it, and it currently cannot be made private without a paid plan (evaluated, rejected on cost) — so treat repo contents, `docs/`, and code comments as world-readable from the moment they're committed, including full git history.
+- When a request trades convenience for security (or vice versa), don't silently pick one — state the trade-off in one line and let the project owner decide, unless it clearly matches an existing decision in `docs/SECURITY_DECISIONS.md`.
+- Don't reintroduce a problem `docs/SECURITY_DECISIONS.md` already fixed once.
 
 ---
 
