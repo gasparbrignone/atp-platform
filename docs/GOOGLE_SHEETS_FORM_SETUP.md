@@ -311,20 +311,41 @@ actividad solo.
        var sheetName = sanitizeSheetName(params.activityTitle || 'Sin actividad');
        var sheet = getOrCreateCharlaSheet(sheetName);
 
-       sheet.appendRow([
-         new Date(),
-         params.firstName || '',
-         params.lastName || '',
-         params.dni || '',
-         params.phone || '',
-         params.email || '',
-         params.career || '',
-         params.year || '',
-         params.registrationId || '',
-         JSON.stringify([]), // Asistencias (una entrada por encuentro confirmado)
-         false, // Dado de baja
-         params.activityId || '',
-       ]);
+       // Alguien puede reenviar el formulario más de una vez para la misma
+       // charla (conexión lenta, no vio la confirmación, corrigió un dato) —
+       // en vez de sumar una fila nueva cada vez, se actualiza la fila
+       // existente de ese DNI: mismos datos y QR más recientes, sin perder
+       // asistencias ya marcadas ni el estado de "dado de baja" de esa fila.
+       var existingRow = findCharlaRowByDni(sheet, params.dni);
+
+       if (existingRow) {
+         sheet.getRange(existingRow, 1, 1, 9).setValues([[
+           new Date(),
+           params.firstName || '',
+           params.lastName || '',
+           params.dni || '',
+           params.phone || '',
+           params.email || '',
+           params.career || '',
+           params.year || '',
+           params.registrationId || '',
+         ]]);
+       } else {
+         sheet.appendRow([
+           new Date(),
+           params.firstName || '',
+           params.lastName || '',
+           params.dni || '',
+           params.phone || '',
+           params.email || '',
+           params.career || '',
+           params.year || '',
+           params.registrationId || '',
+           JSON.stringify([]), // Asistencias (una entrada por encuentro confirmado)
+           false, // Dado de baja
+           params.activityId || '',
+         ]);
+       }
 
        try {
          sendCharlaConfirmationEmail(params, sheetName);
@@ -354,6 +375,18 @@ actividad solo.
        ]);
      }
      return sheet;
+   }
+
+   // Columna D (índice 3) = DNI, según los encabezados de arriba. Usado por
+   // handleCharlaRegistration para no duplicar la fila de alguien que
+   // reenvía el formulario para la misma charla.
+   function findCharlaRowByDni(sheet, dni) {
+     if (!dni) return null;
+     var data = sheet.getDataRange().getValues();
+     for (var i = 1; i < data.length; i++) {
+       if (String(data[i][3]) === String(dni)) return i + 1;
+     }
+     return null;
    }
 
    function sendCharlaConfirmationEmail(params, sheetName) {
