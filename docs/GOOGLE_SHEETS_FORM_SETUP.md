@@ -299,15 +299,6 @@ actividad solo.
      // respuesta — src/pages/staff/escanear.astro pide esto con un <script>
      // (callback=nombreDeFunción), que no está sujeto a CORS.
      if (e.parameter.action === 'checkin') {
-       // A diferencia de doPost, este endpoint no tiene ninguna otra
-       // protección: es un GET simple (params.secret !== STAFF_CHECKIN_SECRET)
-       // sin freno, y Apps Script no expone la IP de quien llama para poder
-       // discriminar por ahí — sin este freno, alguien podía probar
-       // STAFF_CHECKIN_SECRET con pedidos ilimitados (hallazgo de la
-       // segunda auditoría de seguridad, septiembre 2026).
-       if (isRateLimited('rl_checkin_global', 20, 300)) {
-         return jsonpResponse({ result: 'rate_limited' }, e.parameter.callback);
-       }
        return handleCheckin(e.parameter);
      }
      return HtmlService.createHtmlOutput('ATP');
@@ -416,6 +407,20 @@ actividad solo.
    function handleCheckin(params) {
      var result;
      if (params.secret !== STAFF_CHECKIN_SECRET) {
+       // Nunca afecta un escaneo legítimo (siempre manda la clave
+       // correcta, así sean cientos en pocos minutos entre varios
+       // puntos de escaneo a la vez) — solo hace más lento a alguien
+       // probando claves al azar: pasados los primeros 10 intentos
+       // fallidos en 5 minutos (entre TODOS los que estén probando,
+       // Apps Script no expone la IP de quien llama para poder frenar
+       // por ahí), cada intento de más suma una demora antes de
+       // responder, hasta 8 segundos. Hallazgo de la segunda auditoría
+       // de seguridad, septiembre 2026: este endpoint es el único de
+       // todo el script sin ninguna otra protección contra fuerza bruta.
+       var failCount = bumpCounter('rl_checkin_wrong_secret', 300);
+       if (failCount > 10) {
+         Utilities.sleep(Math.min(8000, (failCount - 10) * 500));
+       }
        result = { result: 'unauthorized' };
      } else {
        result = findAndMarkAttendance(params.id, params.session);
@@ -956,6 +961,17 @@ actividad solo.
      if (current >= maxPerWindow) return true;
      cache.put(key, String(current + 1), windowSeconds);
      return false;
+   }
+
+   // Como isRateLimited, pero devuelve cuántas veces se llamó dentro de la
+   // ventana en vez de solo sí/no — handleCheckin lo usa para ir alargando
+   // la demora a medida que se acumulan intentos fallidos, en vez de
+   // cortar de golpe en un número fijo.
+   function bumpCounter(key, windowSeconds) {
+     var cache = CacheService.getScriptCache();
+     var current = Number(cache.get(key) || '0') + 1;
+     cache.put(key, String(current), windowSeconds);
+     return current;
    }
 
    // Convierte texto a HTML seguro para insertar dentro de un mail — sin
