@@ -199,7 +199,7 @@ import '@/styles/global.css';
       }
 
       interface CheckinResponse {
-        result: 'ok' | 'duplicate' | 'not_found' | 'unauthorized' | 'error';
+        result: 'ok' | 'duplicate' | 'not_found' | 'unauthorized' | 'rate_limited' | 'error';
         name?: string;
       }
 
@@ -216,6 +216,9 @@ import '@/styles/global.css';
             break;
           case 'unauthorized':
             showBanner('error', 'Clave incorrecta', 'Tocá "Cambiar" y volvé a escribirla bien.');
+            break;
+          case 'rate_limited':
+            showBanner('error', 'Muchos escaneos seguidos', 'Esperá unos segundos y volvé a intentar.');
             break;
           default:
             showBanner('error', 'Error', 'Probá escanear de nuevo.');

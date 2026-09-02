@@ -299,6 +299,15 @@ actividad solo.
      // respuesta — src/pages/staff/escanear.astro pide esto con un <script>
      // (callback=nombreDeFunción), que no está sujeto a CORS.
      if (e.parameter.action === 'checkin') {
+       // A diferencia de doPost, este endpoint no tiene ninguna otra
+       // protección: es un GET simple (params.secret !== STAFF_CHECKIN_SECRET)
+       // sin freno, y Apps Script no expone la IP de quien llama para poder
+       // discriminar por ahí — sin este freno, alguien podía probar
+       // STAFF_CHECKIN_SECRET con pedidos ilimitados (hallazgo de la
+       // segunda auditoría de seguridad, septiembre 2026).
+       if (isRateLimited('rl_checkin_global', 20, 300)) {
+         return jsonpResponse({ result: 'rate_limited' }, e.parameter.callback);
+       }
        return handleCheckin(e.parameter);
      }
      return HtmlService.createHtmlOutput('ATP');
