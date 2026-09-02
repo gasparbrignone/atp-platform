@@ -12,6 +12,19 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ## 2026-09-02
 
+- **fix:** CSP `connect-src`/`script-src` bloqueaba la redirección interna
+  de Google (`script.google.com` → `script.googleusercontent.com`, la
+  misma para cualquier respuesta del Apps Script) — los 3 formularios
+  guardaban la fila igual del lado del servidor pero mostraban "No pudimos
+  enviar la inscripción" del lado del cliente. Se agregó
+  `script.googleusercontent.com` a ambas directivas, más
+  `static.cloudflareinsights.com` (script propio de Turnstile) a
+  `script-src`. Encontrado en la primera prueba real después de publicar
+  Turnstile.
+- **fix:** `public/sw.js` devolvía `undefined` en vez de una `Response`
+  cuando un pedido no estaba en caché y además fallaba la red — encontrado
+  de paso mientras se investigaba el bug de arriba (no era la causa, pero
+  era un bug real e independiente).
 - **feat:** agregado Cloudflare Turnstile (anti-bot) a los 3 formularios
   que postean al Apps Script (inscripción simple, charla con certificado,
   agenda) — widget en modo Managed del lado del cliente

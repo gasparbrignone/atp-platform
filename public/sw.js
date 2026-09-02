@@ -63,12 +63,16 @@ self.addEventListener('fetch', (event) => {
       .open(CACHE_NAME)
       .then(async (cache) => {
         const cached = await cache.match(request);
+        // Si no había nada en caché y además falla la red, `cached` acá es
+        // `undefined` — sin el fallback, `event.respondWith` recibía
+        // `undefined` en vez de una Response y tiraba "Failed to convert
+        // value to 'Response'", rompiendo ese pedido entero.
         const networkFetch = fetch(request)
           .then((response) => {
             if (response.ok) cache.put(request, response.clone());
             return response;
           })
-          .catch(() => cached);
+          .catch(() => cached ?? Response.error());
         return cached || networkFetch;
       })
       .catch(() => fetch(request)),
