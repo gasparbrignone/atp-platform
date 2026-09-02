@@ -1103,6 +1103,13 @@ actividad solo.
    }
 
    // ====== PROBAR SIN USAR EL SITIO ======
+   //
+   // Desde que existe verifyTurnstile() (segunda auditoría de seguridad,
+   // septiembre 2026), estas dos funciones van a devolver `{result:'error'}`
+   // sin llegar a guardar nada: llaman a doPost directo, sin pasar por el
+   // widget de Turnstile, así que nunca tienen un token válido — es el
+   // freno funcionando, no un bug. Para probar el flujo completo de verdad,
+   // usar el sitio real (ver "Verificar que funciona" más abajo).
 
    function testDoPost() {
      var fakeEvent = {
