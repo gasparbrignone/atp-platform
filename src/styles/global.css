@@ -302,6 +302,24 @@ html.js [data-reveal]:not(.is-visible) {
   animation-delay: var(--enter-delay, 0ms);
 }
 
+/*
+ * Reemplazan `style="--enter-delay: Nms"`: la CSP (ver astro.config.mjs)
+ * permite el CSS de este archivo por ser un asset con hash propio, pero no
+ * puede permitir estilos inline arbitrarios sin abrir la puerta a inyección
+ * de CSS.
+ */
+.enter-delay-80 {
+  --enter-delay: 80ms;
+}
+
+.enter-delay-140 {
+  --enter-delay: 140ms;
+}
+
+.enter-delay-160 {
+  --enter-delay: 160ms;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,

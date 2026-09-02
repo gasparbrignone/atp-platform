@@ -156,9 +156,8 @@ const isCentered = alignment === 'center';
         subtitle && (
           <p
             data-enter
-            style="--enter-delay: 80ms"
             class:list={[
-              'text-h4 font-semibold',
+              'enter-delay-80 text-h4 font-semibold',
               backgroundImage ? 'text-white' : 'text-text-secondary',
             ]}
           >
@@ -170,8 +169,10 @@ const isCentered = alignment === 'center';
         description && (
           <p
             data-enter
-            style="--enter-delay: 80ms"
-            class:list={['text-body-lg', backgroundImage ? 'text-white/90' : 'text-text-secondary']}
+            class:list={[
+              'enter-delay-80 text-body-lg',
+              backgroundImage ? 'text-white/90' : 'text-text-secondary',
+            ]}
           >
             {description}
           </p>
@@ -179,7 +180,7 @@ const isCentered = alignment === 'center';
       }
       {
         (primaryAction || secondaryAction) && (
-          <div data-enter style="--enter-delay: 160ms" class="mt-2 flex flex-col gap-3 sm:flex-row">
+          <div data-enter class="enter-delay-160 mt-2 flex flex-col gap-3 sm:flex-row">
             {primaryAction && (
               <Button href={primaryAction.href} size="lg">
                 {primaryAction.icon && <primaryAction.icon slot="icon-start" class="size-4" />}

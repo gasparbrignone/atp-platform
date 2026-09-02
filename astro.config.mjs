@@ -23,4 +23,30 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
   },
+  // Content-Security-Policy vía <meta> por página (Astro calcula el hash
+  // exacto de cada script/estilo inline en build, no requiere tocar el
+  // código) — ver docs/SECURITY_HEADERS.md. Orígenes externos permitidos,
+  // uno por uno, según lo que usa el sitio:
+  //  - script.google.com: el Apps Script que recibe todos los formularios
+  //    (fetch normal) y el check-in por QR de /staff/escanear/ (JSONP, así
+  //    que además necesita estar en script-src, no solo connect-src).
+  //  - gc.zgo.at / *.goatcounter.com: analíticas (GoatCounter).
+  //  - i.ytimg.com / youtube-nocookie.com: miniaturas y embed de YouTube.
+  security: {
+    csp: {
+      directives: [
+        "default-src 'self'",
+        "img-src 'self' https://i.ytimg.com https://atpfcm.goatcounter.com",
+        "connect-src 'self' https://script.google.com https://gc.zgo.at https://atpfcm.goatcounter.com",
+        "frame-src 'self' https://www.youtube-nocookie.com",
+        "font-src 'self'",
+        "form-action 'self'",
+        "base-uri 'self'",
+        "object-src 'none'",
+      ],
+      scriptDirective: {
+        resources: ["'self'", 'https://script.google.com', 'https://gc.zgo.at'],
+      },
+    },
+  },
 });
