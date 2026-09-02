@@ -137,11 +137,19 @@ const websiteJsonLd = {
          (Lighthouse lo marcaba como candidato a preconnect, ~885ms de
          ahorro estimado). -->
     <link rel="preconnect" href={`https://${siteConfig.goatcounterSite}.goatcounter.com`} />
+    <!-- A diferencia de Sveltia CMS (public/admin/index.html, sin SRI a
+         propósito): este script cambia poco y no hace falta actualizarlo
+         seguido, así que sí vale fijar su integridad. Si GoatCounter
+         publica una versión nueva de count.js, este hash deja de matchear
+         y el navegador lo bloquea (analíticas dejan de contar hasta
+         recalcular el hash) — no rompe nada más del sitio. -->
     <script
       is:inline
       data-goatcounter={`https://${siteConfig.goatcounterSite}.goatcounter.com/count`}
       async
-      src="//gc.zgo.at/count.js"></script>
+      src="https://gc.zgo.at/count.js"
+      integrity="sha384-2UjvVpptg4JlEVgJI2PdscrjOjPcil/4F1ZvIMJ81CShQnEDSlPI+l4PfogvTLYi"
+      crossorigin="anonymous"></script>
 
     <!-- Fase 15 (PWA): habilita instalación y uso offline básico. -->
     <script is:inline>

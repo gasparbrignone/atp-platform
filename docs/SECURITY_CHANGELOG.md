@@ -12,6 +12,10 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ## 2026-09-02
 
+- **fix:** script de GoatCounter (`gc.zgo.at/count.js`) pasado de URL
+  protocol-relative a `https://` explícito, con SRI (`integrity` SHA-384) —
+  hallazgo de un escaneo externo (Sucuri SiteCheck). Ver decisión en
+  `SECURITY_DECISIONS.md`.
 - **fix:** rediseñado el rate limiting del check-in por QR — de un límite
   global de pedidos (bloqueaba uso legítimo con muchos escaneos simultáneos)
   a una demora progresiva solo en intentos con clave incorrecta. Commits

@@ -237,6 +237,31 @@ acceso" es la base de por qué se aceptó este riesgo.
 
 ---
 
+### 2026-09-02 — SRI en el script de GoatCounter, protocol-relative URL corregida
+
+**Contexto:** un escaneo externo (Sucuri SiteCheck) marcó el script de
+analíticas (`gc.zgo.at/count.js`) por dos motivos: se cargaba con URL
+protocol-relative (`src="//gc.zgo.at/..."`, sin `https://` explícito) y sin
+Subresource Integrity.
+
+**Decisión:** URL explícita `https://`, más `integrity` (SHA-384) y
+`crossorigin="anonymous"`. A diferencia de Sveltia CMS (ver decisión de
+arriba, sin SRI a propósito), acá sí se fijó — es un script que casi no
+cambia, así que el costo de mantenimiento de actualizar el hash cuando
+GoatCounter publique una versión nueva es bajo.
+
+**Riesgo residual:** si GoatCounter actualiza `count.js`, el hash deja de
+matchear y el navegador bloquea el script — las analíticas dejan de contar
+hasta que alguien note la discrepancia y recalcule el hash. No afecta al
+resto del sitio.
+
+**Qué NO hacer en el futuro:** no volver a `src="//..."` protocol-relative
+en ningún script nuevo — siempre `https://` explícito, y evaluar SRI caso
+por caso (bajo churn del script externo → sí vale la pena, alto churn como
+Sveltia → no).
+
+---
+
 ### 2026-09-02 — Blast radius: ninguna aprobación humana entre `main` y producción
 
 **Contexto:** revisión de blast radius de credenciales (PAT del CMS,
