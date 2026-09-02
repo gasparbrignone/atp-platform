@@ -10,3 +10,19 @@ export function hasTurnstileToken(form: HTMLFormElement): boolean {
   const input = form.querySelector<HTMLInputElement>('input[name="cf-turnstile-response"]');
   return Boolean(input?.value);
 }
+
+/**
+ * Cada token es de un solo uso — sin resetear el widget después de cada
+ * intento (éxito o error, `mode: 'no-cors'` no distingue uno de otro acá),
+ * un reintento manda el mismo token ya usado y el Apps Script lo rechaza
+ * (`timeout-or-duplicate`) incluso si la persona hizo todo bien.
+ */
+export function resetTurnstile(): void {
+  window.turnstile?.reset();
+}
+
+declare global {
+  interface Window {
+    turnstile?: { reset: (widgetId?: string) => void };
+  }
+}

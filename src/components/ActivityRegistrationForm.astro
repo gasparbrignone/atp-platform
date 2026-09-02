@@ -152,7 +152,7 @@ const hasConfirmationLink = Boolean(confirmationLinkLabel && confirmationLinkUrl
 
 <script>
   import { showToast } from '@/lib/toast';
-  import { hasTurnstileToken } from '@/lib/turnstile';
+  import { hasTurnstileToken, resetTurnstile } from '@/lib/turnstile';
 
   const form = document.querySelector<HTMLFormElement>('[data-activity-registration-form]');
   const submitButton = form?.querySelector<HTMLButtonElement>('[data-activity-registration-submit]');
@@ -208,6 +208,7 @@ const hasConfirmationLink = Boolean(confirmationLinkLabel && confirmationLinkUrl
     } finally {
       submitButton.disabled = false;
       submitButton.textContent = originalLabel;
+      resetTurnstile();
     }
   });
 </script>

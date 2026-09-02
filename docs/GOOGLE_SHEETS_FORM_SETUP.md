@@ -227,8 +227,9 @@ actividad solo.
        // Anti-bot: un script que le pegue directo a este endpoint (sin pasar
        // por un navegador real resolviendo el widget de Turnstile) nunca va
        // a tener un token válido acá — se corta antes de guardar nada.
-       if (!verifyTurnstile(params['cf-turnstile-response'])) {
-         logError('turnstile', new Error('Token de Turnstile inválido o ausente'), params);
+       var turnstileCheck = verifyTurnstile(params['cf-turnstile-response']);
+       if (!turnstileCheck.success) {
+         logError('turnstile', new Error('Rechazado: ' + turnstileCheck.errorCodes.join(', ')), params);
          return ContentService
            .createTextOutput(JSON.stringify({ result: 'error' }))
            .setMimeType(ContentService.MimeType.JSON);
@@ -978,9 +979,13 @@ actividad solo.
    // real resolviendo el widget, no de un script pegándole directo a este
    // endpoint. `muteHttpExceptions` para que un error de red de Cloudflare
    // no tire una excepción sin controlar: si la verificación en sí falla,
-   // se trata como token inválido (falla cerrado, no abierto).
+   // se trata como token inválido (falla cerrado, no abierto). Devuelve
+   // `errorCodes` (no solo true/false) para que quede el motivo real en la
+   // pestaña "Errores" en vez de un genérico "inválido" — los códigos que
+   // manda Cloudflare (`invalid-input-secret`, `timeout-or-duplicate`, etc.)
+   // están documentados en developers.cloudflare.com/turnstile.
    function verifyTurnstile(token) {
-     if (!token) return false;
+     if (!token) return { success: false, errorCodes: ['missing-token'] };
      try {
        var response = UrlFetchApp.fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
          method: 'post',
@@ -988,9 +993,9 @@ actividad solo.
          muteHttpExceptions: true,
        });
        var result = JSON.parse(response.getContentText());
-       return result.success === true;
+       return { success: result.success === true, errorCodes: result['error-codes'] || [] };
      } catch (err) {
-       return false;
+       return { success: false, errorCodes: ['fetch-exception: ' + String(err)] };
      }
    }
 

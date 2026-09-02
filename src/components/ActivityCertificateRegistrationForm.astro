@@ -192,7 +192,7 @@ const yearOptions = ['1°', '2°', '3°', '4°', '5°', '6°', 'Egresado/a', 'Do
 <script>
   import QRCode from 'qrcode';
   import { showToast } from '@/lib/toast';
-  import { hasTurnstileToken } from '@/lib/turnstile';
+  import { hasTurnstileToken, resetTurnstile } from '@/lib/turnstile';
 
   const form = document.querySelector<HTMLFormElement>('[data-certificate-form]');
   const endpoint = form?.dataset.endpoint;
@@ -311,6 +311,7 @@ const yearOptions = ['1°', '2°', '3°', '4°', '5°', '6°', 'Egresado/a', 'Do
     } finally {
       submitButton.disabled = false;
       submitButton.textContent = originalLabel;
+      resetTurnstile();
     }
   });
 </script>
