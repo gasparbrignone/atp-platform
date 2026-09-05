@@ -13,8 +13,8 @@ trivial en este proyecto debería leer este archivo primero**, junto con
 cada cosa) y [docs/SECURITY_CHANGELOG.md](docs/SECURITY_CHANGELOG.md) (qué
 cambió y cuándo). Ver también la sección "Seguridad" de `CLAUDE.md`.
 
-Última actualización: 2026-09-02 (Turnstile agregado y verificado
-end-to-end en producción).
+Última actualización: 2026-09-05 (panel admin endurecido tras una
+auditoría adversarial, antes de su primer despliegue real).
 
 ---
 
@@ -73,8 +73,8 @@ CI/CD (GitHub Actions)
 | **`STAFF_CHECKIN_SECRET`** | Protege el endpoint de check-in por QR (`/staff/escanear/`) | Constante dentro del código del Apps Script — nunca en este repo | Solo staff en eventos | Un único endpoint (`action=checkin`) | Medio-bajo — requiere además un `registrationId` válido (viaja en cada QR) para hacer algo | Editar la constante en el editor de Apps Script + publicar "Nueva versión" |
 | **`UNSUBSCRIBE_SECRET`** | Firma HMAC del link de "darme de baja" en cada mail | Constante dentro del código del Apps Script — nunca en este repo | Nadie necesita conocerlo, solo el script | Un único endpoint (`action=unsubscribe`) | Medio — permitiría dar de baja mails de cualquier persona a partir de su email + nombre de actividad (ambos adivinables) | Igual que arriba. **Efecto secundario:** invalida todos los links de baja ya enviados. |
 | **`TURNSTILE_SECRET_KEY`** | Verifica server-side el token de Cloudflare Turnstile (anti-bot) antes de guardar cualquiera de los 3 formularios | Constante dentro del código del Apps Script — nunca en este repo | Nadie necesita conocerlo, solo el script (llama a `challenges.cloudflare.com/turnstile/v0/siteverify`) | Atado a un widget Turnstile específico (dominio `atpfcm.com.ar`) | Bajo — un tercero con esta clave podría llamar a `siteverify` en nombre de ATP, pero no puede forjar tokens válidos sin resolver el widget real | Rotar en Cloudflare (Turnstile → el widget) + pegar la nueva en el Apps Script + publicar "Nueva versión". La **Site Key** correspondiente (pública, distinta de esta) vive en `src/config/site.ts`. |
-| **`ADMIN_PASSWORD`** | Primer factor del login del panel admin (`/staff/panel/`) | Constante dentro del código del Apps Script — nunca en este repo | Solo el dueño del proyecto | Un único endpoint (`action=adminLogin`) | Alto si se compromete **junto con** `ADMIN_TOTP_SECRET` (ver siguiente fila) — sola, no alcanza para entrar | Editar la constante + publicar "Nueva versión" |
-| **`ADMIN_TOTP_SECRET`** | Segundo factor (TOTP, RFC 6238 — el mismo estándar que Google Authenticator) del login del panel admin | Constante dentro del código del Apps Script (nunca en este repo) **y** cargado en la app de Authenticator del dueño del proyecto | Solo el dueño del proyecto — a diferencia de los demás secretos de esta tabla, este vive en dos lugares a la vez (el script y el celular), no solo uno | Un único endpoint (`action=adminLogin`) | Alto si se compromete junto con `ADMIN_PASSWORD` — con ambos, acceso de lectura a todos los inscriptos de todas las actividades y capacidad de mandar mails en nombre de ATP a esas listas | Generar un secreto nuevo (aleatorio, 160 bits) + cargarlo como cuenta nueva en Authenticator + reemplazar la constante + publicar "Nueva versión". Ver `docs/GOOGLE_SHEETS_FORM_SETUP.md` → "Configurar el panel admin". |
+| **`ADMIN_PASSWORD`** | Primer factor del login del panel admin (`/staff/panel/`) | Constante dentro del código del Apps Script — nunca en este repo | Solo el dueño del proyecto | Un único endpoint (`action=adminLoginAttempt`, POST — nunca viaja en una URL desde 2026-09-05) | Alto si se compromete **junto con** `ADMIN_TOTP_SECRET` (ver siguiente fila) — sola, no alcanza para entrar | Editar la constante + publicar "Nueva versión" |
+| **`ADMIN_TOTP_SECRET`** | Segundo factor (TOTP, RFC 6238 — el mismo estándar que Google Authenticator) del login del panel admin | Constante dentro del código del Apps Script (nunca en este repo) **y** cargado en la app de Authenticator del dueño del proyecto | Solo el dueño del proyecto — a diferencia de los demás secretos de esta tabla, este vive en dos lugares a la vez (el script y el celular), no solo uno | Un único endpoint (`action=adminLoginAttempt`, POST — nunca viaja en una URL desde 2026-09-05) | Alto si se compromete junto con `ADMIN_PASSWORD` — con ambos, acceso de lectura a todos los inscriptos de todas las actividades y capacidad de mandar mails en nombre de ATP a esas listas | Generar un secreto nuevo (aleatorio, 160 bits) + cargarlo como cuenta nueva en Authenticator + reemplazar la constante + publicar "Nueva versión". Ver `docs/GOOGLE_SHEETS_FORM_SETUP.md` → "Configurar el panel admin". |
 
 **Nota de diseño:** el login del panel no usa un token de sesión propio
 inventado desde cero para "aguantar" el estado — usa `CacheService` de
@@ -233,13 +233,22 @@ con `mode: 'no-cors'` (no pueden leer la respuesta, asumen éxito) y
   autenticación individual, es un secreto compartido pensado para
   "cualquiera que lo sepa puede tomar asistencia", no para identificar a
   la persona del staff.
-- `/staff/panel/` (agregado 2026-09-02): sí es autenticación individual de
-  verdad — contraseña (`ADMIN_PASSWORD`) + código TOTP de Google
-  Authenticator (`ADMIN_TOTP_SECRET`, RFC 6238), verificados server-side en
-  el Apps Script. Después de un login correcto, el script entrega un token
-  de sesión (UUID) guardado en `CacheService` (máx. 6hs) — el navegador
-  solo guarda ese token en `sessionStorage`, nunca la contraseña ni el
-  secreto TOTP.
+- `/staff/panel/` (agregado 2026-09-02, rediseñado 2026-09-05 tras una
+  auditoría adversarial): autenticación individual de verdad — contraseña
+  (`ADMIN_PASSWORD`) + código TOTP de Google Authenticator
+  (`ADMIN_TOTP_SECRET`, RFC 6238), verificados server-side en el Apps
+  Script. La contraseña y el código **viajan solo por el body de un POST,
+  nunca en una URL** (`adminLoginAttempt`) — como Apps Script no manda
+  headers CORS, un `fetch` normal no puede leer esa respuesta, así que el
+  resultado (éxito/token, o rechazo) se retira aparte con un GET/JSONP
+  (`adminLoginPoll`) usando un `loginId` de un solo uso que el propio
+  navegador generó y que no vale nada por sí mismo una vez leído. Después
+  de un login correcto, el token de sesión (UUID, `CacheService`, máx.
+  6hs) sí sigue viajando en la URL de las acciones siguientes
+  (`adminListActivities`, `adminListRegistrations`, `adminPreviewCampaign`,
+  `adminSendCampaign`, `adminLogout`) — decisión consciente, ver
+  `docs/SECURITY_DECISIONS.md`. El navegador solo guarda ese token en
+  `sessionStorage`, nunca la contraseña ni el secreto TOTP.
 - Nada más del sitio requiere login.
 
 ## Authorization
@@ -249,6 +258,15 @@ proyecto" — `/admin/` y `/staff/escanear/` usan un secreto compartido
 (cualquiera que lo sepa puede usarlos, sin distinguir quién es); `/staff/
 panel/` es la única superficie con autenticación individual real (ver
 arriba), y solo la usa una persona.
+
+Dentro del panel admin, `getEligibleActivitySheet` (agregado 2026-09-05)
+es el único punto que decide qué hoja de la planilla puede tocar cada
+acción — excluye siempre "Errores", la pestaña de log de campañas y, de
+forma permanente, la Reserva de Agenda (sus mails son transaccionales, sin
+link de baja, así que nunca deben poder recibir una campaña — ver
+`docs/SECURITY_DECISIONS.md`). Antes de esto, `adminListRegistrations` y
+`adminStageCampaign` confiaban en el `sheetName` que mandaba el cliente
+sin validarlo contra esta misma lista.
 
 ## Rate limiting
 
@@ -264,10 +282,17 @@ arriba), y solo la usa una persona.
 - Apps Script check-in (`doGet?action=checkin`): demora progresiva (hasta
   8s) solo en intentos con la clave incorrecta — nunca afecta un escaneo
   legítimo, sea cual sea el volumen (agregado 2026-09-02).
-- Apps Script login del panel admin (`doGet?action=adminLogin`): mismo
-  patrón que el check-in — demora progresiva (hasta 8s) solo tras varios
-  intentos con contraseña o código incorrectos, nunca afecta un login
-  correcto (agregado 2026-09-02).
+- Apps Script login del panel admin (`doPost?action=adminLoginAttempt`,
+  movido de GET a POST el 2026-09-05 — ver Authentication): mismo patrón
+  que el check-in — demora progresiva (hasta 8s) solo tras varios intentos
+  con contraseña o código incorrectos, nunca afecta un login correcto
+  (agregado 2026-09-02).
+- Envío de campañas del panel admin (`doGet?action=adminSendCampaign`,
+  agregado 2026-09-05): un `LockService.getScriptLock()` serializa el
+  "leer y borrar" del `campaignId` en cache — sin esto, dos pedidos casi
+  simultáneos con el mismo id (ej. un reintento automático del navegador
+  tras un corte de red) podían leer el mismo mail guardado antes de que
+  ninguno lo borrara, y mandarlo dos veces.
 - No hay rate limiting del lado de Cloudflare/GitHub Pages — el sitio
   estático no lo necesita (no hay lógica que proteger ahí).
 
@@ -289,6 +314,11 @@ arriba), y solo la usa una persona.
   de `sitemap.xml` además de `robots.txt` — antes solo lo segundo, así que
   esas URLs quedaban listadas en un archivo público aunque los crawlers
   tuvieran la orden de no seguirlas.
+- El panel admin deja un registro de cada campaña realmente enviada
+  (pestaña "Campañas enviadas": fecha, hoja, asunto, cuántos de cuántos —
+  agregado 2026-09-05) para poder confirmar "¿le mandé esto a esta lista?"
+  sin depender de la memoria — vive dentro del mismo Google Sheet, mismo
+  nivel de acceso que el resto de los datos de inscriptos.
 
 ## Known limitations (pendientes, no arreglados todavía)
 
@@ -302,6 +332,15 @@ arriba), y solo la usa una persona.
    deployment de Apps Script propio.
 5. **Nombres de archivo en `public/uploads/`** que delatan origen de
    buscador (riesgo de copyright/proceso, no de seguridad técnica).
+6. **El token de sesión del panel admin sigue viajando en la URL** de
+   `adminListActivities`/`adminListRegistrations`/`adminPreviewCampaign`/
+   `adminSendCampaign`/`adminLogout` (GET/JSONP — Apps Script no permite
+   leer una respuesta por otra vía). Decisión consciente tomada el
+   2026-09-05 tras evaluar el costo de eliminarlo del todo: a diferencia
+   de la contraseña y el código TOTP (que ya no viajan por URL desde esa
+   fecha, ver `docs/SECURITY_DECISIONS.md`), este token expira solo (máx.
+   6hs), se puede invalidar con logout, y no sirve para volver a loguearse
+   una vez vencido — su exposición tiene un techo mucho más bajo.
 
 ## Accepted risks (decisiones conscientes, no descuidos)
 

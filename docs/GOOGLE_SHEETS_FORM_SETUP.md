@@ -225,20 +225,40 @@ actividad solo.
    var ADMIN_PASSWORD = 'CAMBIAR-ESTA-CLAVE-DE-ADMIN';
    var ADMIN_TOTP_SECRET = 'CAMBIAR-ESTE-SECRETO-BASE32';
 
+   // Pestaña donde queda el historial de campañas realmente enviadas
+   // (fecha, hoja, asunto, cuántos de cuántos) — ver logCampaignSent().
+   // Nunca es una hoja de inscripciones, así que getEligibleActivitySheet
+   // ya la excluye sola (no tiene columna "Email").
+   var CAMPAIGNS_LOG_SHEET_NAME = 'Campañas enviadas';
+
    // ====== PUNTOS DE ENTRADA ======
 
    function doPost(e) {
      try {
        var params = e.parameter;
 
+       // Login del panel admin: la contraseña y el código de Authenticator
+       // viajan acá, en el body de un POST, y en ningún otro lado — nunca
+       // en una URL (a diferencia de la versión anterior de este script).
+       // Esta rama no puede pasar por isValidAdminSession (todavía no hay
+       // sesión: es justamente cómo se consigue una) ni por el freno de
+       // spam pensado para los formularios públicos — tiene el suyo propio
+       // (rl_admin_login_fail, dentro de handleAdminLoginAttempt). El
+       // resultado se recoge aparte con adminLoginPoll (GET/JSONP, ver
+       // doGet) porque este POST no tiene forma de devolver una respuesta
+       // legible del lado del navegador.
+       if (params.action === 'adminLoginAttempt') {
+         return handleAdminLoginAttempt(params);
+       }
+
        // Panel admin: solo prepara el mail de campaña en el cache (un
        // cuerpo de mail puede ser más largo de lo que entra en una URL de
-       // GET) — el envío real y la confirmación legible pasan por
-       // adminSendCampaign (GET, JSONP, ver doGet). Va primero y aparte de
-       // todo lo demás: ya está protegido por la sesión de admin
-       // (isValidAdminSession, dentro de handleAdminStageCampaign) — no
-       // tiene sentido pasarlo además por el freno de spam o Turnstile,
-       // pensados para los formularios públicos, no para esto.
+       // GET) — la vista previa y el envío real pasan por
+       // adminPreviewCampaign/adminSendCampaign (GET, JSONP, ver doGet). Va
+       // primero y aparte de todo lo demás: ya está protegido por la sesión
+       // de admin (isValidAdminSession, dentro de handleAdminStageCampaign)
+       // — no tiene sentido pasarlo además por el freno de spam o
+       // Turnstile, pensados para los formularios públicos, no para esto.
        if (params.action === 'adminStageCampaign') {
          return handleAdminStageCampaign(params);
        }
@@ -361,10 +381,10 @@ actividad solo.
      }
      // Panel admin (src/pages/staff/panel.astro) — igual que checkin, vía
      // JSONP porque hace falta leer la respuesta real (lista de
-     // inscriptos, confirmación de envío), no solo saber que "no hubo
-     // error de red".
-     if (e.parameter.action === 'adminLogin') {
-       return handleAdminLogin(e.parameter);
+     // inscriptos, vista previa, confirmación de envío), no solo saber que
+     // "no hubo error de red".
+     if (e.parameter.action === 'adminLoginPoll') {
+       return handleAdminLoginPoll(e.parameter);
      }
      if (e.parameter.action === 'adminLogout') {
        return handleAdminLogout(e.parameter);
@@ -374,6 +394,9 @@ actividad solo.
      }
      if (e.parameter.action === 'adminListRegistrations') {
        return handleAdminListRegistrations(e.parameter);
+     }
+     if (e.parameter.action === 'adminPreviewCampaign') {
+       return handleAdminPreviewCampaign(e.parameter);
      }
      if (e.parameter.action === 'adminSendCampaign') {
        return handleAdminSendCampaign(e.parameter);
@@ -389,26 +412,62 @@ actividad solo.
    // un token de sesión que solo entrega handleAdminLogin, después de
    // validar los dos factores.
 
-   function handleAdminLogin(params) {
+   // Paso 1 de 2 del login: recibe contraseña + código por POST (nunca por
+   // URL) y decide si son correctos. No puede devolver la respuesta acá
+   // mismo (este POST se manda con fetch/no-cors, igual que
+   // adminStageCampaign, porque Apps Script no manda headers CORS y un
+   // fetch normal no podría leer la respuesta) — el resultado queda
+   // guardado bajo `loginId` (un UUID que generó el propio navegador, no
+   // un dato secreto) para que handleAdminLoginPoll lo retire enseguida.
+   function handleAdminLoginAttempt(params) {
+     if (!params.loginId) {
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'error' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     }
+
      // Mismo criterio que handleCheckin: el freno solo penaliza intentos
      // MAL (contraseña o código incorrectos) — un login correcto nunca lo
      // toca, sea cual sea el volumen de intentos previos.
      var passwordOk = (params.password || '') === ADMIN_PASSWORD;
      var codeOk = verifyTotpCode(params.code, ADMIN_TOTP_SECRET);
+     var result;
 
      if (!passwordOk || !codeOk) {
        var failCount = bumpCounter('rl_admin_login_fail', 300);
        if (failCount > 5) {
          Utilities.sleep(Math.min(8000, (failCount - 5) * 1000));
        }
-       return jsonpResponse({ result: 'unauthorized' }, params.callback);
+       result = { result: 'unauthorized' };
+     } else {
+       var token = Utilities.getUuid();
+       // 21600s = 6hs, el máximo que permite CacheService — pasado ese
+       // tiempo hay que volver a loguearse (contraseña + código de nuevo).
+       CacheService.getScriptCache().put('admin_session_' + token, 'valid', 21600);
+       result = { result: 'success', token: token };
      }
 
-     var token = Utilities.getUuid();
-     // 21600s = 6hs, el máximo que permite CacheService — pasado ese
-     // tiempo hay que volver a loguearse (contraseña + código de nuevo).
-     CacheService.getScriptCache().put('admin_session_' + token, 'valid', 21600);
-     return jsonpResponse({ result: 'success', token: token }, params.callback);
+     // 60s alcanzan de sobra: el POST de arriba y el GET de
+     // handleAdminLoginPoll pasan en la misma fracción de segundo, uno
+     // apenas termina el otro. Un solo uso: lo borra quien lo lee primero.
+     CacheService.getScriptCache().put('admin_login_result_' + params.loginId, JSON.stringify(result), 60);
+
+     return ContentService
+       .createTextOutput(JSON.stringify({ result: 'queued' }))
+       .setMimeType(ContentService.MimeType.JSON);
+   }
+
+   // Paso 2 de 2 del login: retira (GET/JSONP, así se puede leer de
+   // verdad) lo que dejó handleAdminLoginAttempt bajo el mismo `loginId`
+   // — nunca lleva la contraseña ni el código, solo un id de un solo uso
+   // sin valor por sí mismo una vez consumido.
+   function handleAdminLoginPoll(params) {
+     var cache = CacheService.getScriptCache();
+     var key = 'admin_login_result_' + (params.loginId || '');
+     var stored = cache.get(key);
+     if (!stored) return jsonpResponse({ result: 'pending' }, params.callback);
+     cache.remove(key);
+     return jsonpResponse(JSON.parse(stored), params.callback);
    }
 
    function handleAdminLogout(params) {
@@ -421,12 +480,32 @@ actividad solo.
      return CacheService.getScriptCache().get('admin_session_' + token) === 'valid';
    }
 
-   // Recorre todas las hojas de inscripciones (excluye "Errores" y la de
-   // la agenda, que no son de una actividad) y cuenta cuántos inscriptos
-   // activos (no dados de baja) tiene cada una — así el panel arma la
-   // lista de actividades a partir de datos reales de la planilla, no de
-   // una lista fija que podría no coincidir (una actividad sin ninguna
-   // inscripción todavía no tiene ni hoja propia).
+   // Único punto que decide qué hoja puede ver o usar el panel admin —
+   // ninguna acción de abajo debería llamar a getSheetByName directo con
+   // un nombre que vino del cliente sin pasar por acá primero. Excluye
+   // "Errores" (no es una actividad) y la Agenda (AGENDA_SHEET_NAME: sus
+   // mails son puntuales/transaccionales, sin link de darse de baja —
+   // nunca deben poder recibir una campaña ni listarse acá, ver
+   // SECURITY_DECISIONS.md). Cualquier otra hoja sin columna "Email"
+   // tampoco es una hoja de inscripciones (ej. la de log de campañas,
+   // CAMPAIGNS_LOG_SHEET_NAME, queda afuera sola por este mismo motivo).
+   function getEligibleActivitySheet(sheetName) {
+     if (!sheetName || sheetName === AGENDA_SHEET_NAME) return null;
+     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+     if (!sheet || sheet.getName() === 'Errores') return null;
+     if (sheet.getLastRow() < 1) return null;
+
+     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+     if (headers.indexOf('Email') === -1) return null;
+
+     return sheet;
+   }
+
+   // Recorre todas las hojas elegibles y cuenta cuántos inscriptos activos
+   // (no dados de baja) tiene cada una — así el panel arma la lista de
+   // actividades a partir de datos reales de la planilla, no de una lista
+   // fija que podría no coincidir (una actividad sin ninguna inscripción
+   // todavía no tiene ni hoja propia).
    function handleAdminListActivities(params) {
      if (!isValidAdminSession(params.token)) {
        return jsonpResponse({ result: 'unauthorized' }, params.callback);
@@ -434,15 +513,12 @@ actividad solo.
 
      var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
      var activities = [];
-     sheets.forEach(function (sheet) {
-       var name = sheet.getName();
-       if (name === 'Errores' || name === AGENDA_SHEET_NAME) return;
-       if (sheet.getLastRow() < 1) return;
+     sheets.forEach(function (sheetRef) {
+       var name = sheetRef.getName();
+       var sheet = getEligibleActivitySheet(name);
+       if (!sheet) return;
 
        var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-       var emailCol = headers.indexOf('Email');
-       if (emailCol === -1) return; // no es una hoja de inscripciones
-
        var unsubCol = headers.indexOf('Dado de baja');
        var data = sheet.getDataRange().getValues();
        var active = 0;
@@ -461,7 +537,7 @@ actividad solo.
        return jsonpResponse({ result: 'unauthorized' }, params.callback);
      }
 
-     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(params.sheetName);
+     var sheet = getEligibleActivitySheet(params.sheetName);
      if (!sheet) return jsonpResponse({ result: 'not_found' }, params.callback);
 
      var data = sheet.getDataRange().getValues();
@@ -494,35 +570,112 @@ actividad solo.
          .setMimeType(ContentService.MimeType.JSON);
      }
 
+     // Nunca guardar (ni mucho menos dejar mandar después) una campaña
+     // apuntada a una hoja que no es una actividad real — ver
+     // getEligibleActivitySheet. Antes este chequeo no existía acá, así
+     // que un sheetName cualquiera (ej. la Agenda) quedaba aceptado igual.
+     if (!getEligibleActivitySheet(params.sheetName)) {
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'not_found' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     }
+
      CacheService.getScriptCache().put('admin_campaign_' + params.campaignId, JSON.stringify({
        sheetName: params.sheetName || '',
        subject: params.subject || '',
        body: params.body || '',
-     }), 300); // 5 minutos alcanzan de sobra entre el paso 1 y el 2
+     }), 300); // 5 minutos alcanzan de sobra entre estos pasos
 
      return ContentService
        .createTextOutput(JSON.stringify({ result: 'success' }))
        .setMimeType(ContentService.MimeType.JSON);
    }
 
-   // Paso 2 de 2: busca lo que se guardó en el paso anterior, manda un
-   // mail personalizado (etiquetas <nombre>/<apellido>/<email>) a cada
-   // inscripto activo (no dado de baja) de esa hoja, y devuelve cuántos
-   // se mandaron de verdad — a diferencia de los formularios públicos, acá
-   // sí importa saber el resultado real, por eso es JSONP y no
-   // fetch/no-cors.
+   // Vista previa: arma el asunto y el cuerpo tal cual van a salir de
+   // verdad (mismas funciones que el envío real: applyTemplateTags +
+   // wrapEmailHtml), usando los datos reales de la primera persona activa
+   // de esa hoja — así lo que se ve en pantalla antes de confirmar es
+   // exactamente lo que le va a llegar a alguien, no una aproximación. A
+   // diferencia de handleAdminSendCampaign, esto NO borra el campaignId
+   // del cache: se puede pedir vista previa las veces que hagan falta
+   // antes de decidirse a mandar.
+   function handleAdminPreviewCampaign(params) {
+     if (!isValidAdminSession(params.token)) {
+       return jsonpResponse({ result: 'unauthorized' }, params.callback);
+     }
+
+     var staged = CacheService.getScriptCache().get('admin_campaign_' + params.campaignId);
+     if (!staged) return jsonpResponse({ result: 'not_found' }, params.callback);
+
+     var campaign = JSON.parse(staged);
+     var sheet = getEligibleActivitySheet(campaign.sheetName);
+     if (!sheet) return jsonpResponse({ result: 'not_found' }, params.callback);
+
+     var data = sheet.getDataRange().getValues();
+     var headers = data[0];
+     var unsubCol = headers.indexOf('Dado de baja');
+     var sampleTags = null;
+     var activeCount = 0;
+
+     for (var i = 1; i < data.length; i++) {
+       var unsubscribed = unsubCol !== -1 && data[i][unsubCol] === true;
+       var tags = buildTemplateTags(headers, data[i]);
+       if (!tags.email || unsubscribed) continue;
+       activeCount++;
+       if (!sampleTags) sampleTags = tags;
+     }
+
+     if (!sampleTags) return jsonpResponse({ result: 'no_recipients' }, params.callback);
+
+     var subject = applyTemplateTags(campaign.subject, sampleTags);
+     var bodyHtml = applyTemplateTags(String(campaign.body).replace(/\n/g, '<br>'), sampleTags);
+     var unsubscribeUrl = buildUnsubscribeUrl(campaign.sheetName, sampleTags.email);
+
+     return jsonpResponse({
+       result: 'success',
+       subject: subject,
+       bodyHtml: wrapEmailHtml(bodyHtml, unsubscribeUrl),
+       sampleName: [sampleTags.nombre, sampleTags.apellido].filter(Boolean).join(' ') || sampleTags.email,
+       activeCount: activeCount,
+     }, params.callback);
+   }
+
+   // Paso final: busca lo que se guardó en el staging, manda un mail
+   // personalizado (etiquetas <nombre>/<apellido>/<email>) a cada
+   // inscripto activo (no dado de baja) de esa hoja, deja registro en
+   // CAMPAIGNS_LOG_SHEET_NAME, y devuelve cuántos se mandaron de verdad —
+   // a diferencia de los formularios públicos, acá sí importa saber el
+   // resultado real, por eso es JSONP y no fetch/no-cors.
    function handleAdminSendCampaign(params) {
      if (!isValidAdminSession(params.token)) {
        return jsonpResponse({ result: 'unauthorized' }, params.callback);
      }
 
-     var cache = CacheService.getScriptCache();
-     var staged = cache.get('admin_campaign_' + params.campaignId);
-     if (!staged) return jsonpResponse({ result: 'not_found' }, params.callback);
-     cache.remove('admin_campaign_' + params.campaignId); // un solo uso
+     // Candado real, no solo "leer y borrar": sin esto, dos pedidos casi
+     // simultáneos con el mismo campaignId (ej. un reintento automático
+     // del navegador tras un corte de red a mitad del pedido anterior)
+     // podrían leer el mismo staged antes de que ninguno lo borre, y
+     // mandar la misma campaña dos veces. Con el candado, el segundo
+     // pedido espera a que el primero termine de borrar y encuentra
+     // "not_found" en vez de repetir el envío completo.
+     var lock = LockService.getScriptLock();
+     lock.waitLock(30000);
 
-     var campaign = JSON.parse(staged);
-     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(campaign.sheetName);
+     var campaign;
+     try {
+       var cache = CacheService.getScriptCache();
+       var staged = cache.get('admin_campaign_' + params.campaignId);
+       if (!staged) return jsonpResponse({ result: 'not_found' }, params.callback);
+       cache.remove('admin_campaign_' + params.campaignId); // un solo uso
+       campaign = JSON.parse(staged);
+     } finally {
+       lock.releaseLock();
+     }
+
+     // Se revalida acá también (no solo al guardar en el paso anterior):
+     // barato, y cierra cualquier camino futuro que llegue a armar un
+     // campaignId sin pasar por handleAdminStageCampaign.
+     var sheet = getEligibleActivitySheet(campaign.sheetName);
      if (!sheet) return jsonpResponse({ result: 'not_found' }, params.callback);
 
      var data = sheet.getDataRange().getValues();
@@ -551,7 +704,28 @@ actividad solo.
        }
      }
 
+     logCampaignSent(campaign.sheetName, campaign.subject, sent, total);
+
      return jsonpResponse({ result: 'success', sent: sent, total: total }, params.callback);
+   }
+
+   // Historial de campañas realmente enviadas — no vive en ningún otro
+   // lado, así que si alguna vez hay que confirmar "¿le mandé esto a esta
+   // lista?", esta pestaña es la única fuente real. Nunca debe frenar un
+   // envío que ya salió: si ni esto falla, se ignora en silencio, igual
+   // que logError.
+   function logCampaignSent(sheetName, subject, sent, total) {
+     try {
+       var log = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CAMPAIGNS_LOG_SHEET_NAME);
+       if (!log) {
+         log = SpreadsheetApp.getActiveSpreadsheet().insertSheet(CAMPAIGNS_LOG_SHEET_NAME);
+         log.appendRow(['Fecha', 'Hoja', 'Asunto', 'Enviados', 'Total']);
+       }
+       log.appendRow([new Date(), sheetName, subject, sent, total]);
+     } catch (err) {
+       // Sin acción: un fallo acá no debe deshacer ni bloquear un envío
+       // que ya salió de verdad.
+     }
    }
 
    // Junta las columnas que puede tener una fila (según el tipo de hoja —
@@ -1617,10 +1791,18 @@ rompe nada.
     segundos, así que tipealo rápido) — te tiene que dejar entrar y
     mostrar el desplegable de actividades con inscriptos reales. Elegí la
     de prueba del paso 7, revisá que aparezca en la tabla, escribí un
-    asunto y un mensaje con `<nombre>` en alguna parte, y mandalo — te
-    debería llegar a tu propio mail con el nombre real en vez de la
-    etiqueta. Probá también con la contraseña bien y el código mal (tiene
-    que rechazarlo) antes de confiar en que "cualquiera" no puede entrar.
+    asunto y un mensaje con `<nombre>` en alguna parte, y apretá "Ver
+    vista previa" — te tiene que mostrar el asunto y el mensaje ya armados
+    con el nombre real de una persona de esa lista, no la etiqueta cruda.
+    Recién ahí el botón de mandar se habilita; confirmá el envío y
+    revisá tres cosas: que te llegue a tu propio mail con el nombre real,
+    que aparezca una fila nueva en la pestaña "Campañas enviadas" (Fecha,
+    Hoja, Asunto, Enviados, Total), y que si volvés a tocar cualquier
+    campo del formulario después de la vista previa, el botón de mandar se
+    vuelve a deshabilitar hasta pedir una vista previa nueva (así nunca se
+    manda algo distinto de lo que se vio en pantalla). Probá también con
+    la contraseña bien y el código mal (tiene que rechazarlo) antes de
+    confiar en que "cualquiera" no puede entrar.
 
 ---
 

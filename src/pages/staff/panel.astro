@@ -129,8 +129,28 @@ import Input from '@/components/Input.astro';
             ></textarea>
           </div>
 
-          <Button type="submit" size="lg" data-campaign-submit class="self-start">
-            Enviar campaña
+          <Button type="button" size="lg" variant="secondary" data-preview-button class="self-start">
+            Ver vista previa
+          </Button>
+
+          <div
+            data-preview-panel
+            hidden
+            class="border-border-strong bg-surface-alt flex flex-col gap-3 rounded-md border p-4"
+          >
+            <p class="text-caption text-text-secondary font-semibold">
+              Así le va a llegar a <span data-preview-recipient class="text-text"></span>:
+            </p>
+            <div class="border-border rounded-xs border bg-white p-4">
+              <p class="text-caption text-text-secondary font-semibold">Asunto</p>
+              <p data-preview-subject class="text-body text-text mb-3"></p>
+              <p class="text-caption text-text-secondary font-semibold">Mensaje</p>
+              <div data-preview-body class="text-body text-text"></div>
+            </div>
+          </div>
+
+          <Button type="submit" size="lg" data-campaign-submit disabled class="self-start">
+            Pedí una vista previa primero
           </Button>
         </form>
       </div>
@@ -155,6 +175,14 @@ import Input from '@/components/Input.astro';
         dadoDeBaja: boolean;
       }
 
+      interface CampaignPreview {
+        result: string;
+        subject?: string;
+        bodyHtml?: string;
+        sampleName?: string;
+        activeCount?: number;
+      }
+
       const loginForm = document.querySelector<HTMLFormElement>('[data-login-form]');
       const loginSubmit = document.querySelector<HTMLButtonElement>('[data-login-submit]');
       const loginError = document.querySelector<HTMLElement>('[data-login-error]');
@@ -170,18 +198,34 @@ import Input from '@/components/Input.astro';
       const campaignSubject = document.querySelector<HTMLInputElement>('[data-campaign-subject]');
       const campaignBody = document.querySelector<HTMLTextAreaElement>('[data-campaign-body]');
       const campaignSubmit = document.querySelector<HTMLButtonElement>('[data-campaign-submit]');
+      const previewButton = document.querySelector<HTMLButtonElement>('[data-preview-button]');
+      const previewPanel = document.querySelector<HTMLElement>('[data-preview-panel]');
+      const previewRecipient = document.querySelector<HTMLElement>('[data-preview-recipient]');
+      const previewSubject = document.querySelector<HTMLElement>('[data-preview-subject]');
+      const previewBody = document.querySelector<HTMLElement>('[data-preview-body]');
 
-      let activeRecipientCount = 0;
-      let pendingConfirm = false;
-      const originalCampaignLabel = campaignSubmit?.textContent ?? 'Enviar campaña';
+      // La vista previa "gatea" el envío: solo se puede mandar una
+      // campaña cuyo texto exacto ya se vio armado con un destinatario
+      // real. Cualquier cambio en actividad/asunto/mensaje después de
+      // pedir la vista previa invalida esto — obliga a pedir una nueva
+      // antes de poder mandar, así nunca se manda algo distinto de lo que
+      // se vio en pantalla.
+      let stagedCampaignId: string | null = null;
+      let previewActiveCount = 0;
 
       function getToken(): string | null {
         return sessionStorage.getItem(SESSION_KEY);
       }
 
-      function resetPendingConfirm() {
-        pendingConfirm = false;
-        if (campaignSubmit) campaignSubmit.textContent = originalCampaignLabel;
+      function invalidatePreview() {
+        stagedCampaignId = null;
+        previewActiveCount = 0;
+        if (previewPanel) previewPanel.hidden = true;
+        if (previewBody) previewBody.innerHTML = '';
+        if (campaignSubmit) {
+          campaignSubmit.disabled = true;
+          campaignSubmit.textContent = 'Pedí una vista previa primero';
+        }
       }
 
       function handleSessionExpired() {
@@ -237,7 +281,6 @@ import Input from '@/components/Input.astro';
           if (response.result !== 'success' || !response.registrations) {
             registrationsBody.innerHTML =
               '<tr><td class="p-3 text-text-secondary" colspan="3">No se encontró la hoja.</td></tr>';
-            activeRecipientCount = 0;
             return;
           }
 
@@ -261,8 +304,6 @@ import Input from '@/components/Input.astro';
             row.append(nameCell, emailCell, statusCell);
             registrationsBody.appendChild(row);
           });
-
-          activeRecipientCount = response.registrations.filter((r) => !r.dadoDeBaja).length;
         } catch {
           registrationsBody.innerHTML =
             '<tr><td class="p-3 text-text-secondary" colspan="3">Error al cargar.</td></tr>';
@@ -293,10 +334,22 @@ import Input from '@/components/Input.astro';
 
         loginSubmit.disabled = true;
         try {
+          const loginId = crypto.randomUUID();
+          // La contraseña y el código van solo acá, en el body de un POST
+          // — nunca en una URL. No se puede leer la respuesta de este
+          // pedido (Apps Script no manda headers CORS), así que el
+          // resultado real se retira aparte con adminLoginPoll
+          // (GET/JSONP, sin la contraseña ni el código, solo este loginId
+          // de un solo uso que no vale nada por sí mismo).
+          await fetch(GOOGLE_FORMS_ENDPOINT, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: new URLSearchParams({ action: 'adminLoginAttempt', password, code, loginId }),
+          });
+
           const response = await jsonpRequest<{ result: string; token?: string }>(GOOGLE_FORMS_ENDPOINT, {
-            action: 'adminLogin',
-            password,
-            code,
+            action: 'adminLoginPoll',
+            loginId,
           });
 
           if (response.result === 'success' && response.token) {
@@ -328,60 +381,97 @@ import Input from '@/components/Input.astro';
       });
 
       activitySelect?.addEventListener('change', () => {
-        resetPendingConfirm();
+        invalidatePreview();
         if (activitySelect.value) void loadRegistrations(activitySelect.value);
       });
 
-      campaignSubject?.addEventListener('input', resetPendingConfirm);
-      campaignBody?.addEventListener('input', resetPendingConfirm);
+      campaignSubject?.addEventListener('input', invalidatePreview);
+      campaignBody?.addEventListener('input', invalidatePreview);
 
-      campaignForm?.addEventListener('submit', async (event) => {
-        event.preventDefault();
+      previewButton?.addEventListener('click', async () => {
         const token = getToken();
         const sheetName = activitySelect?.value;
         const subject = campaignSubject?.value.trim();
         const body = campaignBody?.value.trim();
 
         if (!token || !sheetName || !subject || !body) {
-          showToast({ message: 'Completá actividad, asunto y mensaje antes de enviar.', variant: 'info' });
+          showToast({ message: 'Completá actividad, asunto y mensaje antes de pedir la vista previa.', variant: 'info' });
           return;
         }
 
-        // Primer click: pide confirmación mostrando a cuánta gente le
-        // llega, en vez de mandarlo directo — es un envío masivo real, no
-        // se puede deshacer.
-        if (!pendingConfirm) {
-          pendingConfirm = true;
-          if (campaignSubmit) {
-            campaignSubmit.textContent = `Confirmar envío a ${activeRecipientCount} persona(s)`;
-          }
-          return;
-        }
-
-        resetPendingConfirm();
-        if (!campaignSubmit) return;
-        campaignSubmit.disabled = true;
+        if (!previewButton) return;
+        previewButton.disabled = true;
+        invalidatePreview();
 
         const campaignId = crypto.randomUUID();
         try {
-          // Paso 1: guarda el mail en el cache del script (fetch/no-cors,
-          // igual que los formularios públicos — el cuerpo puede ser más
-          // largo de lo que entra en una URL de GET, así que no puede ir
-          // por JSONP). No se puede leer si esto salió bien; el paso 2 sí
-          // es legible y es el que realmente confirma el envío.
+          // Igual que el envío real: primero se guarda por POST (el
+          // mensaje puede ser más largo de lo que entra en una URL),
+          // después se lee por JSONP — acá solo para previsualizar, sin
+          // gastar el envío real (adminPreviewCampaign no borra el cache).
           await fetch(GOOGLE_FORMS_ENDPOINT, {
             method: 'POST',
             mode: 'no-cors',
-            body: new URLSearchParams({
-              action: 'adminStageCampaign',
-              token,
-              campaignId,
-              sheetName,
-              subject,
-              body,
-            }),
+            body: new URLSearchParams({ action: 'adminStageCampaign', token, campaignId, sheetName, subject, body }),
           });
 
+          const response = await jsonpRequest<CampaignPreview>(GOOGLE_FORMS_ENDPOINT, {
+            action: 'adminPreviewCampaign',
+            token,
+            campaignId,
+          });
+
+          if (response.result === 'unauthorized') return handleSessionExpired();
+
+          if (response.result === 'no_recipients') {
+            showToast({
+              message: 'Esta actividad todavía no tiene inscriptos activos — no hay a quién mandarle nada.',
+              variant: 'info',
+            });
+            return;
+          }
+
+          if (response.result !== 'success' || !response.bodyHtml) {
+            showToast({ message: 'No pudimos armar la vista previa. Probá de nuevo.', variant: 'error' });
+            return;
+          }
+
+          stagedCampaignId = campaignId;
+          previewActiveCount = response.activeCount ?? 0;
+
+          if (previewRecipient) previewRecipient.textContent = response.sampleName ?? '';
+          if (previewSubject) previewSubject.textContent = response.subject ?? '';
+          if (previewBody) previewBody.innerHTML = response.bodyHtml;
+          if (previewPanel) previewPanel.hidden = false;
+
+          if (campaignSubmit) {
+            campaignSubmit.disabled = false;
+            campaignSubmit.textContent = `Confirmar envío a ${previewActiveCount} persona(s)`;
+          }
+        } catch {
+          showToast({ message: 'No pudimos armar la vista previa. Probá de nuevo.', variant: 'error' });
+        } finally {
+          previewButton.disabled = false;
+        }
+      });
+
+      campaignForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const token = getToken();
+
+        // El botón queda deshabilitado hasta tener una vista previa
+        // vigente (ver invalidatePreview) — este chequeo es la última
+        // barrera, no la única.
+        if (!token || !stagedCampaignId) {
+          showToast({ message: 'Pedí una vista previa antes de mandar.', variant: 'info' });
+          return;
+        }
+
+        if (!campaignSubmit) return;
+        campaignSubmit.disabled = true;
+        const campaignId = stagedCampaignId;
+
+        try {
           const response = await jsonpRequest<{ result: string; sent?: number; total?: number }>(
             GOOGLE_FORMS_ENDPOINT,
             { action: 'adminSendCampaign', token, campaignId },
@@ -395,14 +485,24 @@ import Input from '@/components/Input.astro';
               variant: 'success',
             });
             campaignForm.reset();
+            invalidatePreview();
           } else {
+            // No reintentar solo: si el envío en sí ya salió y lo que se
+            // perdió fue la respuesta (corte de red), reintentar acá
+            // mandaría la campaña dos veces. La pestaña "Campañas
+            // enviadas" de la planilla es la fuente real de si salió o no.
             showToast({
-              message: 'No pudimos confirmar el envío — probá de nuevo en un rato.',
+              message: 'No pudimos confirmar el envío — antes de reintentar, revisá la pestaña "Campañas enviadas" de la planilla, puede que ya se haya mandado.',
               variant: 'error',
             });
+            invalidatePreview();
           }
         } catch {
-          showToast({ message: 'No pudimos enviar la campaña. Probá de nuevo.', variant: 'error' });
+          showToast({
+            message: 'No pudimos confirmar el envío — antes de reintentar, revisá la pestaña "Campañas enviadas" de la planilla, puede que ya se haya mandado.',
+            variant: 'error',
+          });
+          invalidatePreview();
         } finally {
           campaignSubmit.disabled = false;
         }

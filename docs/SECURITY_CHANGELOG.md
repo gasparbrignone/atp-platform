@@ -10,6 +10,44 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ---
 
+## 2026-09-05
+
+- **fix (CRITICAL):** el panel admin nunca llegó a desplegarse con
+  secretos reales — antes de ese primer despliegue, una revisión
+  adversarial completa (código real leído línea por línea, no el informe
+  de quien lo implementó) encontró que contraseña y código TOTP viajaban
+  como parámetros de una URL GET (obligado por JSONP). Rediseñado: el
+  login ahora es `adminLoginAttempt` (POST, nunca URL) +
+  `adminLoginPoll` (GET/JSONP, retira el resultado bajo un `loginId` de
+  un solo uso). El token de sesión sigue viajando en la URL de las
+  acciones posteriores al login — decisión consciente, riesgo mucho
+  menor que el de la contraseña/TOTP. Ver decisión en
+  `SECURITY_DECISIONS.md`.
+- **fix (HIGH):** `adminListRegistrations`/`adminStageCampaign` no
+  validaban el `sheetName` que mandaba el cliente — la exclusión de
+  "Errores"/Agenda del dropdown era solo cosmética. Agregado
+  `getEligibleActivitySheet` como único punto de acceso a una hoja desde
+  el panel; la Reserva de Agenda queda bloqueada de forma permanente
+  (sus mails no tienen link de baja).
+- **fix (MEDIUM):** el "un solo uso" del `campaignId` (leer + borrar del
+  cache) no era atómico — agregado `LockService.getScriptLock()`
+  alrededor de esa sección para que dos pedidos casi simultáneos no
+  puedan mandar la misma campaña dos veces.
+- **feat:** vista previa obligatoria antes de poder mandar una campaña
+  (`adminPreviewCampaign`, no destructiva) — arma el asunto y el cuerpo
+  exactos que van a salir con los datos reales de una persona activa de
+  esa hoja; cualquier cambio después de previsualizar invalida esa vista
+  previa y vuelve a exigir una nueva antes de habilitar el envío.
+- **feat:** registro de campañas realmente enviadas (pestaña nueva
+  "Campañas enviadas": fecha, hoja, asunto, enviados, total) — permite
+  confirmar si un envío salió antes de reintentar a ciegas tras un error
+  de red.
+- Toda la lógica (login correcto/incorrecto, freno de fuerza bruta,
+  allowlist de hojas, vista previa con escapado, envío real, un solo uso
+  del campaignId con el candado, logout) se simuló end-to-end en Node
+  (31 chequeos) antes de tocar el editor de Apps Script real. Ver
+  decisión completa en `SECURITY_DECISIONS.md`.
+
 ## 2026-09-02
 
 - **feat:** panel admin nuevo (`/staff/panel/`, más `/staff/index.astro`

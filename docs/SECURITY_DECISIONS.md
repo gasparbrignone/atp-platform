@@ -429,3 +429,120 @@ inmediato", sin ninguna barrera intermedia.
 ("solo puede tocar este repo, solo contenido") limita el blast radius real
 — en esta arquitectura, no lo hace, porque el mecanismo de deploy no
 distingue "contenido" de "código".
+
+---
+
+### 2026-09-05 — Panel admin: auditoría adversarial antes del primer despliegue real
+
+**Contexto:** el panel admin (login TOTP, ver inscriptos, campañas de
+mail) quedó commiteado el 2026-09-02 pero nunca se cargó una
+`ADMIN_PASSWORD`/`ADMIN_TOTP_SECRET` real ni se publicó una versión con
+esos valores — es decir, nunca estuvo expuesto en producción. Antes de
+ese primer despliegue, se le pidió a Claude una revisión adversarial
+completa (no una simple validación de que "los tests pasan"), y por
+separado el dueño del proyecto trajo un informe de auditoría igual de
+exigente hecho con otra IA (ChatGPT) sobre el mismo código. Se leyó el
+código real completo (Apps Script, frontend, CSP, historial de git) en
+vez de aceptar el diseño documentado como válido, y se encontraron 3
+problemas reales que no estaban en el informe original de implementación.
+
+**Problema 1 (el más importante):** contraseña, código TOTP y token de
+sesión viajaban los tres como parámetros de una URL GET, porque JSONP
+(necesario para leer una respuesta real de un Apps Script Web App, que no
+manda headers CORS) exige un `<script src="...">`. Un secreto en una URL
+puede terminar en: la caché de disco del navegador (que indexa por URL
+completa), cualquier extensión con permiso `webRequest` (no hace falta
+que sea maliciosa a propósito, alcanza con que esté comprometida después
+de publicada), o un proxy corporativo que termine TLS. HTTPS protege el
+contenido en tránsito, no protege contra ninguna de esas tres cosas.
+
+**Problema 2:** `adminListRegistrations`/`adminStageCampaign` recibían el
+`sheetName` directo del cliente y llamaban a `getSheetByName` sin validar
+nada — la exclusión de "Errores" y la Agenda que sí tenía
+`handleAdminListActivities` era solo cosmética (el dropdown del HTML no
+las mostraba, pero la API las aceptaba igual). Como la hoja de Agenda no
+tiene columna "Dado de baja" (sus mails son transaccionales, sin opción
+de baja), mandarle una campaña por error habría llegado al 100% de
+quienes compraron, sin que nadie ahí haya aceptado nunca recibir mails de
+lista.
+
+**Problema 3:** el "un solo uso" del `campaignId` (leer el mail guardado
+y borrarlo del cache) no era atómico — dos pedidos casi simultáneos con
+el mismo id (ej. un reintento automático del navegador tras un corte de
+red) podían leer el mismo staged antes de que ninguno lo borrara, y
+mandar la misma campaña dos veces. Apps Script expone `LockService`
+exactamente para esto y no se usaba.
+
+**Decisión — profundidad de la corrección (elegida por el dueño del
+proyecto entre varias opciones planteadas):**
+
+1. **Contraseña y código TOTP nunca más viajan en una URL.** El login se
+   partió en dos: `adminLoginAttempt` (POST, body — nunca URL) valida
+   password+TOTP y guarda el resultado en cache bajo un `loginId` (UUID
+   que genera el propio navegador, sin valor por sí mismo);
+   `adminLoginPoll` (GET/JSONP, la única forma de leer una respuesta real)
+   lo retira una sola vez. El **token de sesión sí sigue viajando en la
+   URL** de las acciones posteriores — decisión explícita de no llevar el
+   rediseño hasta ahí: a diferencia de la contraseña/TOTP (que sirven para
+   loguearse indefinidamente si se filtran), el token expira solo a las
+   6hs, se puede invalidar con logout, y no permite regenerarse a sí
+   mismo. Bajar ese riesgo también habría exigido rehacer cada acción
+   posterior (listar actividades, listar inscriptos, vista previa, envío)
+   con el mismo patrón de dos pasos — más código nuevo, más superficie
+   para mantener, por una reducción de riesgo bastante menor a la que ya
+   se logró sacando la contraseña y el código. Alternativa descartada:
+   sacar también el token de toda URL (patrón "stage + poll" en cada
+   acción) — evaluada como desproporcionada frente a "avoid unnecessary
+   complexity" (CLAUDE.md) dado el riesgo residual ya bajo del token.
+2. **`getEligibleActivitySheet` como único punto de entrada a cualquier
+   hoja** — excluye siempre "Errores", la pestaña de log de campañas
+   (ninguna tiene columna "Email", así que ya quedan afuera solas) y, de
+   forma **permanente** (no con una advertencia, directamente bloqueada
+   siempre — decisión explícita del dueño del proyecto), la Reserva de
+   Agenda. `handleAdminListRegistrations`, `handleAdminStageCampaign` y
+   `handleAdminSendCampaign` pasan todos por acá antes de tocar una hoja.
+3. **`LockService.getScriptLock()`** alrededor del "leer y borrar" del
+   `campaignId` en `handleAdminSendCampaign` — serializa dos pedidos
+   casi simultáneos en vez de dejar que ambos lean el mismo staged.
+4. **Vista previa obligatoria antes de poder mandar** (`adminPreviewCampaign`,
+   nuevo, no destructivo — no borra el `campaignId`, se puede pedir las
+   veces que hagan falta): arma el asunto y el cuerpo exactos que van a
+   salir, con los datos reales de la primera persona activa de esa hoja,
+   usando las mismas funciones que el envío real (`applyTemplateTags` +
+   `wrapEmailHtml`). El botón de mandar queda deshabilitado hasta tener
+   una vista previa vigente, y cualquier cambio en actividad/asunto/
+   mensaje después de previsualizar invalida esa vista previa — nunca se
+   puede mandar algo distinto de lo que se vio en pantalla. Elegida por
+   el dueño del proyecto por sobre "confirmación sin vista previa" (lo
+   que ya había) y "vista previa + mandarme una prueba a mí primero"
+   (evaluada como un paso extra sin necesidad clara todavía).
+5. **Registro de campañas enviadas** (pestaña nueva "Campañas enviadas":
+   fecha, hoja, asunto, enviados, total) — no resuelve el problema de que
+   un corte de red a mitad de un envío pueda hacer que el navegador nunca
+   vea la confirmación (ver Riesgo residual), pero le da al dueño del
+   proyecto una fuente real para chequear "¿esto salió o no?" antes de
+   reintentar a ciegas. El mensaje de error del panel ahora se lo indica
+   explícitamente.
+
+**Motivo general:** el dueño del proyecto pidió explícitamente maximizar
+seguridad y evitar a toda costa un envío de mail incorrecto, eligiendo en
+cada punto la opción más completa entre las planteadas — salvo en el
+punto 1, donde se prefirió conscientemente no llevar la eliminación de
+secretos de la URL hasta el token de sesión, por la relación
+costo/beneficio ya explicada.
+
+**Riesgo residual:** el token de sesión sigue viajando en la URL de las
+acciones posteriores al login (ver Known Limitations en `SECURITY.md`).
+El registro de campañas no hace que el sistema sea idempotente de
+verdad — si el envío real termina pero la respuesta se pierde en el
+camino, la pestaña de log queda como la única forma de confirmarlo antes
+de reintentar; no hay reintento automático ni reanudación parcial.
+
+**Qué NO hacer en el futuro:** no agregar una acción nueva al panel que
+reciba un `sheetName` del cliente sin pasar por `getEligibleActivitySheet`
+primero. No agregar un paso de "borrar del cache" sin evaluar si hace
+falta un `LockService` alrededor si dos pedidos pudieran llegar casi
+juntos. No asumir que "ya lo revisó una IA" (esta sesión, o el informe de
+ChatGPT que trajo el dueño del proyecto) es sustituto de tratar cada
+supuesto de diseño como una hipótesis a verificar contra el código real,
+no como un hecho porque el informe original lo diga.
