@@ -10,6 +10,20 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ---
 
+## 2026-09-05 (continuación — primer despliegue real)
+
+- **fix:** `generateTotp` llamaba a `Utilities.computeHmacSha1Signature`,
+  que no existe en Apps Script (solo existe `computeHmacSha256Signature`
+  y el genérico `computeHmacSignature`) — el login del panel rechazaba
+  cualquier contraseña/código, siempre, desde que se implementó. Efecto
+  "fail-closed" (nunca dejó entrar a nadie, ni siquiera con credenciales
+  correctas), sin impacto de seguridad, pero sí de disponibilidad.
+  Detectado recién en el primer despliegue real con secretos verdaderos —
+  ninguna simulación anterior en Node lo encontró porque el propio mock
+  de `Utilities` repetía el mismo nombre inexistente. Corregido a
+  `Utilities.computeHmacSignature(Utilities.MacAlgorithm.HMAC_SHA_1, ...)`.
+  Ver decisión completa en `SECURITY_DECISIONS.md`.
+
 ## 2026-09-05
 
 - **fix (CRITICAL):** el panel admin nunca llegó a desplegarse con

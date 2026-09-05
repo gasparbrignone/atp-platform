@@ -805,7 +805,16 @@ actividad solo.
      var counter = Math.floor(unixSeconds / 30);
      var counterBytes = totpCounterBytes(counter);
      var keyBytes = base32Decode(secretBase32);
-     var hmac = Utilities.computeHmacSha1Signature(counterBytes, keyBytes);
+     // Utilities.computeHmacSha1Signature NO existe en Apps Script (a
+     // diferencia de computeHmacSha256Signature, que sí) — solo existe el
+     // método genérico computeHmacSignature con el algoritmo como primer
+     // parámetro. Bug real encontrado en producción el 2026-09-05: el login
+     // del panel nunca funcionó porque esta línea tiraba "TypeError:
+     // Utilities.computeHmacSha1Signature is not a function" en cada
+     // intento, y esa excepción quedaba silenciada por el try/catch de
+     // doPost — el panel devolvía "Contraseña o código incorrectos" pase lo
+     // que pase, sin importar si eran correctos. Ver SECURITY_DECISIONS.md.
+     var hmac = Utilities.computeHmacSignature(Utilities.MacAlgorithm.HMAC_SHA_1, counterBytes, keyBytes);
      // Apps Script devuelve bytes con signo (-128 a 127) — normalizar a
      // 0-255 antes de la truncación dinámica del estándar (RFC 4226 §5.3).
      var unsigned = hmac.map(function (b) { return b < 0 ? b + 256 : b; });

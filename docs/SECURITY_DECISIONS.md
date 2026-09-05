@@ -546,3 +546,67 @@ juntos. No asumir que "ya lo revisó una IA" (esta sesión, o el informe de
 ChatGPT que trajo el dueño del proyecto) es sustituto de tratar cada
 supuesto de diseño como una hipótesis a verificar contra el código real,
 no como un hecho porque el informe original lo diga.
+
+---
+
+### 2026-09-05 — Bug real en producción: `Utilities.computeHmacSha1Signature` no existe
+
+**Contexto:** primer despliegue real del panel con secretos verdaderos
+(ver decisión anterior). El login rechazaba **cualquier** contraseña y
+código, siempre, incluso los correctos — se verificó carácter por
+carácter que `ADMIN_PASSWORD`/`ADMIN_TOTP_SECRET` estaban bien en el
+script, que el secreto TOTP cargado en Google Authenticator generaba
+exactamente el código esperado (comparado en vivo contra un cálculo
+independiente hecho en Node con el mismo secreto), y que los valores que
+mandaba el navegador coincidían con lo tipeado (revisado con
+`document.querySelector(...).value` en la consola). Descartado todo eso,
+se agregó una función de depuración temporal (`debugTotp`, borrada
+después) directo en el editor de Apps Script para ejecutar
+`generateTotp` de verdad — y ahí apareció: `TypeError:
+Utilities.computeHmacSha1Signature is not a function`.
+
+**Problema:** `Utilities.computeHmacSha1Signature` **no existe** en la
+API real de Google Apps Script — solo existe `computeHmacSha256Signature`
+(para SHA-256) y el método genérico `computeHmacSignature(algoritmo,
+valor, clave)` para cualquier otro algoritmo, incluido SHA-1. Se asumió
+por analogía con el nombre de la función SHA-256 que existía una
+equivalente para SHA-1, y nunca se verificó contra la documentación real
+de Apps Script. La simulación en Node (de esta sesión y de la sesión
+donde se implementó el panel originalmente) nunca lo detectó porque el
+propio mock de `Utilities` en esas pruebas **también** definía
+`computeHmacSha1Signature` — es decir, el error de origen se copió sin
+querer al mock, así que la prueba terminó verificando una API que nunca
+existió en la plataforma real, no la real.
+
+**Decisión:** cambiar la llamada a
+`Utilities.computeHmacSignature(Utilities.MacAlgorithm.HMAC_SHA_1,
+counterBytes, keyBytes)` — la forma correcta y documentada de pedir
+HMAC-SHA1 en Apps Script. El resto del algoritmo (truncamiento dinámico,
+normalización de bytes con signo, ventana ±30s) no cambió, porque nunca
+fue el problema: el cálculo matemático estaba bien probado contra los
+vectores del RFC 6238 en Node desde el principio, el problema era
+exclusivamente la llamada a una función de la plataforma que no existía.
+
+**Motivo por el que no se detectó antes:** ninguna de las pruebas
+anteriores (vectores del RFC en Node, simulación end-to-end en Node,
+revisión de código línea por línea en la auditoría adversarial) ejecutó
+alguna vez el código real dentro de un entorno real de Apps Script antes
+de este primer despliegue — todas usaban un mock de `Utilities`. Un mock
+solo puede fallar si el autor del mock comete el mismo error dos veces
+(acá pasó exactamente eso). Es la prueba concreta de por qué la auditoría
+adversarial pedía explícitamente no aceptar "se probó en Node" como
+evidencia suficiente para la integración real con Apps Script (ver
+sección 5 de esa revisión, "TOTP: validar, pero también cuestionar").
+
+**Riesgo de seguridad de este bug:** ninguno — el efecto era
+"fail-closed" (rechazaba a todo el mundo, incluido el dueño legítimo),
+nunca "fail-open" (nunca dejó entrar a nadie sin las credenciales
+correctas, porque de hecho no dejaba entrar a nadie). Es un bug de
+disponibilidad/funcionalidad, no de seguridad.
+
+**Qué NO hacer en el futuro:** antes de dar por buena una función nueva
+que llama a un método de `Utilities`, `SpreadsheetApp`, `GmailApp`, etc.
+que no se usó antes en ningún otro lado de este script, confirmar su
+nombre exacto contra la documentación oficial de Apps Script (o
+ejecutarla una vez de verdad en el editor) — no asumir que existe por
+analogía con un método parecido que sí se usa en otro lado.
