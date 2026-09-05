@@ -141,11 +141,20 @@ import Input from '@/components/Input.astro';
             <p class="text-caption text-text-secondary font-semibold">
               Así le va a llegar a <span data-preview-recipient class="text-text"></span>:
             </p>
-            <div class="border-border rounded-xs border bg-white p-4">
-              <p class="text-caption text-text-secondary font-semibold">Asunto</p>
-              <p data-preview-subject class="text-body text-text mb-3"></p>
-              <p class="text-caption text-text-secondary font-semibold">Mensaje</p>
-              <div data-preview-body class="text-body text-text"></div>
+            <!--
+              El contenido de acá adentro es HTML de mail (wrapEmailHtml del
+              Apps Script, con sus propios colores fijos pensados para
+              fondo blanco de un cliente de mail) — nunca colores del
+              sistema de diseño del sitio (`text-text`, etc.): esos son
+              claros en modo oscuro, pensados para fondo oscuro, e ilegibles
+              sobre esta caja blanca que simula el mail real.
+            -->
+            <div class="overflow-hidden rounded-xs border border-border">
+              <div class="bg-white px-4 py-3">
+                <p class="text-caption font-semibold text-[#6b7280]">Asunto</p>
+                <p data-preview-subject class="text-body font-semibold text-[#111827]"></p>
+              </div>
+              <div data-preview-body></div>
             </div>
           </div>
 
