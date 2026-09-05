@@ -1,0 +1,62 @@
+---
+/**
+ * Hub de herramientas internas del staff — no una página del sitio, solo
+ * un punto de entrada a las demás (/staff/escanear/, /staff/panel/), con
+ * la estética del sitio (mismos tokens/componentes) pero sin Navbar/Footer
+ * ni indexación, mismo criterio que esas dos páginas.
+ */
+import '@/styles/global.css';
+import Card from '@/components/Card.astro';
+import Button from '@/components/Button.astro';
+import QrCode from '@lucide/astro/icons/qr-code';
+import Mail from '@lucide/astro/icons/mail';
+
+const tools = [
+  {
+    href: '/staff/escanear/',
+    icon: QrCode,
+    title: 'Escanear asistencia',
+    description: 'Tomar asistencia con la cámara escaneando el QR de acceso de cada inscripto/a.',
+  },
+  {
+    href: '/staff/panel/',
+    icon: Mail,
+    title: 'Panel admin',
+    description: 'Ver quiénes se inscribieron a una actividad y mandarles una campaña de mail.',
+  },
+];
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Staff — ATP</title>
+  </head>
+  <body class="bg-background text-text min-h-screen">
+    <div class="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 p-4 sm:p-6">
+      <h1 class="text-h4 text-text pt-4 font-bold">Herramientas de staff</h1>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {
+          tools.map((tool) => (
+            <Card>
+              <Fragment slot="badge">
+                <tool.icon class="text-secondary-strong size-6" aria-hidden="true" />
+              </Fragment>
+              <p slot="title" class="text-h4 text-text font-bold">
+                {tool.title}
+              </p>
+              {tool.description}
+              <Button slot="actions" href={tool.href} class="self-start">
+                Abrir
+              </Button>
+            </Card>
+          ))
+        }
+      </div>
+    </div>
+  </body>
+</html>

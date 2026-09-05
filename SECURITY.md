@@ -73,6 +73,18 @@ CI/CD (GitHub Actions)
 | **`STAFF_CHECKIN_SECRET`** | Protege el endpoint de check-in por QR (`/staff/escanear/`) | Constante dentro del código del Apps Script — nunca en este repo | Solo staff en eventos | Un único endpoint (`action=checkin`) | Medio-bajo — requiere además un `registrationId` válido (viaja en cada QR) para hacer algo | Editar la constante en el editor de Apps Script + publicar "Nueva versión" |
 | **`UNSUBSCRIBE_SECRET`** | Firma HMAC del link de "darme de baja" en cada mail | Constante dentro del código del Apps Script — nunca en este repo | Nadie necesita conocerlo, solo el script | Un único endpoint (`action=unsubscribe`) | Medio — permitiría dar de baja mails de cualquier persona a partir de su email + nombre de actividad (ambos adivinables) | Igual que arriba. **Efecto secundario:** invalida todos los links de baja ya enviados. |
 | **`TURNSTILE_SECRET_KEY`** | Verifica server-side el token de Cloudflare Turnstile (anti-bot) antes de guardar cualquiera de los 3 formularios | Constante dentro del código del Apps Script — nunca en este repo | Nadie necesita conocerlo, solo el script (llama a `challenges.cloudflare.com/turnstile/v0/siteverify`) | Atado a un widget Turnstile específico (dominio `atpfcm.com.ar`) | Bajo — un tercero con esta clave podría llamar a `siteverify` en nombre de ATP, pero no puede forjar tokens válidos sin resolver el widget real | Rotar en Cloudflare (Turnstile → el widget) + pegar la nueva en el Apps Script + publicar "Nueva versión". La **Site Key** correspondiente (pública, distinta de esta) vive en `src/config/site.ts`. |
+| **`ADMIN_PASSWORD`** | Primer factor del login del panel admin (`/staff/panel/`) | Constante dentro del código del Apps Script — nunca en este repo | Solo el dueño del proyecto | Un único endpoint (`action=adminLogin`) | Alto si se compromete **junto con** `ADMIN_TOTP_SECRET` (ver siguiente fila) — sola, no alcanza para entrar | Editar la constante + publicar "Nueva versión" |
+| **`ADMIN_TOTP_SECRET`** | Segundo factor (TOTP, RFC 6238 — el mismo estándar que Google Authenticator) del login del panel admin | Constante dentro del código del Apps Script (nunca en este repo) **y** cargado en la app de Authenticator del dueño del proyecto | Solo el dueño del proyecto — a diferencia de los demás secretos de esta tabla, este vive en dos lugares a la vez (el script y el celular), no solo uno | Un único endpoint (`action=adminLogin`) | Alto si se compromete junto con `ADMIN_PASSWORD` — con ambos, acceso de lectura a todos los inscriptos de todas las actividades y capacidad de mandar mails en nombre de ATP a esas listas | Generar un secreto nuevo (aleatorio, 160 bits) + cargarlo como cuenta nueva en Authenticator + reemplazar la constante + publicar "Nueva versión". Ver `docs/GOOGLE_SHEETS_FORM_SETUP.md` → "Configurar el panel admin". |
+
+**Nota de diseño:** el login del panel no usa un token de sesión propio
+inventado desde cero para "aguantar" el estado — usa `CacheService` de
+Apps Script (el mismo mecanismo ya validado para el rate limiting) con un
+UUID como token, expirando solo (máximo 6hs, el techo que permite
+`CacheService`). El TOTP se verificó contra los 3 vectores de prueba
+oficiales del RFC 6238 antes de escribirlo, y toda la lógica del panel
+(login, listar actividades/inscriptos, armar y mandar una campaña) se
+probó end-to-end simulando las APIs de Google en Node antes de pedirle al
+dueño del proyecto que lo pruebe en producción.
 
 **Nota sobre `STAFF_CHECKIN_SECRET`/`UNSUBSCRIBE_SECRET`:** en la implementación real, ambas constantes quedaron con el mismo valor (reutilizado) — decisión operativa del dueño del proyecto, no una recomendación: lo ideal es que cada secreto sea distinto, así el compromiso de uno no afecta al otro.
 
@@ -221,13 +233,22 @@ con `mode: 'no-cors'` (no pueden leer la respuesta, asumen éxito) y
   autenticación individual, es un secreto compartido pensado para
   "cualquiera que lo sepa puede tomar asistencia", no para identificar a
   la persona del staff.
+- `/staff/panel/` (agregado 2026-09-02): sí es autenticación individual de
+  verdad — contraseña (`ADMIN_PASSWORD`) + código TOTP de Google
+  Authenticator (`ADMIN_TOTP_SECRET`, RFC 6238), verificados server-side en
+  el Apps Script. Después de un login correcto, el script entrega un token
+  de sesión (UUID) guardado en `CacheService` (máx. 6hs) — el navegador
+  solo guarda ese token en `sessionStorage`, nunca la contraseña ni el
+  secreto TOTP.
 - Nada más del sitio requiere login.
 
 ## Authorization
 
-No hay roles ni niveles de usuario — todo lo público es público para
-cualquiera, y las dos superficies protegidas (`/admin/`, `/staff/escanear/`)
-usan un secreto compartido, no un sistema de permisos.
+No hay roles ni niveles de usuario más allá de "público" vs. "el dueño del
+proyecto" — `/admin/` y `/staff/escanear/` usan un secreto compartido
+(cualquiera que lo sepa puede usarlos, sin distinguir quién es); `/staff/
+panel/` es la única superficie con autenticación individual real (ver
+arriba), y solo la usa una persona.
 
 ## Rate limiting
 
@@ -243,6 +264,10 @@ usan un secreto compartido, no un sistema de permisos.
 - Apps Script check-in (`doGet?action=checkin`): demora progresiva (hasta
   8s) solo en intentos con la clave incorrecta — nunca afecta un escaneo
   legítimo, sea cual sea el volumen (agregado 2026-09-02).
+- Apps Script login del panel admin (`doGet?action=adminLogin`): mismo
+  patrón que el check-in — demora progresiva (hasta 8s) solo tras varios
+  intentos con contraseña o código incorrectos, nunca afecta un login
+  correcto (agregado 2026-09-02).
 - No hay rate limiting del lado de Cloudflare/GitHub Pages — el sitio
   estático no lo necesita (no hay lógica que proteger ahí).
 
@@ -260,6 +285,10 @@ usan un secreto compartido, no un sistema de permisos.
 - Ningún secreto real, API key, ni token encontrado en el bundle JS de
   producción, en source maps (no se generan), ni en el historial de git
   (verificado con búsqueda de patrones en los 297 commits).
+- `/staff/**` (incluye `/staff/panel/`, agregado 2026-09-02) está excluido
+  de `sitemap.xml` además de `robots.txt` — antes solo lo segundo, así que
+  esas URLs quedaban listadas en un archivo público aunque los crawlers
+  tuvieran la orden de no seguirlas.
 
 ## Known limitations (pendientes, no arreglados todavía)
 

@@ -1,0 +1,412 @@
+---
+/**
+ * Panel interno de administración: ver quiénes se inscribieron a una
+ * actividad y mandarles una campaña de mail personalizada (etiquetas
+ * <nombre>, <apellido>, <email>). Herramienta interna del staff, no una
+ * página del sitio — sin Navbar/Footer, noindex (mismo criterio que
+ * public/admin/index.html y src/pages/staff/escanear.astro).
+ *
+ * Login con contraseña + código de Google Authenticator (TOTP, RFC 6238),
+ * verificado del lado del servidor en el Apps Script — ver
+ * docs/GOOGLE_SHEETS_FORM_SETUP.md, sección "PANEL ADMIN". Nunca hay nada
+ * sensible en este archivo: ni la contraseña, ni el secreto TOTP, ni el
+ * token de sesión (ese vive solo en sessionStorage del navegador, y en el
+ * cache del script del lado del servidor).
+ */
+import '@/styles/global.css';
+import Button from '@/components/Button.astro';
+import Input from '@/components/Input.astro';
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Panel admin — ATP</title>
+  </head>
+  <body class="bg-background text-text min-h-screen">
+    <div class="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 p-4 sm:p-6">
+      <h1 class="text-h4 text-text pt-4 font-bold">Panel admin</h1>
+
+      <form data-login-form class="border-border bg-surface flex flex-col gap-4 rounded-md border p-6">
+        <div class="flex flex-col gap-2">
+          <label for="admin-password" class="text-caption text-text-secondary font-semibold">
+            Contraseña
+          </label>
+          <Input id="admin-password" type="password" autocomplete="off" required />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label for="admin-code" class="text-caption text-text-secondary font-semibold">
+            Código de Google Authenticator
+          </label>
+          <Input
+            id="admin-code"
+            inputmode="numeric"
+            pattern="\d{6}"
+            maxlength="6"
+            autocomplete="off"
+            placeholder="123456"
+            required
+          />
+        </div>
+        <p data-login-error hidden class="text-caption text-error"></p>
+        <Button type="submit" size="lg" data-login-submit class="self-start">Entrar</Button>
+      </form>
+
+      <div data-dashboard hidden class="flex flex-col gap-6">
+        <div class="flex items-center justify-between">
+          <p class="text-body-sm text-text-secondary">Sesión iniciada</p>
+          <button
+            type="button"
+            data-logout-button
+            class="text-body-sm text-secondary-strong font-semibold underline underline-offset-2"
+          >
+            Cerrar sesión
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label for="admin-activity" class="text-caption text-text-secondary font-semibold">
+            Actividad
+          </label>
+          <select
+            id="admin-activity"
+            data-activity-select
+            class="border-border-strong bg-surface text-body text-text focus:border-secondary-strong h-10 w-full rounded-xs border px-4"
+          >
+            <option value="" selected disabled>Cargando actividades…</option>
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <p class="text-caption text-text-secondary font-semibold">Inscriptos</p>
+          <div class="border-border overflow-x-auto rounded-md border">
+            <table class="text-body-sm w-full">
+              <thead class="bg-surface-alt text-left">
+                <tr>
+                  <th class="p-3">Nombre</th>
+                  <th class="p-3">Email</th>
+                  <th class="p-3">Estado</th>
+                </tr>
+              </thead>
+              <tbody data-registrations-body>
+                <tr><td class="text-text-secondary p-3" colspan="3">Elegí una actividad.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <form data-campaign-form class="border-border bg-surface flex flex-col gap-4 rounded-md border p-6">
+          <div class="flex flex-col gap-1">
+            <p class="text-body font-bold">Mandar campaña</p>
+            <p class="text-caption text-text-secondary">
+              Etiquetas disponibles: <code>&lt;nombre&gt;</code>, <code>&lt;apellido&gt;</code>,{' '}
+              <code>&lt;email&gt;</code> — se reemplazan por el dato real de cada persona. Se manda
+              solo a quienes no se dieron de baja.
+            </p>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="campaign-subject" class="text-caption text-text-secondary font-semibold">
+              Asunto
+            </label>
+            <Input id="campaign-subject" data-campaign-subject required />
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label for="campaign-body" class="text-caption text-text-secondary font-semibold">
+              Mensaje
+            </label>
+            <textarea
+              id="campaign-body"
+              data-campaign-body
+              rows="8"
+              required
+              class="border-border-strong bg-surface text-body text-text focus:border-secondary-strong w-full rounded-xs border px-4 py-2"
+              placeholder={'Hola <nombre>, te escribimos para avisarte que...'}
+            ></textarea>
+          </div>
+
+          <Button type="submit" size="lg" data-campaign-submit class="self-start">
+            Enviar campaña
+          </Button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      import { jsonpRequest } from '@/lib/jsonp';
+      import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+      import { showToast } from '@/lib/toast';
+
+      const SESSION_KEY = 'atp-admin-token';
+
+      interface Activity {
+        sheetName: string;
+        total: number;
+        active: number;
+      }
+
+      interface Registration {
+        nombre: string;
+        email: string;
+        dadoDeBaja: boolean;
+      }
+
+      const loginForm = document.querySelector<HTMLFormElement>('[data-login-form]');
+      const loginSubmit = document.querySelector<HTMLButtonElement>('[data-login-submit]');
+      const loginError = document.querySelector<HTMLElement>('[data-login-error]');
+      const passwordInput = document.querySelector<HTMLInputElement>('#admin-password');
+      const codeInput = document.querySelector<HTMLInputElement>('#admin-code');
+
+      const dashboard = document.querySelector<HTMLElement>('[data-dashboard]');
+      const logoutButton = document.querySelector<HTMLButtonElement>('[data-logout-button]');
+      const activitySelect = document.querySelector<HTMLSelectElement>('[data-activity-select]');
+      const registrationsBody = document.querySelector<HTMLElement>('[data-registrations-body]');
+
+      const campaignForm = document.querySelector<HTMLFormElement>('[data-campaign-form]');
+      const campaignSubject = document.querySelector<HTMLInputElement>('[data-campaign-subject]');
+      const campaignBody = document.querySelector<HTMLTextAreaElement>('[data-campaign-body]');
+      const campaignSubmit = document.querySelector<HTMLButtonElement>('[data-campaign-submit]');
+
+      let activeRecipientCount = 0;
+      let pendingConfirm = false;
+      const originalCampaignLabel = campaignSubmit?.textContent ?? 'Enviar campaña';
+
+      function getToken(): string | null {
+        return sessionStorage.getItem(SESSION_KEY);
+      }
+
+      function resetPendingConfirm() {
+        pendingConfirm = false;
+        if (campaignSubmit) campaignSubmit.textContent = originalCampaignLabel;
+      }
+
+      function handleSessionExpired() {
+        sessionStorage.removeItem(SESSION_KEY);
+        if (dashboard) dashboard.hidden = true;
+        if (loginForm) loginForm.hidden = false;
+        showToast({ message: 'Tu sesión venció — iniciá sesión de nuevo.', variant: 'info' });
+      }
+
+      async function loadActivities() {
+        const token = getToken();
+        if (!token || !activitySelect) return;
+
+        try {
+          const response = await jsonpRequest<{ result: string; activities?: Activity[] }>(
+            GOOGLE_FORMS_ENDPOINT,
+            { action: 'adminListActivities', token },
+          );
+          if (response.result === 'unauthorized') return handleSessionExpired();
+
+          activitySelect.innerHTML = '';
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.disabled = true;
+          placeholder.selected = true;
+          placeholder.textContent = 'Elegí una actividad';
+          activitySelect.appendChild(placeholder);
+
+          (response.activities ?? []).forEach((activity) => {
+            const option = document.createElement('option');
+            option.value = activity.sheetName;
+            option.textContent = `${activity.sheetName} (${activity.active} activos de ${activity.total})`;
+            activitySelect.appendChild(option);
+          });
+        } catch {
+          showToast({ message: 'No pudimos cargar las actividades. Probá de nuevo.', variant: 'error' });
+        }
+      }
+
+      async function loadRegistrations(sheetName: string) {
+        const token = getToken();
+        if (!token || !registrationsBody) return;
+        registrationsBody.innerHTML = '<tr><td class="p-3 text-text-secondary" colspan="3">Cargando…</td></tr>';
+
+        try {
+          const response = await jsonpRequest<{
+            result: string;
+            registrations?: Registration[];
+          }>(GOOGLE_FORMS_ENDPOINT, { action: 'adminListRegistrations', token, sheetName });
+
+          if (response.result === 'unauthorized') return handleSessionExpired();
+
+          if (response.result !== 'success' || !response.registrations) {
+            registrationsBody.innerHTML =
+              '<tr><td class="p-3 text-text-secondary" colspan="3">No se encontró la hoja.</td></tr>';
+            activeRecipientCount = 0;
+            return;
+          }
+
+          registrationsBody.innerHTML = '';
+          response.registrations.forEach((registration) => {
+            const row = document.createElement('tr');
+            row.className = 'border-border border-t';
+
+            const nameCell = document.createElement('td');
+            nameCell.className = 'p-3';
+            nameCell.textContent = registration.nombre;
+
+            const emailCell = document.createElement('td');
+            emailCell.className = 'p-3';
+            emailCell.textContent = registration.email;
+
+            const statusCell = document.createElement('td');
+            statusCell.className = 'p-3';
+            statusCell.textContent = registration.dadoDeBaja ? 'Dado de baja' : 'Activo';
+
+            row.append(nameCell, emailCell, statusCell);
+            registrationsBody.appendChild(row);
+          });
+
+          activeRecipientCount = response.registrations.filter((r) => !r.dadoDeBaja).length;
+        } catch {
+          registrationsBody.innerHTML =
+            '<tr><td class="p-3 text-text-secondary" colspan="3">Error al cargar.</td></tr>';
+        }
+      }
+
+      function showDashboard() {
+        if (loginForm) loginForm.hidden = true;
+        if (dashboard) dashboard.hidden = false;
+        void loadActivities();
+      }
+
+      if (getToken()) showDashboard();
+
+      loginForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!loginSubmit || loginSubmit.disabled) return;
+
+        const password = passwordInput?.value ?? '';
+        const code = codeInput?.value ?? '';
+        if (!password || !/^\d{6}$/.test(code)) {
+          if (loginError) {
+            loginError.textContent = 'Completá la contraseña y el código de 6 dígitos.';
+            loginError.hidden = false;
+          }
+          return;
+        }
+
+        loginSubmit.disabled = true;
+        try {
+          const response = await jsonpRequest<{ result: string; token?: string }>(GOOGLE_FORMS_ENDPOINT, {
+            action: 'adminLogin',
+            password,
+            code,
+          });
+
+          if (response.result === 'success' && response.token) {
+            sessionStorage.setItem(SESSION_KEY, response.token);
+            if (loginError) loginError.hidden = true;
+            if (codeInput) codeInput.value = '';
+            if (passwordInput) passwordInput.value = '';
+            showDashboard();
+          } else if (loginError) {
+            loginError.textContent = 'Contraseña o código incorrectos.';
+            loginError.hidden = false;
+          }
+        } catch {
+          if (loginError) {
+            loginError.textContent = 'No pudimos conectar. Probá de nuevo en un rato.';
+            loginError.hidden = false;
+          }
+        } finally {
+          loginSubmit.disabled = false;
+        }
+      });
+
+      logoutButton?.addEventListener('click', () => {
+        const token = getToken();
+        sessionStorage.removeItem(SESSION_KEY);
+        if (token) void jsonpRequest(GOOGLE_FORMS_ENDPOINT, { action: 'adminLogout', token }).catch(() => {});
+        if (dashboard) dashboard.hidden = true;
+        if (loginForm) loginForm.hidden = false;
+      });
+
+      activitySelect?.addEventListener('change', () => {
+        resetPendingConfirm();
+        if (activitySelect.value) void loadRegistrations(activitySelect.value);
+      });
+
+      campaignSubject?.addEventListener('input', resetPendingConfirm);
+      campaignBody?.addEventListener('input', resetPendingConfirm);
+
+      campaignForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const token = getToken();
+        const sheetName = activitySelect?.value;
+        const subject = campaignSubject?.value.trim();
+        const body = campaignBody?.value.trim();
+
+        if (!token || !sheetName || !subject || !body) {
+          showToast({ message: 'Completá actividad, asunto y mensaje antes de enviar.', variant: 'info' });
+          return;
+        }
+
+        // Primer click: pide confirmación mostrando a cuánta gente le
+        // llega, en vez de mandarlo directo — es un envío masivo real, no
+        // se puede deshacer.
+        if (!pendingConfirm) {
+          pendingConfirm = true;
+          if (campaignSubmit) {
+            campaignSubmit.textContent = `Confirmar envío a ${activeRecipientCount} persona(s)`;
+          }
+          return;
+        }
+
+        resetPendingConfirm();
+        if (!campaignSubmit) return;
+        campaignSubmit.disabled = true;
+
+        const campaignId = crypto.randomUUID();
+        try {
+          // Paso 1: guarda el mail en el cache del script (fetch/no-cors,
+          // igual que los formularios públicos — el cuerpo puede ser más
+          // largo de lo que entra en una URL de GET, así que no puede ir
+          // por JSONP). No se puede leer si esto salió bien; el paso 2 sí
+          // es legible y es el que realmente confirma el envío.
+          await fetch(GOOGLE_FORMS_ENDPOINT, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: new URLSearchParams({
+              action: 'adminStageCampaign',
+              token,
+              campaignId,
+              sheetName,
+              subject,
+              body,
+            }),
+          });
+
+          const response = await jsonpRequest<{ result: string; sent?: number; total?: number }>(
+            GOOGLE_FORMS_ENDPOINT,
+            { action: 'adminSendCampaign', token, campaignId },
+          );
+
+          if (response.result === 'unauthorized') return handleSessionExpired();
+
+          if (response.result === 'success') {
+            showToast({
+              message: `Campaña enviada: ${response.sent} de ${response.total}.`,
+              variant: 'success',
+            });
+            campaignForm.reset();
+          } else {
+            showToast({
+              message: 'No pudimos confirmar el envío — probá de nuevo en un rato.',
+              variant: 'error',
+            });
+          }
+        } catch {
+          showToast({ message: 'No pudimos enviar la campaña. Probá de nuevo.', variant: 'error' });
+        } finally {
+          campaignSubmit.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

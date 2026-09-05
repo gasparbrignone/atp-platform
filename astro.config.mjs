@@ -19,7 +19,14 @@ import react from '@astrojs/react';
 // más a quien visita y a Google.
 export default defineConfig({
   site: 'https://atpfcm.com.ar',
-  integrations: [sitemap(), react()],
+  integrations: [
+    // /staff/ ya está fuera de robots.txt (herramientas internas, no
+    // contenido del sitio) — sin este filtro, sitemap.xml (un archivo
+    // público) las listaba igual, delatando esas URLs a cualquiera que lo
+    // lea, aunque los crawlers tengan la orden de no seguirlas.
+    sitemap({ filter: (page) => !page.includes('/staff/') }),
+    react(),
+  ],
   vite: {
     plugins: [tailwindcss()],
   },

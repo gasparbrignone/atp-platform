@@ -26,7 +26,8 @@ genérico. Ver `SECURITY.md` para el contexto de cada ítem.
   `doGet`/`doPost` del Apps Script, ¿tiene el mismo nivel de protección que
   las existentes (rate limiting, validación de parámetros) o menos?
   (Precedente real: `action=checkin` se agregó sin el mismo freno que
-  `doPost` tenía — no repetir ese patrón.)
+  `doPost` tenía — no repetir ese patrón.) Si la acción es del panel admin
+  (`/staff/panel/`), ¿pasa por `isValidAdminSession` antes de hacer nada?
 - [ ] **Validación de inputs**: todo campo que un formulario manda al
   Apps Script, ¿pasa por `escapeHtml` antes de terminar en un mail? ¿Por
   `isSafeUrl` si termina como `href`?

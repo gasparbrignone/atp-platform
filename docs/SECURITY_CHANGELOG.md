@@ -12,6 +12,21 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ## 2026-09-02
 
+- **feat:** panel admin nuevo (`/staff/panel/`, más `/staff/index.astro`
+  como hub de herramientas de staff) — login con contraseña + código TOTP
+  de Google Authenticator (RFC 6238, implementado y verificado contra los
+  3 vectores de prueba oficiales del estándar), ver inscriptos por
+  actividad, mandar campañas de mail con etiquetas `<nombre>`/
+  `<apellido>`/`<email>`. Toda la lógica del Apps Script se probó
+  end-to-end en Node (mocks de las APIs de Google) antes de pedirle al
+  dueño del proyecto que la probara en producción — encontró y corrigió un
+  bug real de escaping en el camino. Ver decisiones en
+  `SECURITY_DECISIONS.md`. Nuevo helper compartido `src/lib/jsonp.ts`
+  (`/staff/escanear/` se refactorizó para usarlo también, sin duplicar la
+  lógica).
+- **fix:** `/staff/**` excluido también de `sitemap.xml` (antes solo de
+  `robots.txt`) — ese archivo público listaba esas URLs igual, aunque los
+  crawlers tuvieran la orden de no seguirlas.
 - **Verificado end-to-end en producción:** inscripción real → Turnstile →
   guardado en el Sheet → QR en pantalla, todo funcionando. En el camino se
   encontraron y corrigieron 3 problemas más (redirect de Apps Script,

@@ -307,6 +307,99 @@ el único hueco sin cubrir.
 
 ---
 
+### 2026-09-02 — Panel admin: contraseña + TOTP en vez de Sign In with Google
+
+**Contexto:** pedido de un panel en el sitio, protegido con login, para
+ver inscriptos y mandar campañas de mail con etiquetas tipo `<nombre>`.
+
+**Problema:** una "contraseña" chequeada en JavaScript del navegador no
+protege nada (el sitio es estático, cualquiera ve el código fuente) — la
+validación real tiene que pasar por el Apps Script. La primera propuesta
+fue "Iniciar sesión con Google" (aprovechar el password + 2FA que el
+dueño del proyecto ya tiene en su cuenta real, sin construir nada nuevo).
+El dueño del proyecto prefirió explícitamente contraseña + código de
+Google Authenticator, sin depender de configurar un OAuth Client ID en
+Google Cloud Console.
+
+**Decisión:** implementar TOTP (RFC 6238, el estándar que usa Google
+Authenticator) desde cero en el Apps Script, en vez de Sign In with
+Google. Verificado contra los 3 vectores de prueba oficiales del RFC antes
+de escribirlo (ver commit correspondiente) — no es una elección de
+"probemos y vemos", el algoritmo se validó matemáticamente primero.
+
+**Alternativas consideradas:** (1) Sign In with Google — descartada por
+preferencia explícita del dueño del proyecto, no por un problema técnico:
+seguía siendo la opción de menor esfuerzo/riesgo de implementación. (2)
+Contraseña sola, sin segundo factor — descartada, un solo secreto
+compartido es la misma clase de riesgo que `STAFF_CHECKIN_SECRET`, y acá
+el dato en juego (emails de inscriptos + capacidad de mandarles mail) es
+mayor. (3) Sesión propia con JWT firmados a mano — descartada a favor de
+reusar `CacheService` (mismo mecanismo ya validado del rate limiting) con
+un UUID como token: menos código nuevo, menos superficie para un bug de
+implementación.
+
+**Motivo:** dado que el dueño del proyecto insistió en este camino después
+de entender el trade-off, se evaluó que era viable construirlo con
+confianza real (no "hand-rolled crypto" arriesgado) porque: TOTP es un
+estándar publicado con vectores de prueba oficiales (no un esquema
+inventado), Apps Script ya tiene el primitivo HMAC necesario
+(`computeHmacSha1Signature`, la misma familia de función que
+`signUnsubscribe` ya usa con éxito), y la sesión reusa `CacheService` en
+vez de un esquema de tokens propio.
+
+**Verificación antes de producción:** el algoritmo TOTP se probó contra
+los 3 vectores oficiales del RFC 6238 en Node antes de escribirlo en Apps
+Script. Toda la lógica del panel (login con contraseña/código correctos e
+incorrectos, listar actividades desde ambos tipos de hoja, listar
+inscriptos, armar y mandar una campaña con etiquetas, reenvío de un
+`campaignId` ya usado, logout) se simuló end-to-end en Node con mocks de
+`CacheService`/`SpreadsheetApp`/`GmailApp`/`Utilities`/`ScriptApp` antes de
+pedirle al dueño del proyecto que lo probara en producción — encontró y
+corrigió un bug real en el camino (ver más abajo).
+
+**Riesgo residual:** el freno de fuerza bruta del login (progresivo,
+mismo patrón que el check-in) es best-effort — Apps Script no expone IP,
+así que es un freno global, no por atacante. `ADMIN_TOTP_SECRET` vive en
+dos lugares (el script y el celular del dueño del proyecto) en vez de uno
+solo, a diferencia de todos los demás secretos de este proyecto — mayor
+superficie que "un solo lugar", aunque ambos bajo control exclusivo del
+dueño.
+
+**Qué NO hacer en el futuro:** no agregar una acción nueva al panel sin
+pasar por `isValidAdminSession` primero — es el único punto de control de
+acceso de todo `/staff/panel/`, tan importante como el check de Turnstile
+en los formularios públicos.
+
+---
+
+### 2026-09-02 — Bug encontrado en pruebas: etiqueta sin reemplazar podía desaparecer del mail
+
+**Contexto:** al simular `applyTemplateTags` (panel admin, arriba) con una
+etiqueta sin dato correspondiente (ej. `<inventada>`, sin columna en la
+hoja), la primera versión dejaba el texto crudo tal cual, sin escapar.
+
+**Problema:** el cuerpo del mail es HTML — una etiqueta sin escapar como
+`<inventada>` no se ve como "texto de aviso de error" para quien lee el
+mail, el cliente de correo la interpreta como una etiqueta HTML
+desconocida y la esconde por completo. La intención original ("que se
+note el error en vez de desaparecer en silencio") fallaba en la práctica
+exactamente al revés.
+
+**Decisión:** `escapeHtml` se aplica también al caso "sin reemplazar", no
+solo al valor real interpolado — así `<inventada>` llega a la bandeja de
+entrada como texto literal visible, no como una etiqueta HTML tragada.
+
+**Motivo:** se encontró simulando el envío completo en Node antes de que
+el dueño del proyecto lo probara en producción — el mismo tipo de bug que
+ya había costado varias rondas de debugging en vivo con Turnstine/CSP.
+
+**Qué NO hacer en el futuro:** cualquier función que interpole texto
+dentro de HTML (no solo `applyTemplateTags`) tiene que escapar **todos**
+sus caminos de salida, incluido el de "no hay dato, dejo el original" —
+"dejar tal cual" en un contexto HTML nunca es neutral.
+
+---
+
 ### 2026-09-02 — Blast radius: ninguna aprobación humana entre `main` y producción
 
 **Contexto:** revisión de blast radius de credenciales (PAT del CMS,

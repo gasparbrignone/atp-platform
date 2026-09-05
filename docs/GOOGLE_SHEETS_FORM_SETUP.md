@@ -126,15 +126,24 @@ inscripción" — nunca ambos a la vez.
   formularios (`ActivityRegistrationForm.astro`,
   `ActivityCertificateRegistrationForm.astro`, `AgendaSaleSection.astro`):
   anti-bot, la Site Key pública vive en `src/config/site.ts`.
+- `src/pages/staff/index.astro`: hub con acceso a las herramientas de
+  staff (`/staff/escanear/`, `/staff/panel/`).
+- `src/pages/staff/panel.astro` + `src/lib/jsonp.ts`: panel admin — login
+  con contraseña + código de Google Authenticator (TOTP), ver quiénes se
+  inscribieron a una actividad, y mandarles una campaña de mail con
+  etiquetas `<nombre>`/`<apellido>`/`<email>`. Ver "Configurar el panel
+  admin" más abajo — es el único de todos estos pasos que además requiere
+  cargar un código en tu celular, no solo pegar código en el script.
 
 Falta un solo paso externo: (re)cargar el código nuevo del Apps Script,
-**cambiar `STAFF_CHECKIN_SECRET`, `UNSUBSCRIBE_SECRET` y
-`TURNSTILE_SECRET_KEY` por claves propias** antes de publicarlo (la Secret
-Key de Turnstile es la que Cloudflare te dio al crear el widget en
-Turnstile → tu sitio — no la Site Key, esa va en el código, no acá), y
-crear el disparador diario de recordatorios (pasos 2 y 5 de abajo). Si ya
-tenías el script del formulario simple andando, es exactamente el mismo
-Google Sheet — solo hay que reemplazar el código.
+**cambiar `STAFF_CHECKIN_SECRET`, `UNSUBSCRIBE_SECRET`,
+`TURNSTILE_SECRET_KEY`, `ADMIN_PASSWORD` y `ADMIN_TOTP_SECRET` por valores
+propios** antes de publicarlo (la Secret Key de Turnstile es la que
+Cloudflare te dio al crear el widget en Turnstile → tu sitio — no la Site
+Key, esa va en el código, no acá), y crear el disparador diario de
+recordatorios (pasos 2 y 5 de abajo). Si ya tenías el script del
+formulario simple andando, es exactamente el mismo Google Sheet — solo hay
+que reemplazar el código.
 
 **Si cambiás `UNSUBSCRIBE_SECRET` después de que ya salieron mails con el
 link viejo:** esos links de "darme de baja" van a dejar de funcionar (van a
@@ -207,11 +216,32 @@ actividad solo.
    // esa es la pública, va en el código del sitio (src/config/site.ts).
    var TURNSTILE_SECRET_KEY = 'CAMBIAR-ESTA-CLAVE-DE-TURNSTILE';
 
+   // Panel admin (src/pages/staff/panel.astro): login con contraseña +
+   // código de Google Authenticator. CAMBIAR los dos antes de publicar —
+   // ADMIN_TOTP_SECRET es un secreto en formato base32, el mismo que se
+   // carga en la app de Authenticator (ver la sección del panel en este
+   // doc para generarlo). Ninguno de los dos debe quedar con el valor de
+   // ejemplo.
+   var ADMIN_PASSWORD = 'CAMBIAR-ESTA-CLAVE-DE-ADMIN';
+   var ADMIN_TOTP_SECRET = 'CAMBIAR-ESTE-SECRETO-BASE32';
+
    // ====== PUNTOS DE ENTRADA ======
 
    function doPost(e) {
      try {
        var params = e.parameter;
+
+       // Panel admin: solo prepara el mail de campaña en el cache (un
+       // cuerpo de mail puede ser más largo de lo que entra en una URL de
+       // GET) — el envío real y la confirmación legible pasan por
+       // adminSendCampaign (GET, JSONP, ver doGet). Va primero y aparte de
+       // todo lo demás: ya está protegido por la sesión de admin
+       // (isValidAdminSession, dentro de handleAdminStageCampaign) — no
+       // tiene sentido pasarlo además por el freno de spam o Turnstile,
+       // pensados para los formularios públicos, no para esto.
+       if (params.action === 'adminStageCampaign') {
+         return handleAdminStageCampaign(params);
+       }
 
        // Freno básico de spam/abuso: máximo 5 envíos por email por hora, y
        // 40 en total cada 10 minutos entre todo el mundo — ver
@@ -329,7 +359,298 @@ actividad solo.
      if (e.parameter.action === 'checkin') {
        return handleCheckin(e.parameter);
      }
+     // Panel admin (src/pages/staff/panel.astro) — igual que checkin, vía
+     // JSONP porque hace falta leer la respuesta real (lista de
+     // inscriptos, confirmación de envío), no solo saber que "no hubo
+     // error de red".
+     if (e.parameter.action === 'adminLogin') {
+       return handleAdminLogin(e.parameter);
+     }
+     if (e.parameter.action === 'adminLogout') {
+       return handleAdminLogout(e.parameter);
+     }
+     if (e.parameter.action === 'adminListActivities') {
+       return handleAdminListActivities(e.parameter);
+     }
+     if (e.parameter.action === 'adminListRegistrations') {
+       return handleAdminListRegistrations(e.parameter);
+     }
+     if (e.parameter.action === 'adminSendCampaign') {
+       return handleAdminSendCampaign(e.parameter);
+     }
      return HtmlService.createHtmlOutput('ATP');
+   }
+
+   // ====== PANEL ADMIN (login + ver inscriptos + campañas de mail) ======
+   //
+   // src/pages/staff/panel.astro. Login con contraseña + código de 6
+   // dígitos de Google Authenticator (TOTP, ver la sección de TOTP más
+   // abajo) — nada de esto queda expuesto en el sitio: cada acción exige
+   // un token de sesión que solo entrega handleAdminLogin, después de
+   // validar los dos factores.
+
+   function handleAdminLogin(params) {
+     // Mismo criterio que handleCheckin: el freno solo penaliza intentos
+     // MAL (contraseña o código incorrectos) — un login correcto nunca lo
+     // toca, sea cual sea el volumen de intentos previos.
+     var passwordOk = (params.password || '') === ADMIN_PASSWORD;
+     var codeOk = verifyTotpCode(params.code, ADMIN_TOTP_SECRET);
+
+     if (!passwordOk || !codeOk) {
+       var failCount = bumpCounter('rl_admin_login_fail', 300);
+       if (failCount > 5) {
+         Utilities.sleep(Math.min(8000, (failCount - 5) * 1000));
+       }
+       return jsonpResponse({ result: 'unauthorized' }, params.callback);
+     }
+
+     var token = Utilities.getUuid();
+     // 21600s = 6hs, el máximo que permite CacheService — pasado ese
+     // tiempo hay que volver a loguearse (contraseña + código de nuevo).
+     CacheService.getScriptCache().put('admin_session_' + token, 'valid', 21600);
+     return jsonpResponse({ result: 'success', token: token }, params.callback);
+   }
+
+   function handleAdminLogout(params) {
+     if (params.token) CacheService.getScriptCache().remove('admin_session_' + params.token);
+     return jsonpResponse({ result: 'success' }, params.callback);
+   }
+
+   function isValidAdminSession(token) {
+     if (!token) return false;
+     return CacheService.getScriptCache().get('admin_session_' + token) === 'valid';
+   }
+
+   // Recorre todas las hojas de inscripciones (excluye "Errores" y la de
+   // la agenda, que no son de una actividad) y cuenta cuántos inscriptos
+   // activos (no dados de baja) tiene cada una — así el panel arma la
+   // lista de actividades a partir de datos reales de la planilla, no de
+   // una lista fija que podría no coincidir (una actividad sin ninguna
+   // inscripción todavía no tiene ni hoja propia).
+   function handleAdminListActivities(params) {
+     if (!isValidAdminSession(params.token)) {
+       return jsonpResponse({ result: 'unauthorized' }, params.callback);
+     }
+
+     var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+     var activities = [];
+     sheets.forEach(function (sheet) {
+       var name = sheet.getName();
+       if (name === 'Errores' || name === AGENDA_SHEET_NAME) return;
+       if (sheet.getLastRow() < 1) return;
+
+       var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+       var emailCol = headers.indexOf('Email');
+       if (emailCol === -1) return; // no es una hoja de inscripciones
+
+       var unsubCol = headers.indexOf('Dado de baja');
+       var data = sheet.getDataRange().getValues();
+       var active = 0;
+       for (var i = 1; i < data.length; i++) {
+         if (unsubCol === -1 || data[i][unsubCol] !== true) active++;
+       }
+
+       activities.push({ sheetName: name, total: data.length - 1, active: active });
+     });
+
+     return jsonpResponse({ result: 'success', activities: activities }, params.callback);
+   }
+
+   function handleAdminListRegistrations(params) {
+     if (!isValidAdminSession(params.token)) {
+       return jsonpResponse({ result: 'unauthorized' }, params.callback);
+     }
+
+     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(params.sheetName);
+     if (!sheet) return jsonpResponse({ result: 'not_found' }, params.callback);
+
+     var data = sheet.getDataRange().getValues();
+     var headers = data[0];
+     var unsubCol = headers.indexOf('Dado de baja');
+     var registrations = [];
+     for (var i = 1; i < data.length; i++) {
+       var tags = buildTemplateTags(headers, data[i]);
+       registrations.push({
+         nombre: [tags.nombre, tags.apellido].filter(Boolean).join(' '),
+         email: tags.email || '',
+         dadoDeBaja: unsubCol !== -1 && data[i][unsubCol] === true,
+       });
+     }
+
+     return jsonpResponse({ result: 'success', registrations: registrations }, params.callback);
+   }
+
+   // Paso 1 de 2 para mandar una campaña: guarda el asunto/cuerpo en el
+   // cache del script bajo un id que manda el propio navegador
+   // (crypto.randomUUID(), igual que el registrationId del QR) — así el
+   // panel no depende de leer nada de esta respuesta (se manda con
+   // fetch/no-cors, igual que los formularios públicos, porque el cuerpo
+   // de un mail puede ser más largo de lo que entra en la URL de un GET).
+   // El envío real es handleAdminSendCampaign (paso 2), que sí es legible.
+   function handleAdminStageCampaign(params) {
+     if (!isValidAdminSession(params.token)) {
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'unauthorized' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     }
+
+     CacheService.getScriptCache().put('admin_campaign_' + params.campaignId, JSON.stringify({
+       sheetName: params.sheetName || '',
+       subject: params.subject || '',
+       body: params.body || '',
+     }), 300); // 5 minutos alcanzan de sobra entre el paso 1 y el 2
+
+     return ContentService
+       .createTextOutput(JSON.stringify({ result: 'success' }))
+       .setMimeType(ContentService.MimeType.JSON);
+   }
+
+   // Paso 2 de 2: busca lo que se guardó en el paso anterior, manda un
+   // mail personalizado (etiquetas <nombre>/<apellido>/<email>) a cada
+   // inscripto activo (no dado de baja) de esa hoja, y devuelve cuántos
+   // se mandaron de verdad — a diferencia de los formularios públicos, acá
+   // sí importa saber el resultado real, por eso es JSONP y no
+   // fetch/no-cors.
+   function handleAdminSendCampaign(params) {
+     if (!isValidAdminSession(params.token)) {
+       return jsonpResponse({ result: 'unauthorized' }, params.callback);
+     }
+
+     var cache = CacheService.getScriptCache();
+     var staged = cache.get('admin_campaign_' + params.campaignId);
+     if (!staged) return jsonpResponse({ result: 'not_found' }, params.callback);
+     cache.remove('admin_campaign_' + params.campaignId); // un solo uso
+
+     var campaign = JSON.parse(staged);
+     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(campaign.sheetName);
+     if (!sheet) return jsonpResponse({ result: 'not_found' }, params.callback);
+
+     var data = sheet.getDataRange().getValues();
+     var headers = data[0];
+     var unsubCol = headers.indexOf('Dado de baja');
+     var sent = 0;
+     var total = 0;
+
+     for (var i = 1; i < data.length; i++) {
+       var unsubscribed = unsubCol !== -1 && data[i][unsubCol] === true;
+       var tags = buildTemplateTags(headers, data[i]);
+       if (!tags.email || unsubscribed) continue;
+       total++;
+
+       try {
+         var subject = applyTemplateTags(campaign.subject, tags);
+         var bodyHtml = applyTemplateTags(String(campaign.body).replace(/\n/g, '<br>'), tags);
+         var unsubscribeUrl = buildUnsubscribeUrl(campaign.sheetName, tags.email);
+         GmailApp.sendEmail(tags.email, subject, '', {
+           htmlBody: wrapEmailHtml(bodyHtml, unsubscribeUrl),
+           name: SENDER_NAME,
+         });
+         sent++;
+       } catch (mailErr) {
+         logError('campaign', mailErr, { email: tags.email, sheetName: campaign.sheetName });
+       }
+     }
+
+     return jsonpResponse({ result: 'success', sent: sent, total: total }, params.callback);
+   }
+
+   // Junta las columnas que puede tener una fila (según el tipo de hoja —
+   // inscripción simple: "Nombre y apellido"; charla: "Nombres" +
+   // "Apellidos" separados, ver getOrCreateSheet/getOrCreateCharlaSheet)
+   // en un mismo formato {nombre, apellido, email}, para no repetir esta
+   // lógica en cada handler de arriba.
+   function buildTemplateTags(headers, row) {
+     var tags = {};
+     var simpleNameCol = headers.indexOf('Nombre y apellido');
+     if (simpleNameCol !== -1) tags.nombre = row[simpleNameCol];
+     var firstCol = headers.indexOf('Nombres');
+     var lastCol = headers.indexOf('Apellidos');
+     if (firstCol !== -1) tags.nombre = row[firstCol];
+     if (lastCol !== -1) tags.apellido = row[lastCol];
+     var emailCol = headers.indexOf('Email');
+     if (emailCol !== -1) tags.email = row[emailCol];
+     return tags;
+   }
+
+   // Reemplaza <nombre>, <apellido>, <email> (case-insensitive) por el
+   // dato real de esa fila — una etiqueta sin dato para esa persona
+   // también se escapa (`escapeHtml(match)`, no el texto crudo): el cuerpo
+   // del mail es HTML, así que una etiqueta sin reemplazar y sin escapar
+   // (ej. "<inventada>") no se ve como texto de error, el navegador la
+   // interpreta como una etiqueta HTML desconocida y la esconde entera —
+   // exactamente lo contrario de la idea de que el error se note.
+   function applyTemplateTags(text, tags) {
+     return String(text || '').replace(/<(\w+)>/g, function (match, tagName) {
+       var value = tags[tagName.toLowerCase()];
+       return escapeHtml(value !== undefined && value !== '' ? value : match);
+     });
+   }
+
+   // ====== TOTP (código de Google Authenticator — RFC 6238) ======
+   //
+   // Mismo estándar que usa la app de Google Authenticator (y cualquier
+   // otra de códigos de un solo uso): HMAC-SHA1 sobre un contador de
+   // tiempo, verificado contra los 3 vectores de prueba oficiales del RFC
+   // 6238 antes de escribir esto acá. Acepta el código de la ventana
+   // actual y de una hacia atrás/adelante (±30s) para tolerar que el reloj
+   // del celular y el de Apps Script no estén perfectamente sincronizados.
+
+   var BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+   function padLeft(str, len) {
+     var result = String(str);
+     while (result.length < len) result = '0' + result;
+     return result;
+   }
+
+   function base32Decode(base32) {
+     var clean = String(base32).toUpperCase().replace(/[^A-Z2-7]/g, '');
+     var bits = '';
+     for (var i = 0; i < clean.length; i++) {
+       var val = BASE32_ALPHABET.indexOf(clean.charAt(i));
+       if (val === -1) continue;
+       bits += padLeft(val.toString(2), 5);
+     }
+     var bytes = [];
+     for (var j = 0; j + 8 <= bits.length; j += 8) {
+       bytes.push(parseInt(bits.substring(j, j + 8), 2));
+     }
+     return bytes;
+   }
+
+   function totpCounterBytes(counter) {
+     var bytes = [0, 0, 0, 0, 0, 0, 0, 0];
+     for (var i = 7; i >= 0 && counter > 0; i--) {
+       bytes[i] = counter % 256;
+       counter = Math.floor(counter / 256);
+     }
+     return bytes;
+   }
+
+   function generateTotp(secretBase32, unixSeconds) {
+     var counter = Math.floor(unixSeconds / 30);
+     var counterBytes = totpCounterBytes(counter);
+     var keyBytes = base32Decode(secretBase32);
+     var hmac = Utilities.computeHmacSha1Signature(counterBytes, keyBytes);
+     // Apps Script devuelve bytes con signo (-128 a 127) — normalizar a
+     // 0-255 antes de la truncación dinámica del estándar (RFC 4226 §5.3).
+     var unsigned = hmac.map(function (b) { return b < 0 ? b + 256 : b; });
+     var offset = unsigned[unsigned.length - 1] & 0x0f;
+     var binary =
+       ((unsigned[offset] & 0x7f) << 24) |
+       ((unsigned[offset + 1] & 0xff) << 16) |
+       ((unsigned[offset + 2] & 0xff) << 8) |
+       (unsigned[offset + 3] & 0xff);
+     return padLeft(String(binary % 1000000), 6);
+   }
+
+   function verifyTotpCode(code, secretBase32) {
+     if (!/^\d{6}$/.test(String(code || ''))) return false;
+     var now = Math.floor(new Date().getTime() / 1000);
+     for (var step = -1; step <= 1; step++) {
+       if (generateTotp(secretBase32, now + step * 30) === String(code)) return true;
+     }
+     return false;
    }
 
    // ====== CHARLAS/CAPACITACIONES CON CERTIFICADO + QR DE ACCESO ======
@@ -1197,6 +1518,39 @@ Esto es lo que hace que "mañana" se calcule bien para los recordatorios.
 Con esto ya queda corriendo solo, todos los días, sin que haga falta volver a
 tocar nada.
 
+## 6. Configurar el panel admin (`atpfcm.com.ar/staff/panel/`)
+
+Dos valores para cambiar en el script, igual que los otros:
+
+1. **`ADMIN_PASSWORD`**: elegí una contraseña propia (cuanto más larga
+   mejor — a diferencia de un PIN de 4 dígitos, acá no hay límite de
+   longitud). Pegala en el script.
+2. **`ADMIN_TOTP_SECRET`**: este es distinto a los demás — no es algo que
+   vos elijas, tiene que ser aleatorio de verdad, y además hay que
+   cargarlo en tu app de Google Authenticator (como una cuenta nueva, en
+   el mismo celular donde ya tenés las demás). Pasos:
+   1. Abrí Google Authenticator en tu celular → **+** (agregar) →
+      **Ingresar una clave de configuración** (no "Escanear código QR",
+      salvo que generes vos mismo un QR a partir de la clave — no hace
+      falta).
+   2. **Nombre de la cuenta**: algo que reconozcas, ej. "ATP Panel".
+   3. **Tu clave**: pegá acá un secreto en base32 generado al azar (20
+      bytes/160 bits, el tamaño recomendado por el estándar) — pedíselo a
+      Claude en el chat si estás siguiendo esta guía con su ayuda, o
+      generá uno vos mismo con cualquier herramienta de confianza que
+      produzca un secreto TOTP en base32.
+   4. **Tipo de clave**: `Basado en tiempo`.
+   5. Guardar. Ya te tiene que aparecer un código de 6 dígitos que cambia
+      cada 30 segundos.
+   6. Pegá ese mismo secreto base32 (el de la clave, no un código de 6
+      dígitos puntual) en `ADMIN_TOTP_SECRET` del script.
+
+**Nunca compartas `ADMIN_TOTP_SECRET` con nadie más que quiera loguearse
+al panel** — cualquiera que lo tenga puede generar los códigos de 6
+dígitos sin necesitar tu celular. Si alguna vez se filtra, generá uno
+nuevo (repetí los pasos de arriba con un secreto distinto) y volvé a
+publicar el script.
+
 ---
 
 # Si ya tenías una pestaña de una actividad de antes
@@ -1257,6 +1611,16 @@ rompe nada.
     de envíos, revisá la pestaña "Errores" y el registro de ejecución del
     editor; un resultado `rate_limited` es esperado si se mandaron muchas
     en poco tiempo, no un bug.
+11. Para el panel admin: abrí `atpfcm.com.ar/staff/` y entrá a "Panel
+    admin". Poné `ADMIN_PASSWORD` y el código de 6 dígitos que te muestre
+    Google Authenticator para "ATP Panel" en ese momento (cambia cada 30
+    segundos, así que tipealo rápido) — te tiene que dejar entrar y
+    mostrar el desplegable de actividades con inscriptos reales. Elegí la
+    de prueba del paso 7, revisá que aparezca en la tabla, escribí un
+    asunto y un mensaje con `<nombre>` en alguna parte, y mandalo — te
+    debería llegar a tu propio mail con el nombre real en vez de la
+    etiqueta. Probá también con la contraseña bien y el código mal (tiene
+    que rechazarlo) antes de confiar en que "cualquiera" no puede entrar.
 
 ---
 

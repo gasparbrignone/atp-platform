@@ -98,6 +98,7 @@ import '@/styles/global.css';
     <script>
       import jsQR from 'jsqr';
       import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+      import { jsonpRequest } from '@/lib/jsonp';
 
       const SESSION_STORAGE_SECRET = 'atp-staff-secret';
       const SESSION_STORAGE_SESSION = 'atp-staff-session-label';
@@ -160,42 +161,16 @@ import '@/styles/global.css';
       // que un fetch normal no puede leer la respuesta (mismo motivo por el
       // que el resto de los formularios del sitio usa `mode: 'no-cors'` y
       // asume éxito) — acá sí necesitamos leer el resultado (nombre, si ya
-      // había entrado) para avisarle al staff, así que se pide vía un
-      // <script> con `callback`, que no está sujeto a CORS.
+      // había entrado) para avisarle al staff. Ver src/lib/jsonp.ts.
       function requestCheckin(id: string, sessionLabel: string, secret: string): void {
-        const callbackName = `atpCheckin_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-        const script = document.createElement('script');
-
-        const cleanup = () => {
-          delete (window as unknown as Record<string, unknown>)[callbackName];
-          script.remove();
-          window.clearTimeout(timeoutId);
-        };
-
-        const timeoutId = window.setTimeout(() => {
-          cleanup();
-          showBanner('error', 'Sin respuesta', 'Revisá la conexión y probá de nuevo.');
-        }, 8000);
-
-        (window as unknown as Record<string, (response: CheckinResponse) => void>)[callbackName] = (
-          response,
-        ) => {
-          cleanup();
-          handleCheckinResponse(response);
-        };
-
-        const url = new URL(GOOGLE_FORMS_ENDPOINT);
-        url.searchParams.set('action', 'checkin');
-        url.searchParams.set('id', id);
-        url.searchParams.set('session', sessionLabel);
-        url.searchParams.set('secret', secret);
-        url.searchParams.set('callback', callbackName);
-        script.src = url.toString();
-        script.onerror = () => {
-          cleanup();
-          showBanner('error', 'Sin respuesta', 'Revisá la conexión y probá de nuevo.');
-        };
-        document.body.appendChild(script);
+        jsonpRequest<CheckinResponse>(GOOGLE_FORMS_ENDPOINT, {
+          action: 'checkin',
+          id,
+          session: sessionLabel,
+          secret,
+        })
+          .then(handleCheckinResponse)
+          .catch(() => showBanner('error', 'Sin respuesta', 'Revisá la conexión y probá de nuevo.'));
       }
 
       interface CheckinResponse {
