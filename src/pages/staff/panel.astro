@@ -16,6 +16,12 @@
 import '@/styles/global.css';
 import Button from '@/components/Button.astro';
 import Input from '@/components/Input.astro';
+import Select from '@/components/Select.astro';
+import Textarea from '@/components/Textarea.astro';
+import ArrowLeft from '@lucide/astro/icons/arrow-left';
+import Lock from '@lucide/astro/icons/lock';
+import Users from '@lucide/astro/icons/users';
+import Send from '@lucide/astro/icons/send';
 ---
 
 <!doctype html>
@@ -27,10 +33,30 @@ import Input from '@/components/Input.astro';
     <title>Panel admin — ATP</title>
   </head>
   <body class="bg-background text-text min-h-screen">
-    <div class="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 p-4 sm:p-6">
-      <h1 class="text-h4 text-text pt-4 font-bold">Panel admin</h1>
+    <div class="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 p-4 sm:p-6 lg:p-10">
+      <div class="flex flex-col gap-3">
+        <a
+          href="/staff/"
+          class="text-body-sm text-secondary-strong inline-flex w-fit items-center gap-1.5 font-semibold underline-offset-2 hover:underline"
+        >
+          <ArrowLeft class="size-4" aria-hidden="true" />
+          Herramientas de staff
+        </a>
+        <div class="flex items-center gap-3">
+          <div class="bg-secondary/10 text-secondary-strong inline-flex size-11 shrink-0 items-center justify-center rounded-full">
+            <Lock class="size-5" aria-hidden="true" />
+          </div>
+          <div>
+            <h1 class="text-h3 text-text font-extrabold">Panel admin</h1>
+            <p class="text-body-sm text-text-secondary">Inscriptos por actividad y campañas de mail</p>
+          </div>
+        </div>
+      </div>
 
-      <form data-login-form class="border-border bg-surface flex flex-col gap-4 rounded-md border p-6">
+      <form
+        data-login-form
+        class="border-border bg-surface mx-auto flex w-full max-w-md flex-col gap-4 rounded-md border p-6"
+      >
         <div class="flex flex-col gap-2">
           <label for="admin-password" class="text-caption text-text-secondary font-semibold">
             Contraseña
@@ -56,7 +82,7 @@ import Input from '@/components/Input.astro';
       </form>
 
       <div data-dashboard hidden class="flex flex-col gap-6">
-        <div class="flex items-center justify-between">
+        <div class="border-border bg-surface flex items-center justify-between rounded-md border p-4">
           <p class="text-body-sm text-text-secondary">Sesión iniciada</p>
           <button
             type="button"
@@ -67,101 +93,105 @@ import Input from '@/components/Input.astro';
           </button>
         </div>
 
-        <div class="flex flex-col gap-2">
-          <label for="admin-activity" class="text-caption text-text-secondary font-semibold">
-            Actividad
-          </label>
-          <select
-            id="admin-activity"
-            data-activity-select
-            class="border-border-strong bg-surface text-body text-text focus:border-secondary-strong h-10 w-full rounded-xs border px-4"
-          >
-            <option value="" selected disabled>Cargando actividades…</option>
-          </select>
-        </div>
-
-        <div class="flex flex-col gap-2">
-          <p class="text-caption text-text-secondary font-semibold">Inscriptos</p>
-          <div class="border-border overflow-x-auto rounded-md border">
-            <table class="text-body-sm w-full">
-              <thead class="bg-surface-alt text-left">
-                <tr>
-                  <th class="p-3">Nombre</th>
-                  <th class="p-3">Email</th>
-                  <th class="p-3">Estado</th>
-                </tr>
-              </thead>
-              <tbody data-registrations-body>
-                <tr><td class="text-text-secondary p-3" colspan="3">Elegí una actividad.</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <form data-campaign-form class="border-border bg-surface flex flex-col gap-4 rounded-md border p-6">
-          <div class="flex flex-col gap-1">
-            <p class="text-body font-bold">Mandar campaña</p>
-            <p class="text-caption text-text-secondary">
-              Etiquetas disponibles: <code>&lt;nombre&gt;</code>, <code>&lt;apellido&gt;</code>,{' '}
-              <code>&lt;email&gt;</code> — se reemplazan por el dato real de cada persona. Se manda
-              solo a quienes no se dieron de baja.
-            </p>
-          </div>
-
-          <div class="flex flex-col gap-2">
-            <label for="campaign-subject" class="text-caption text-text-secondary font-semibold">
-              Asunto
-            </label>
-            <Input id="campaign-subject" data-campaign-subject required />
-          </div>
-
-          <div class="flex flex-col gap-2">
-            <label for="campaign-body" class="text-caption text-text-secondary font-semibold">
-              Mensaje
-            </label>
-            <textarea
-              id="campaign-body"
-              data-campaign-body
-              rows="8"
-              required
-              class="border-border-strong bg-surface text-body text-text focus:border-secondary-strong w-full rounded-xs border px-4 py-2"
-              placeholder={'Hola <nombre>, te escribimos para avisarte que...'}
-            ></textarea>
-          </div>
-
-          <Button type="button" size="lg" variant="secondary" data-preview-button class="self-start">
-            Ver vista previa
-          </Button>
-
-          <div
-            data-preview-panel
-            hidden
-            class="border-border-strong bg-surface-alt flex flex-col gap-3 rounded-md border p-4"
-          >
-            <p class="text-caption text-text-secondary font-semibold">
-              Así le va a llegar a <span data-preview-recipient class="text-text"></span>:
-            </p>
-            <!--
-              El contenido de acá adentro es HTML de mail (wrapEmailHtml del
-              Apps Script, con sus propios colores fijos pensados para
-              fondo blanco de un cliente de mail) — nunca colores del
-              sistema de diseño del sitio (`text-text`, etc.): esos son
-              claros en modo oscuro, pensados para fondo oscuro, e ilegibles
-              sobre esta caja blanca que simula el mail real.
-            -->
-            <div class="overflow-hidden rounded-xs border border-border">
-              <div class="bg-white px-4 py-3">
-                <p class="text-caption font-semibold text-[#6b7280]">Asunto</p>
-                <p data-preview-subject class="text-body font-semibold text-[#111827]"></p>
+        <div class="flex flex-col items-start gap-6 lg:flex-row">
+          <div class="border-border bg-surface flex w-full flex-col gap-4 rounded-md border p-6 lg:flex-1">
+            <div class="flex items-center gap-3">
+              <Users class="text-secondary-strong size-6 shrink-0" aria-hidden="true" />
+              <div>
+                <p class="text-body font-bold">Inscriptos</p>
+                <p class="text-caption text-text-secondary">Elegí una actividad para ver quién se anotó</p>
               </div>
-              <div data-preview-body></div>
+            </div>
+
+            <Select id="admin-activity" data-activity-select aria-label="Actividad">
+              <option value="" selected disabled>Cargando actividades…</option>
+            </Select>
+
+            <div class="border-border overflow-x-auto rounded-md border">
+              <table class="text-body-sm w-full">
+                <thead class="bg-surface-alt text-left">
+                  <tr>
+                    <th class="p-3">Nombre</th>
+                    <th class="p-3">Email</th>
+                    <th class="p-3">Estado</th>
+                  </tr>
+                </thead>
+                <tbody data-registrations-body>
+                  <tr><td class="text-text-secondary p-3 text-center" colspan="3">Elegí una actividad.</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <Button type="submit" size="lg" data-campaign-submit disabled class="self-start">
-            Pedí una vista previa primero
-          </Button>
-        </form>
+          <form
+            data-campaign-form
+            class="border-border bg-surface flex w-full flex-col gap-4 rounded-md border p-6 lg:flex-1"
+          >
+            <div class="flex items-center gap-3">
+              <Send class="text-secondary-strong size-6 shrink-0" aria-hidden="true" />
+              <div>
+                <p class="text-body font-bold">Mandar campaña</p>
+                <p class="text-caption text-text-secondary">
+                  Etiquetas: <code>&lt;nombre&gt;</code>, <code>&lt;apellido&gt;</code>,{' '}
+                  <code>&lt;email&gt;</code> — se manda solo a quienes no se dieron de baja.
+                </p>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-2">
+              <label for="campaign-subject" class="text-caption text-text-secondary font-semibold">
+                Asunto
+              </label>
+              <Input id="campaign-subject" data-campaign-subject required />
+            </div>
+
+            <div class="flex flex-col gap-2">
+              <label for="campaign-body" class="text-caption text-text-secondary font-semibold">
+                Mensaje
+              </label>
+              <Textarea
+                id="campaign-body"
+                data-campaign-body
+                rows={8}
+                required
+                placeholder={'Hola <nombre>, te escribimos para avisarte que...'}
+              />
+            </div>
+
+            <Button type="button" size="lg" variant="secondary" data-preview-button class="self-start">
+              Ver vista previa
+            </Button>
+
+            <div
+              data-preview-panel
+              hidden
+              class="border-border-strong bg-surface-alt flex flex-col gap-3 rounded-md border p-4"
+            >
+              <p class="text-caption text-text-secondary font-semibold">
+                Así le va a llegar a <span data-preview-recipient class="text-text"></span>:
+              </p>
+              <!--
+                El contenido de acá adentro es HTML de mail (wrapEmailHtml del
+                Apps Script, con sus propios colores fijos pensados para
+                fondo blanco de un cliente de mail) — nunca colores del
+                sistema de diseño del sitio (`text-text`, etc.): esos son
+                claros en modo oscuro, pensados para fondo oscuro, e ilegibles
+                sobre esta caja blanca que simula el mail real.
+              -->
+              <div class="overflow-hidden rounded-xs border border-border">
+                <div class="bg-white px-4 py-3">
+                  <p class="text-caption font-semibold text-[#6b7280]">Asunto</p>
+                  <p data-preview-subject class="text-body font-semibold text-[#111827]"></p>
+                </div>
+                <div data-preview-body></div>
+              </div>
+            </div>
+
+            <Button type="submit" size="lg" data-campaign-submit disabled class="self-start">
+              Pedí una vista previa primero
+            </Button>
+          </form>
+        </div>
       </div>
     </div>
 
@@ -308,7 +338,16 @@ import Input from '@/components/Input.astro';
 
             const statusCell = document.createElement('td');
             statusCell.className = 'p-3';
-            statusCell.textContent = registration.dadoDeBaja ? 'Dado de baja' : 'Activo';
+            const statusBadge = document.createElement('span');
+            // Mismas clases que Badge.astro (variant success/neutral) — no
+            // se puede usar el componente Astro acá porque esto es DOM
+            // armado a mano en el navegador, pero la paleta tiene que ser
+            // la misma, no una inventada para esta pantalla nada más.
+            statusBadge.className = registration.dadoDeBaja
+              ? 'text-caption inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold bg-gray-100 text-gray-700'
+              : 'text-caption inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold bg-success text-success-foreground';
+            statusBadge.textContent = registration.dadoDeBaja ? 'Dado de baja' : 'Activo';
+            statusCell.appendChild(statusBadge);
 
             row.append(nameCell, emailCell, statusCell);
             registrationsBody.appendChild(row);
