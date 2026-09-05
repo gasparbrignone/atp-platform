@@ -10,6 +10,25 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ---
 
+## 2026-09-05 (continuación — mails de campaña más lindos)
+
+- **feat:** el mensaje de una campaña ahora va "en caja" (mismo estilo
+  visual que el resto de los mails del sitio) y hay un checkbox opcional
+  para agregar un recuadro con la fecha/hora vigente de la próxima clase
+  (reutiliza `buildSessionCards`, la misma función ya probada de los
+  mails de confirmación/recordatorio — nunca datos inventados nuevos).
+  El dato sale del JSON público de sesiones vigentes
+  (`ACTIVE_SESSIONS_JSON_URL`), no de lo guardado en la planilla al
+  momento de cada inscripción, así una actividad reprogramada muestra la
+  fecha real. Sin impacto de seguridad — es contenido derivado de datos
+  ya públicos (el propio calendario de actividades del sitio), armado
+  server-side con la misma función de escapado de siempre.
+- **feat:** rediseño visual del panel admin (`/staff/panel/`) — layout
+  de dos columnas en pantallas grandes, componentes del sistema de
+  diseño (`Select`, `Textarea`, `Checkbox`) en vez de HTML suelto,
+  estado de inscripto como etiqueta de color. Puramente visual, sin
+  cambios de lógica ni de superficie de ataque.
+
 ## 2026-09-05 (continuación — primer despliegue real)
 
 - **fix:** `generateTotp` llamaba a `Utilities.computeHmacSha1Signature`,

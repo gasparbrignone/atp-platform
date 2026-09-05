@@ -584,6 +584,7 @@ actividad solo.
        sheetName: params.sheetName || '',
        subject: params.subject || '',
        body: params.body || '',
+       includeSessionReminder: params.includeSessionReminder === 'true',
      }), 300); // 5 minutos alcanzan de sobra entre estos pasos
 
      return ContentService
@@ -627,8 +628,9 @@ actividad solo.
 
      if (!sampleTags) return jsonpResponse({ result: 'no_recipients' }, params.callback);
 
+     var sessionsHtml = getCampaignSessionsHtml(campaign, sheet);
      var subject = applyTemplateTags(campaign.subject, sampleTags);
-     var bodyHtml = applyTemplateTags(String(campaign.body).replace(/\n/g, '<br>'), sampleTags);
+     var bodyHtml = buildCampaignBodyHtml(campaign, sampleTags, sessionsHtml);
      var unsubscribeUrl = buildUnsubscribeUrl(campaign.sheetName, sampleTags.email);
 
      return jsonpResponse({
@@ -683,6 +685,9 @@ actividad solo.
      var unsubCol = headers.indexOf('Dado de baja');
      var sent = 0;
      var total = 0;
+     // Una sola vez para toda la campaña, no por destinatario: el
+     // recordatorio es del cronograma de la actividad, no de cada persona.
+     var sessionsHtml = getCampaignSessionsHtml(campaign, sheet);
 
      for (var i = 1; i < data.length; i++) {
        var unsubscribed = unsubCol !== -1 && data[i][unsubCol] === true;
@@ -692,7 +697,7 @@ actividad solo.
 
        try {
          var subject = applyTemplateTags(campaign.subject, tags);
-         var bodyHtml = applyTemplateTags(String(campaign.body).replace(/\n/g, '<br>'), tags);
+         var bodyHtml = buildCampaignBodyHtml(campaign, tags, sessionsHtml);
          var unsubscribeUrl = buildUnsubscribeUrl(campaign.sheetName, tags.email);
          GmailApp.sendEmail(tags.email, subject, '', {
            htmlBody: wrapEmailHtml(bodyHtml, unsubscribeUrl),
@@ -726,6 +731,58 @@ actividad solo.
        // Sin acción: un fallo acá no debe deshacer ni bloquear un envío
        // que ya salió de verdad.
      }
+   }
+
+   // Arma el HTML final de un mail de campaña para un destinatario puntual
+   // — lo usan tanto la vista previa como el envío real, para que las dos
+   // rutas generen exactamente lo mismo (nunca se debe previsualizar algo
+   // distinto de lo que después se manda). El mensaje que escribió el
+   // admin va "en caja" (mismo estilo que buildConfirmationMessageBox en
+   // los mails de confirmación), y el recuadro de fecha/hora (si se pidió)
+   // va aparte, debajo.
+   function buildCampaignBodyHtml(campaign, tags, sessionsHtml) {
+     var messageHtml = applyTemplateTags(String(campaign.body).replace(/\n/g, '<br>'), tags);
+     var boxedMessage =
+       '<div style="border:1px solid #e5e9f0;background:#f8f9fb;border-radius:10px;padding:18px 20px;">' +
+       messageHtml +
+       '</div>';
+     return boxedMessage + sessionsHtml;
+   }
+
+   // Si la campaña pidió "incluir recordatorio de fecha y hora", arma el
+   // mismo tipo de tarjetas que ya usan los mails de confirmación/
+   // recordatorio (buildSessionCards) con el cronograma VIGENTE de la
+   // actividad (vía ACTIVE_SESSIONS_JSON_URL, igual que sendReminders() —
+   // no la foto vieja guardada en la hoja al momento de cada inscripción,
+   // así una actividad reprogramada muestra la fecha real). Busca el
+   // primer ActivityId real entre las filas de la hoja: todas las filas de
+   // una misma actividad deberían compartir el mismo id. Sin ActivityId,
+   // sin sesiones vigentes, o si no se pidió el recordatorio, no agrega
+   // nada — nunca un recuadro vacío.
+   function getCampaignSessionsHtml(campaign, sheet) {
+     if (!campaign.includeSessionReminder) return '';
+
+     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+     var activityIdCol = headers.indexOf('ActivityId');
+     if (activityIdCol === -1) return '';
+
+     var data = sheet.getDataRange().getValues();
+     var activityId = '';
+     for (var i = 1; i < data.length; i++) {
+       if (data[i][activityIdCol]) {
+         activityId = data[i][activityIdCol];
+         break;
+       }
+     }
+     if (!activityId) return '';
+
+     var activeSessionsByActivity = fetchActiveSessionsByActivity();
+     if (!activeSessionsByActivity || !Object.prototype.hasOwnProperty.call(activeSessionsByActivity, activityId)) {
+       return '';
+     }
+
+     var sessions = activeSessionsByActivity[activityId];
+     return sessions.length > 0 ? buildSessionCards(sessions, true) : '';
    }
 
    // Junta las columnas que puede tener una fila (según el tipo de hoja —

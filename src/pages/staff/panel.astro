@@ -18,6 +18,7 @@ import Button from '@/components/Button.astro';
 import Input from '@/components/Input.astro';
 import Select from '@/components/Select.astro';
 import Textarea from '@/components/Textarea.astro';
+import Checkbox from '@/components/Checkbox.astro';
 import ArrowLeft from '@lucide/astro/icons/arrow-left';
 import Lock from '@lucide/astro/icons/lock';
 import Users from '@lucide/astro/icons/users';
@@ -158,6 +159,12 @@ import Send from '@lucide/astro/icons/send';
               />
             </div>
 
+            <Checkbox
+              id="campaign-include-reminder"
+              data-campaign-reminder
+              label="Incluir recordatorio de fecha y hora de la próxima clase"
+            />
+
             <Button type="button" size="lg" variant="secondary" data-preview-button class="self-start">
               Ver vista previa
             </Button>
@@ -236,6 +243,7 @@ import Send from '@lucide/astro/icons/send';
       const campaignForm = document.querySelector<HTMLFormElement>('[data-campaign-form]');
       const campaignSubject = document.querySelector<HTMLInputElement>('[data-campaign-subject]');
       const campaignBody = document.querySelector<HTMLTextAreaElement>('[data-campaign-body]');
+      const campaignReminder = document.querySelector<HTMLInputElement>('[data-campaign-reminder]');
       const campaignSubmit = document.querySelector<HTMLButtonElement>('[data-campaign-submit]');
       const previewButton = document.querySelector<HTMLButtonElement>('[data-preview-button]');
       const previewPanel = document.querySelector<HTMLElement>('[data-preview-panel]');
@@ -435,6 +443,7 @@ import Send from '@lucide/astro/icons/send';
 
       campaignSubject?.addEventListener('input', invalidatePreview);
       campaignBody?.addEventListener('input', invalidatePreview);
+      campaignReminder?.addEventListener('change', invalidatePreview);
 
       previewButton?.addEventListener('click', async () => {
         const token = getToken();
@@ -460,7 +469,15 @@ import Send from '@lucide/astro/icons/send';
           await fetch(GOOGLE_FORMS_ENDPOINT, {
             method: 'POST',
             mode: 'no-cors',
-            body: new URLSearchParams({ action: 'adminStageCampaign', token, campaignId, sheetName, subject, body }),
+            body: new URLSearchParams({
+              action: 'adminStageCampaign',
+              token,
+              campaignId,
+              sheetName,
+              subject,
+              body,
+              includeSessionReminder: String(campaignReminder?.checked ?? false),
+            }),
           });
 
           const response = await jsonpRequest<CampaignPreview>(GOOGLE_FORMS_ENDPOINT, {
