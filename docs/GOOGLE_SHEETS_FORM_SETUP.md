@@ -1794,7 +1794,14 @@ rompe nada.
     de envíos, revisá la pestaña "Errores" y el registro de ejecución del
     editor; un resultado `rate_limited` es esperado si se mandaron muchas
     en poco tiempo, no un bug.
-11. Para el panel admin: abrí `atpfcm.com.ar/staff/` y entrá a "Panel
+11. **Nota de navegador:** en Brave, el segundo paso del login
+    (`adminLoginPoll`, un pedido JSONP) puede quedar bloqueado con
+    `net::ERR_BLOCKED_BY_...` aunque los Shields estén apagados para el
+    sitio — parece ser otra protección propia de Brave, no algo del lado
+    del script (confirmado el 2026-09-05: el mismo login funcionó al
+    toque en Chrome, con el mismo código, sin tocar nada). Si el panel no
+    entra en Brave, probar en Chrome antes de asumir que hay un bug.
+12. Para el panel admin: abrí `atpfcm.com.ar/staff/` y entrá a "Panel
     admin". Poné `ADMIN_PASSWORD` y el código de 6 dígitos que te muestre
     Google Authenticator para "ATP Panel" en ese momento (cambia cada 30
     segundos, así que tipealo rápido) — te tiene que dejar entrar y
