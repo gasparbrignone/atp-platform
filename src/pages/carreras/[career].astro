@@ -17,6 +17,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import Section from '@/components/Section.astro';
 import Container from '@/components/Container.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import Grid from '@/components/Grid.astro';
 import Card from '@/components/Card.astro';
 import Button from '@/components/Button.astro';
@@ -59,6 +60,13 @@ const instagramHandle = career.data.instagram
 >
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/' },
+          { label: 'Carreras', href: '/carreras/' },
+          { label: career.data.name },
+        ]}
+      />
       <SectionHeader
         as="h1"
         title={career.data.name}

@@ -1,0 +1,65 @@
+---
+/**
+ * "Camino de migas" para páginas de detalle (carrera, herramienta,
+ * actividad) — el sitio nunca tiene más de 2 clics de profundidad, así
+ * que esto es una ayuda de orientación, no navegación indispensable.
+ * Reemplaza al botón "← Volver a X" que tenía cada plantilla: da la misma
+ * función (volver a la sección) más contexto (dónde está "Inicio" y cuál
+ * es la página actual), sin duplicar dos formas de hacer lo mismo.
+ *
+ * Incluye BreadcrumbList (schema.org) para que buscadores puedan mostrar
+ * la migas de pan en el resultado de búsqueda — solo se agrega en páginas
+ * que de verdad tienen esta jerarquía real (Home > sección > ítem), nunca
+ * como dato inventado.
+ */
+interface BreadcrumbItem {
+  label: string;
+  /** Sin href en el último ítem — es la página actual, no un link. */
+  href?: string;
+}
+
+interface Props {
+  items: BreadcrumbItem[];
+}
+
+const { items }: Props = Astro.props;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: items.map((item, index) => ({
+    '@type': 'ListItem',
+    position: index + 1,
+    name: item.label,
+    ...(item.href && { item: new URL(item.href, Astro.site).toString() }),
+  })),
+};
+---
+
+<nav aria-label="Miga de pan" class="text-body-sm flex items-center gap-1.5">
+  {
+    items.map((item, index) => (
+      <>
+        {index > 0 && (
+          <span class="text-text-secondary select-none" aria-hidden="true">
+            /
+          </span>
+        )}
+        {item.href ? (
+          <a
+            href={item.href}
+            class="text-text-secondary ease-standard hover:text-text font-semibold transition-colors duration-150"
+          >
+            {item.label}
+          </a>
+        ) : (
+          <span class="text-text font-semibold" aria-current="page">
+            {item.label}
+          </span>
+        )}
+      </>
+    ))
+  }
+</nav>
+
+<script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

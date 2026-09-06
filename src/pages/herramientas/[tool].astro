@@ -16,6 +16,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import Section from '@/components/Section.astro';
 import Container from '@/components/Container.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import Button from '@/components/Button.astro';
 import Grid from '@/components/Grid.astro';
 import ToolIconBadge from '@/components/ToolIconBadge.astro';
@@ -56,9 +57,13 @@ const Icon = toolIcons[tool.data.icon];
 >
   <Section spacing="lg">
     <Container class="flex flex-col gap-8">
-      <Button href="/herramientas/" variant="ghost" size="sm" class="self-start">
-        ← Volver a Herramientas
-      </Button>
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/' },
+          { label: 'Herramientas', href: '/herramientas/' },
+          { label: tool.data.name },
+        ]}
+      />
 
       <div class="flex items-center gap-4">
         <ToolIconBadge icon={Icon} customIcon={tool.data.customIcon} />
