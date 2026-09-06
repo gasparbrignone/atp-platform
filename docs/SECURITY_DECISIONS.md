@@ -756,3 +756,66 @@ el envío en silencio. Tampoco confiar en que "no tira error en el
 servidor de desarrollo" sea suficiente para features que dependen de la
 CSP — hay que probar contra un build de producción real (`astro build` +
 `astro preview`) antes de darlas por probadas.
+
+---
+
+### 2026-09-05 — Bug real en producción: las etiquetas de personalización pasan de `<ángulos>` a `{{llaves}}`
+
+**Contexto:** primera campaña real mandada a un inscripto de verdad
+(no un destinatario manual) después de publicar el editor de texto
+enriquecido. El mail llegó con el texto literal "Hola <nombre>!" sin
+reemplazar — a pesar de que el nombre de esa persona sí aparecía
+correctamente en la tabla de inscriptos del panel (misma fuente de
+datos, `buildTemplateTags`), descartando un problema en la planilla.
+
+**Problema:** el admin tipeaba `<nombre>` como texto plano dentro del
+editor de texto enriquecido (Tiptap). Un editor HTML no puede escribir
+`<`/`>` literales dentro de un nodo de texto sin escaparlos —
+`editor.getHTML()` serializa ese texto como `&lt;nombre&gt;`, porque no
+tiene forma de distinguir "el admin quiso escribir la etiqueta
+`<nombre>`" de "el admin escribió texto normal que por casualidad tiene
+esos símbolos". Lo que llegaba al Apps Script nunca era `<nombre>`
+(que el regex sí reconocía), sino `&lt;nombre&gt;` — que no matcheaba
+nada, así que pasaba intacto y se mostraba tal cual en la bandeja de
+entrada.
+
+**Decisión:** cambiar la sintaxis de las 3 etiquetas de `<nombre>`/
+`<apellido>`/`<email>` a `{{nombre}}`/`{{apellido}}`/`{{email}}` (doble
+llave, con espacios opcionales adentro tolerados: `{{ nombre }}`
+también funciona). Las llaves no son caracteres especiales de HTML —
+ningún editor de texto (este ni ningún otro) tiene motivo para
+escaparlas — así que sobreviven el viaje completo (tipeado → HTML del
+editor → Apps Script) sin transformarse en el camino. Actualizado
+`applyTemplateTags` (regex `/\{\{\s*(nombre|apellido|email)\s*\}\}/gi`)
+y el texto de ayuda arriba del mensaje en `panel.astro`.
+
+**Alternativas consideradas:** (1) que el cliente "desescape" a mano
+`&lt;nombre&gt;` de vuelta a `<nombre>` antes de mandar — descartada,
+frágil (¿y si alguien realmente quiere escribir sobre HTML en su
+mensaje?) y no ataca la raíz del problema. (2) mandar el documento de
+Tiptap en formato JSON en vez de HTML, y hacer el reemplazo recorriendo
+ese árbol del lado del Apps Script — descartada por mucho más código
+nuevo para un problema que se resuelve mejor evitando la colisión de
+sintaxis desde el origen.
+
+**Motivo:** ninguna sintaxis basada en caracteres que HTML considera
+especiales (`<`, `>`, pero también potencialmente `&`) puede sobrevivir
+sin transformarse a un editor de texto enriquecido — el problema no era
+el regex ni el orden de las funciones (eso ya se había revisado y
+arreglado ese mismo día para el bug del `<br>`), era la elección misma
+de la sintaxis de las etiquetas, incompatible de raíz con cualquier
+editor que serialice a HTML.
+
+**Riesgo de seguridad:** ninguno — bug de funcionalidad (el mail sale
+con una etiqueta sin reemplazar, visible, no oculta ni con datos de
+otra persona), no de seguridad. Confirmado con un navegador real
+(Playwright) tipeando literalmente en el editor y leyendo el HTML
+resultante, antes y después del cambio — no alcanzaba con la prueba en
+Node, que nunca pasa por el serializador real de Tiptap.
+
+**Qué NO hacer en el futuro:** no usar como sintaxis de un template
+cualquier secuencia de caracteres que un editor de texto enriquecido
+pueda llegar a escapar al serializar (`<...>` es el caso obvio, pero
+también desconfiar de comillas dentro de atributos, entidades, etc.) —
+si en algún momento se necesita otra etiqueta nueva, seguir con el
+patrón `{{palabra}}` ya establecido, nunca ángulos.

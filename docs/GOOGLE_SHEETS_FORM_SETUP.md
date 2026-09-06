@@ -131,7 +131,7 @@ inscripción" — nunca ambos a la vez.
 - `src/pages/staff/panel.astro` + `src/lib/jsonp.ts`: panel admin — login
   con contraseña + código de Google Authenticator (TOTP), ver quiénes se
   inscribieron a una actividad, y mandarles una campaña de mail con
-  etiquetas `<nombre>`/`<apellido>`/`<email>`. Ver "Configurar el panel
+  etiquetas `{{nombre}}`/`{{apellido}}`/`{{email}}`. Ver "Configurar el panel
   admin" más abajo — es el único de todos estos pasos que además requiere
   cargar un código en tu celular, no solo pegar código en el script.
 
@@ -669,7 +669,7 @@ actividad solo.
    }
 
    // Paso final: busca lo que se guardó en el staging, manda un mail
-   // personalizado (etiquetas <nombre>/<apellido>/<email>) a cada
+   // personalizado (etiquetas {{nombre}}/{{apellido}}/{{email}}) a cada
    // inscripto activo (no dado de baja) de esa hoja, deja registro en
    // CAMPAIGNS_LOG_SHEET_NAME, y devuelve cuántos se mandaron de verdad —
    // a diferencia de los formularios públicos, acá sí importa saber el
@@ -786,7 +786,7 @@ actividad solo.
    // los mails de confirmación), y el recuadro de fecha/hora (si se pidió)
    // va aparte, debajo.
    function buildCampaignBodyHtml(campaign, tags, sessionsHtml) {
-     // Orden: primero reemplazar <nombre>/<apellido>/<email>
+     // Orden: primero reemplazar {{nombre}}/{{apellido}}/{{email}}
      // (applyTemplateTags, regex acotado a esos 3 nombres — ver el
      // comentario de esa función), RECIÉN DESPUÉS sanitizeCampaignHtml.
      // Al revés, sanitizeCampaignHtml podría llegar a confundir un
@@ -857,27 +857,29 @@ actividad solo.
      return tags;
    }
 
-   // Reemplaza <nombre>, <apellido>, <email> (case-insensitive) por el
-   // dato real de esa fila — una etiqueta sin dato para esa persona
-   // también se escapa (`escapeHtml(match)`, no el texto crudo): el cuerpo
-   // del mail es HTML, así que una etiqueta sin reemplazar y sin escapar
-   // (ej. "<inventada>") no se ve como texto de error, el navegador la
-   // interpreta como una etiqueta HTML desconocida y la esconde entera —
-   // exactamente lo contrario de la idea de que el error se note.
+   // Reemplaza {{nombre}}, {{apellido}}, {{email}} (case-insensitive,
+   // espacios opcionales adentro de las llaves) por el dato real de esa
+   // fila — una etiqueta sin dato para esa persona también se escapa
+   // (`escapeHtml(match)`, no el texto crudo): el cuerpo del mail es
+   // HTML, así que una etiqueta sin reemplazar y sin escapar no debería
+   // poder inyectar nada.
    //
-   // El regex ANTES agarraba cualquier <palabra> a propósito (para atrapar
-   // justamente ese tipo de error de tipeo) — eso dejó de ser seguro
-   // cuando el mensaje de campaña empezó a poder traer HTML de verdad
-   // (editor de texto enriquecido, 2026-09-05): tags como <b>, <strong>,
-   // <em>, <p>, <br> también son "palabra sola" y quedaban escapados como
-   // texto literal, exactamente el mismo bug que el de <br> del
-   // 2026-09-05 pero también con la negrita/itálica reales. Por eso ahora
-   // el regex solo reconoce los 3 nombres conocidos — ya NO atrapa un tag
-   // inventado como <inventada>, ese trade-off se aceptó a propósito: ya
-   // no es sostenible tener HTML real y "cualquier <palabra> es un error"
-   // en el mismo campo. Ver docs/SECURITY_DECISIONS.md.
+   // Por qué llaves dobles y no <ángulos> (como fue hasta el
+   // 2026-09-05): con el editor de texto enriquecido, lo que el admin
+   // tipea como texto plano dentro del mensaje pasa por el serializador
+   // HTML del editor (Tiptap) antes de llegar acá — y ESE serializador
+   // escapa `<`/`>` de cualquier texto literal a `&lt;`/`&gt;`, porque no
+   // tiene forma de distinguir "el admin quiso escribir una etiqueta
+   // <nombre>" de "el admin escribió texto normal que por casualidad
+   // tiene esos símbolos". Bug real encontrado en producción el
+   // 2026-09-05: el mail salía con el texto literal "<nombre>" sin
+   // reemplazar, porque lo que en realidad llegaba acá era
+   // "&lt;nombre&gt;" (nunca matcheaba el regex viejo). Las llaves `{` y
+   // `}` no son caracteres especiales de HTML, así que el editor las deja
+   // pasar tal cual — {{nombre}} tipeado como texto llega acá exactamente
+   // como se tipeó, sin ninguna transformación en el medio.
    function applyTemplateTags(text, tags) {
-     return String(text || '').replace(/<(nombre|apellido|email)>/gi, function (match, tagName) {
+     return String(text || '').replace(/\{\{\s*(nombre|apellido|email)\s*\}\}/gi, function (match, tagName) {
        var value = tags[tagName.toLowerCase()];
        return escapeHtml(value !== undefined && value !== '' ? value : match);
      });

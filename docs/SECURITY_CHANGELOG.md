@@ -10,6 +10,23 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ---
 
+## 2026-09-05 (continuación — la etiqueta de nombre no se reemplazaba)
+
+- **fix:** una campaña mandada a un inscripto real llegó con "Hola
+  <nombre>!" literal, sin reemplazar — el editor de texto enriquecido
+  escapa `<`/`>` de cualquier texto tipeado como plano (`&lt;`/`&gt;`),
+  así que lo que llegaba al Apps Script nunca era `<nombre>` (lo que
+  reconocía `applyTemplateTags`). Cambiada la sintaxis de las 3
+  etiquetas a `{{nombre}}`/`{{apellido}}`/`{{email}}` (doble llave) —
+  no son caracteres especiales de HTML, ningún editor los escapa, así
+  que sobreviven intactos. Confirmado con un navegador real (Playwright)
+  tipeando literalmente en el editor antes y después del cambio. Ver
+  decisión completa en `SECURITY_DECISIONS.md`.
+- **feat:** "seleccionar todos" en la columna Excluir de la tabla de
+  inscriptos, y el nombre pasa a ser obligatorio al agregar un
+  destinatario manual (mismo síntoma que el bug de arriba, causa
+  distinta: un destinatario manual sin nombre cargado).
+
 ## 2026-09-05 (continuación — dos bugs encontrados probando en producción real)
 
 - **fix (CRITICAL, funcionalidad no seguridad):** el botón "Confirmar

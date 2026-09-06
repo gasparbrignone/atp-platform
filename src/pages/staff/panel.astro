@@ -147,8 +147,8 @@ import Send from '@lucide/astro/icons/send';
               <div>
                 <p class="text-body font-bold">Mandar campaña</p>
                 <p class="text-caption text-text-secondary">
-                  Etiquetas: <code>&lt;nombre&gt;</code>, <code>&lt;apellido&gt;</code>,{' '}
-                  <code>&lt;email&gt;</code> — se manda solo a quienes no se dieron de baja.
+                  Etiquetas: <code>{'{{nombre}}'}</code>, <code>{'{{apellido}}'}</code>,{' '}
+                  <code>{'{{email}}'}</code> — se manda solo a quienes no se dieron de baja.
                 </p>
               </div>
             </div>
@@ -399,6 +399,15 @@ import Send from '@lucide/astro/icons/send';
       manualRecipientAdd?.addEventListener('click', () => {
         const nombre = manualRecipientName?.value.trim() ?? '';
         const email = manualRecipientEmail?.value.trim() ?? '';
+
+        // El nombre es obligatorio acá (a diferencia de la hoja, donde ya
+        // viene cargado solo): sin nombre, "Hola <nombre>!" en el mail
+        // muestra la etiqueta literal en vez del saludo — ya pasó dos
+        // veces en producción, mejor prevenirlo que confiar en el aviso.
+        if (!nombre) {
+          showToast({ message: 'Escribí también el nombre — sin eso, el mail va a decir "Hola <nombre>!" literal.', variant: 'info' });
+          return;
+        }
 
         if (!email || !email.includes('@')) {
           showToast({ message: 'Escribí un email válido para agregarlo.', variant: 'info' });
