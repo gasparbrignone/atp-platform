@@ -741,7 +741,18 @@ actividad solo.
    // los mails de confirmación), y el recuadro de fecha/hora (si se pidió)
    // va aparte, debajo.
    function buildCampaignBodyHtml(campaign, tags, sessionsHtml) {
-     var messageHtml = applyTemplateTags(String(campaign.body).replace(/\n/g, '<br>'), tags);
+     // El orden acá importa: primero reemplazar <nombre>/<apellido>/<email>
+     // (applyTemplateTags), RECIÉN DESPUÉS convertir los saltos de línea a
+     // <br>. Al revés (como estaba antes) rompía cualquier mensaje de más
+     // de un párrafo: applyTemplateTags no distingue "<nombre>" de "<br>"
+     // (su regex agarra cualquier <palabra>, a propósito, para que una
+     // etiqueta mal escrita como "<inventada>" se note en vez de
+     // desaparecer) — así que escapaba también los <br> recién insertados,
+     // y el mail mostraba el texto literal "<br>" en vez de un salto de
+     // línea real. Bug real encontrado en producción el 2026-09-05,
+     // probando con un mensaje de varios párrafos (las pruebas anteriores
+     // solo habían usado mensajes de una sola línea).
+     var messageHtml = applyTemplateTags(String(campaign.body), tags).replace(/\n/g, '<br>');
      var boxedMessage =
        '<div style="border:1px solid #e5e9f0;background:#f8f9fb;border-radius:10px;padding:18px 20px;">' +
        messageHtml +
