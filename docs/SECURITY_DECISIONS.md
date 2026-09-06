@@ -610,3 +610,100 @@ que no se usó antes en ningún otro lado de este script, confirmar su
 nombre exacto contra la documentación oficial de Apps Script (o
 ejecutarla una vez de verdad en el editor) — no asumir que existe por
 analogía con un método parecido que sí se usa en otro lado.
+
+---
+
+### 2026-09-05 — Editor de texto enriquecido en campañas + destinatarios manuales
+
+**Contexto:** al probar el mail de campaña (recién arreglado el bug del
+`<br>`), el dueño del proyecto pidió dos cosas antes de seguir con la
+Fase 3 del plan del panel admin: (1) un editor de verdad para el mensaje
+(negrita, itálica, links, imágenes) — eligiendo explícitamente esa opción
+sobre una sintaxis simple tipo Markdown, sabiendo que implicaba más
+trabajo y más superficie de seguridad — y (2) poder agregar gente a mano
+a una campaña puntual y excluir a alguien de la lista de esa hoja para
+ese envío puntual, sin guardar ninguna lista nueva (adelanto parcial de
+la Fase 5 ya acordada).
+
+**Problema de fondo:** `applyTemplateTags` usaba `/<(\w+)>/g` — matchea
+cualquier `<palabra>` a propósito (para atrapar un tag mal escrito). En
+cuanto el mensaje pudo traer HTML real (negrita/itálica/etc.), tags como
+`<b>`, `<strong>`, `<em>`, `<p>`, `<br>` también son "palabra sola" y
+hubieran quedado escapados como texto literal — el mismo bug que el de
+`<br>` de más arriba, pero ahora con cualquier formato real del editor.
+Además, el Apps Script nunca tuvo ningún sanitizador de HTML — todo lo
+que no matcheaba ese regex pasaba crudo al mail.
+
+**Decisión:**
+1. El editor (`src/components/CampaignEditor.tsx`) usa Tiptap con un
+   esquema armado a mano (sin `StarterKit`) — solo negrita, itálica,
+   link, imagen, párrafo y salto de línea, nada de headings/listas/
+   tablas. Se bundlea vía npm/Vite (`@astrojs/react` ya estaba activo),
+   así que se sirve desde `'self'` — no hizo falta abrir la CSP a ningún
+   origen nuevo.
+2. `applyTemplateTags` se achicó a `/<(nombre|apellido|email)>/gi` — ya
+   NO atrapa un tag inventado como `<inventada>` (trade-off aceptado a
+   propósito: no es sostenible tener HTML real y "cualquier `<palabra>`
+   es un error" en el mismo campo).
+3. Nueva `sanitizeCampaignHtml` en el Apps Script — un allowlist a medida
+   (no un sanitizador general tipo DOMPurify, no existe esa librería acá
+   ni Apps Script tiene DOM real) que solo deja pasar `p`, `br`, `b`,
+   `strong`, `i`, `em`, `a[href]`, `img[src,alt]`; cualquier otro tag se
+   descarta (se conserva el texto de adentro); `href`/`src` con un
+   esquema que no sea `http(s)`/`mailto:` (solo para `href`) se descartan
+   enteros — corta `javascript:`/`data:` antes de que lleguen al mail.
+   Corre DESPUÉS de `applyTemplateTags` (mismo motivo que el orden del
+   bug del `<br>`: al revés, un `<nombre>` todavía sin reemplazar podría
+   confundirse con un tag desconocido y borrarse entero).
+4. Insertar link/imagen usa un diálogo propio (mismo estilo visual que
+   `Modal.astro`, no ese componente en sí — ver "Qué NO hacer" abajo) que
+   solo pide una URL ya pública; no hay upload de imágenes nuevo (la
+   única vía real de subir un archivo público sigue siendo `/admin/` →
+   Sveltia CMS → commit → deploy).
+5. Destinatarios manuales y exclusiones (`extraRecipients`/
+   `excludedEmails`) viajan solo dentro del `campaignId` en cache (igual
+   que el resto de una campaña en staging, TTL 5 min) — nunca se guardan
+   en ninguna hoja nueva. `handleAdminStageCampaign` filtra cualquier
+   entrada sin forma de email antes de guardarla. `handleAdminSendCampaign`
+   dedupea por email (minúsculas) para que un destinatario manual que ya
+   está en la hoja no reciba el mail dos veces.
+
+**Verificación:** arnés de pruebas en Node (extrae y ejecuta el bloque de
+código real del doc, con mocks de `CacheService`/`SpreadsheetApp`/
+`GmailApp`/`Utilities`/`LockService`/`ScriptApp`/`UrlFetchApp`) — 21
+chequeos, cubriendo `sanitizeCampaignHtml` (tags permitidos, `<script>`/
+`<style>`/`<div onclick>` descartados, `javascript:`/`data:` descartados),
+`applyTemplateTags` con el regex nuevo, y los tres handlers de campaña con
+manuales/exclusiones/dedup. Encontró y corrigió dos bugs reales antes de
+tocar producción: (a) un `<a href="javascript:...">` rechazado dejaba de
+todos modos su `</a>` de cierre suelto en el HTML final (corregido con un
+contador de anclas abiertas dentro de `sanitizeCampaignHtml`); (b) el
+diálogo de link/imagen usaba un `<form>` propio anidado dentro del
+`<form data-campaign-form>` de `panel.astro` — HTML no permite formularios
+anidados (el navegador descarta el interno al parsear el HTML del
+servidor), lo que rompía la hidratación de React y silenciosamente
+impedía insertar el link/imagen (el clic en "Insertar" nunca llegaba a
+ejecutar nada). Encontrado recién probando de verdad en un navegador
+(Playwright headless) — ninguna revisión de código lo había notado.
+Corregido reemplazando ese `<form>` interno por un `<div>` con Enter
+manejado a mano.
+
+**Riesgo residual:** `sanitizeCampaignHtml` es un allowlist chico a
+medida de lo que Tiptap puede producir, no un sanitizador general — un
+input adversarial que no venga del editor (ej. alguien manipulando el
+`<input type="hidden">` a mano desde la consola del navegador antes de
+mandar) podría en teoría encontrar un caso borde no cubierto (ver
+comentario en el propio código sobre atributos con `>` sin escapar
+dentro de un valor). Aceptado: el modelo de amenaza acá es "un único
+admin de confianza, defensa en profundidad", no "un admin activamente
+atacando sus propios mails salientes".
+
+**Qué NO hacer en el futuro:** no reusar `Modal.astro` (basado en
+atributos `data-modal-open`, pensado para HTML estático de Astro) para UI
+que vive dentro de un componente React aislado — la interoperabilidad
+entre los dos sistemas de eventos no vale la pena frente a simplemente
+replicar las clases visuales a mano dentro del propio componente React.
+Tampoco poner un `<form>` de React dentro de otro `<form>` ya existente
+en la página — HTML no lo permite y el error (hidratación rota, no un
+error de consola obvio de leer) es fácil de pasar por alto sin probar de
+verdad en un navegador.

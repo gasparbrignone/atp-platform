@@ -10,6 +10,42 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ---
 
+## 2026-09-05 (continuación — editor de texto enriquecido + destinatarios manuales)
+
+- **feat:** el mensaje de campaña ahora se escribe en un editor de texto
+  enriquecido de verdad (`src/components/CampaignEditor.tsx`, Tiptap con
+  un esquema acotado a negrita/itálica/link/imagen — sin headings/listas/
+  tablas). Se sirve desde `'self'` (bundleado vía npm/Vite), sin abrir la
+  CSP a ningún origen nuevo. Insertar link/imagen usa un diálogo propio
+  (mismo estilo visual que `Modal.astro`, componente distinto — ver
+  `SECURITY_DECISIONS.md`); imágenes solo por URL ya pública, sin upload
+  nuevo.
+- **fix (seguridad):** `applyTemplateTags` se achicó de "cualquier
+  `<palabra>`" a solo `nombre|apellido|email` — con HTML real en el
+  mismo campo, el regex viejo hubiera escapado tags de formato legítimos
+  como si fueran errores de tipeo (misma clase de bug que el de `<br>`).
+- **feat (seguridad):** nueva `sanitizeCampaignHtml` en el Apps Script —
+  allowlist a medida (`p`, `br`, `b`, `strong`, `i`, `em`, `a[href]`,
+  `img[src,alt]`) que corre después de `applyTemplateTags` y antes de
+  mandar el mail; descarta cualquier otro tag y cualquier `href`/`src`
+  que no sea `http(s)`/`mailto:`. Antes de esto, el Apps Script no
+  saneaba HTML en absoluto — todo lo que no matcheaba el regex viejo
+  pasaba crudo al mail.
+- **feat:** destinatarios manuales y exclusiones puntuales para una
+  campaña (`extraRecipients`/`excludedEmails`, adelanto parcial de la
+  Fase 5 del panel admin) — viven solo en el cache de la campaña en
+  staging (TTL 5 min), nunca en una hoja nueva. `handleAdminSendCampaign`
+  dedupea por email para no mandar dos veces a alguien que está tanto en
+  la hoja como agregado a mano.
+- Arnés de pruebas en Node (21 chequeos, ejecuta el bloque de código real
+  del doc con mocks de las APIs de Google) encontró y corrigió 2 bugs
+  reales antes de tocar producción: un `</a>` huérfano cuando se
+  rechazaba un link con esquema peligroso, y un `<form>` de React anidado
+  dentro del `<form>` de la campaña que rompía la hidratación y dejaba
+  sin efecto silenciosamente el botón "Insertar" del diálogo de link/
+  imagen (encontrado recién probando en un navegador real, no en Node).
+  Ver decisión completa en `SECURITY_DECISIONS.md`.
+
 ## 2026-09-05 (continuación — mails de campaña más lindos)
 
 - **feat:** el mensaje de una campaña ahora va "en caja" (mismo estilo

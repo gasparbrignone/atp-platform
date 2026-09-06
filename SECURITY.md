@@ -13,8 +13,8 @@ trivial en este proyecto debería leer este archivo primero**, junto con
 cada cosa) y [docs/SECURITY_CHANGELOG.md](docs/SECURITY_CHANGELOG.md) (qué
 cambió y cuándo). Ver también la sección "Seguridad" de `CLAUDE.md`.
 
-Última actualización: 2026-09-05 (panel admin endurecido tras una
-auditoría adversarial, antes de su primer despliegue real).
+Última actualización: 2026-09-05 (editor de texto enriquecido + sanitizador
+de HTML nuevo para el mensaje de campaña del panel admin).
 
 ---
 
@@ -147,7 +147,12 @@ escaping y rate limiting siguen siendo válidos aunque el atacante los
 conozca al detalle). Protecciones existentes: `escapeHtml` en todo campo
 que llega a un mail, `signUnsubscribe` (HMAC-SHA256), `isRateLimited`/
 `bumpCounter` (rate limiting best-effort, sin IP porque Apps Script no la
-expone), demora progresiva en intentos fallidos de check-in.
+expone), demora progresiva en intentos fallidos de check-in, y
+`sanitizeCampaignHtml` (agregado 2026-09-05, ver `docs/SECURITY_DECISIONS.md`)
+— un allowlist a medida (`p`/`br`/`b`/`strong`/`i`/`em`/`a[href]`/
+`img[src,alt]`, esquemas de URL restringidos a `http(s)`/`mailto:`) para
+el mensaje de campaña del panel admin, que desde esa fecha puede traer
+HTML real (editor de texto enriquecido).
 
 ## CMS
 

@@ -17,8 +17,8 @@ import '@/styles/global.css';
 import Button from '@/components/Button.astro';
 import Input from '@/components/Input.astro';
 import Select from '@/components/Select.astro';
-import Textarea from '@/components/Textarea.astro';
 import Checkbox from '@/components/Checkbox.astro';
+import CampaignEditor from '@/components/CampaignEditor.tsx';
 import ArrowLeft from '@lucide/astro/icons/arrow-left';
 import Lock from '@lucide/astro/icons/lock';
 import Users from '@lucide/astro/icons/users';
@@ -100,7 +100,10 @@ import Send from '@lucide/astro/icons/send';
               <Users class="text-secondary-strong size-6 shrink-0" aria-hidden="true" />
               <div>
                 <p class="text-body font-bold">Inscriptos</p>
-                <p class="text-caption text-text-secondary">Elegí una actividad para ver quién se anotó</p>
+                <p class="text-caption text-text-secondary">
+                  Elegí una actividad para ver quién se anotó. "Excluir" saca a esa persona solo de la
+                  próxima campaña que mandes, no la da de baja de verdad.
+                </p>
               </div>
             </div>
 
@@ -115,10 +118,11 @@ import Send from '@lucide/astro/icons/send';
                     <th class="p-3">Nombre</th>
                     <th class="p-3">Email</th>
                     <th class="p-3">Estado</th>
+                    <th class="p-3">Excluir</th>
                   </tr>
                 </thead>
                 <tbody data-registrations-body>
-                  <tr><td class="text-text-secondary p-3 text-center" colspan="3">Elegí una actividad.</td></tr>
+                  <tr><td class="text-text-secondary p-3 text-center" colspan="4">Elegí una actividad.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -147,16 +151,8 @@ import Send from '@lucide/astro/icons/send';
             </div>
 
             <div class="flex flex-col gap-2">
-              <label for="campaign-body" class="text-caption text-text-secondary font-semibold">
-                Mensaje
-              </label>
-              <Textarea
-                id="campaign-body"
-                data-campaign-body
-                rows={8}
-                required
-                placeholder={'Hola <nombre>, te escribimos para avisarte que...'}
-              />
+              <p class="text-caption text-text-secondary font-semibold">Mensaje</p>
+              <CampaignEditor client:load />
             </div>
 
             <Checkbox
@@ -164,6 +160,34 @@ import Send from '@lucide/astro/icons/send';
               data-campaign-reminder
               label="Incluir recordatorio de fecha y hora de la próxima clase"
             />
+
+            <div class="border-border-strong bg-surface-alt flex flex-col gap-3 rounded-md border p-4">
+              <p class="text-caption text-text-secondary font-semibold">
+                Agregar destinatarios manuales — además de los inscriptos de la actividad, solo para
+                este envío (por ejemplo, para mandarte una prueba a vos mismo)
+              </p>
+              <div class="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  id="manual-recipient-name"
+                  data-manual-recipient-name
+                  placeholder="Nombre"
+                  aria-label="Nombre del destinatario manual"
+                  class="sm:flex-1"
+                />
+                <Input
+                  id="manual-recipient-email"
+                  data-manual-recipient-email
+                  type="email"
+                  placeholder="Email"
+                  aria-label="Email del destinatario manual"
+                  class="sm:flex-1"
+                />
+                <Button type="button" variant="secondary" data-manual-recipient-add class="shrink-0">
+                  Agregar
+                </Button>
+              </div>
+              <ul data-manual-recipient-list class="flex flex-wrap gap-2"></ul>
+            </div>
 
             <Button type="button" size="lg" variant="secondary" data-preview-button class="self-start">
               Ver vista previa
@@ -249,9 +273,17 @@ import Send from '@lucide/astro/icons/send';
 
       const campaignForm = document.querySelector<HTMLFormElement>('[data-campaign-form]');
       const campaignSubject = document.querySelector<HTMLInputElement>('[data-campaign-subject]');
-      const campaignBody = document.querySelector<HTMLTextAreaElement>('[data-campaign-body]');
+      // El <textarea> plano de siempre se reemplazó por CampaignEditor.tsx
+      // (negrita/itálica/link/imagen) — sigue siendo un <input type="hidden">
+      // con el mismo atributo data-campaign-body, así que todo lo de abajo
+      // (invalidatePreview, el fetch de stage) no necesitó cambiar.
+      const campaignBody = document.querySelector<HTMLInputElement>('[data-campaign-body]');
       const campaignReminder = document.querySelector<HTMLInputElement>('[data-campaign-reminder]');
       const campaignSubmit = document.querySelector<HTMLButtonElement>('[data-campaign-submit]');
+      const manualRecipientName = document.querySelector<HTMLInputElement>('[data-manual-recipient-name]');
+      const manualRecipientEmail = document.querySelector<HTMLInputElement>('[data-manual-recipient-email]');
+      const manualRecipientAdd = document.querySelector<HTMLButtonElement>('[data-manual-recipient-add]');
+      const manualRecipientList = document.querySelector<HTMLElement>('[data-manual-recipient-list]');
       const previewButton = document.querySelector<HTMLButtonElement>('[data-preview-button]');
       const previewPanel = document.querySelector<HTMLElement>('[data-preview-panel]');
       const previewRecipient = document.querySelector<HTMLElement>('[data-preview-recipient]');
@@ -281,9 +313,60 @@ import Send from '@lucide/astro/icons/send';
       let stagedCampaignId: string | null = null;
       let previewActiveCount = 0;
 
+      // Destinatarios de esta campaña puntual, aparte de la hoja elegida —
+      // nunca se guardan en ninguna planilla, solo viven en esta pestaña
+      // mientras se arma el envío (ver Fase 5 del plan del panel admin).
+      let extraRecipients: { nombre: string; email: string }[] = [];
+      let excludedEmails = new Set<string>();
+
       function getToken(): string | null {
         return sessionStorage.getItem(SESSION_KEY);
       }
+
+      function renderManualRecipients() {
+        if (!manualRecipientList) return;
+        manualRecipientList.innerHTML = '';
+        extraRecipients.forEach((recipient, index) => {
+          const item = document.createElement('li');
+          item.className =
+            'bg-surface border-border-strong text-caption inline-flex items-center gap-2 rounded-full border py-1 pr-1 pl-3';
+
+          const label = document.createElement('span');
+          label.textContent = recipient.nombre ? `${recipient.nombre} <${recipient.email}>` : recipient.email;
+          item.appendChild(label);
+
+          const removeButton = document.createElement('button');
+          removeButton.type = 'button';
+          removeButton.setAttribute('aria-label', `Sacar a ${recipient.email}`);
+          removeButton.className =
+            'text-text-secondary hover:bg-surface-alt hover:text-text inline-flex size-5 shrink-0 items-center justify-center rounded-full';
+          removeButton.textContent = '×';
+          removeButton.addEventListener('click', () => {
+            extraRecipients.splice(index, 1);
+            renderManualRecipients();
+            invalidatePreview();
+          });
+          item.appendChild(removeButton);
+
+          manualRecipientList.appendChild(item);
+        });
+      }
+
+      manualRecipientAdd?.addEventListener('click', () => {
+        const nombre = manualRecipientName?.value.trim() ?? '';
+        const email = manualRecipientEmail?.value.trim() ?? '';
+
+        if (!email || !email.includes('@')) {
+          showToast({ message: 'Escribí un email válido para agregarlo.', variant: 'info' });
+          return;
+        }
+
+        extraRecipients.push({ nombre, email });
+        if (manualRecipientName) manualRecipientName.value = '';
+        if (manualRecipientEmail) manualRecipientEmail.value = '';
+        renderManualRecipients();
+        invalidatePreview();
+      });
 
       function invalidatePreview() {
         stagedCampaignId = null;
@@ -336,7 +419,7 @@ import Send from '@lucide/astro/icons/send';
       async function loadRegistrations(sheetName: string) {
         const token = getToken();
         if (!token || !registrationsBody) return;
-        registrationsBody.innerHTML = '<tr><td class="p-3 text-text-secondary" colspan="3">Cargando…</td></tr>';
+        registrationsBody.innerHTML = '<tr><td class="p-3 text-text-secondary" colspan="4">Cargando…</td></tr>';
 
         try {
           const response = await jsonpRequest<{
@@ -348,7 +431,7 @@ import Send from '@lucide/astro/icons/send';
 
           if (response.result !== 'success' || !response.registrations) {
             registrationsBody.innerHTML =
-              '<tr><td class="p-3 text-text-secondary" colspan="3">No se encontró la hoja.</td></tr>';
+              '<tr><td class="p-3 text-text-secondary" colspan="4">No se encontró la hoja.</td></tr>';
             return;
           }
 
@@ -378,12 +461,28 @@ import Send from '@lucide/astro/icons/send';
             statusBadge.textContent = registration.dadoDeBaja ? 'Dado de baja' : 'Activo';
             statusCell.appendChild(statusBadge);
 
-            row.append(nameCell, emailCell, statusCell);
+            const excludeCell = document.createElement('td');
+            excludeCell.className = 'p-3';
+            const excludeCheckbox = document.createElement('input');
+            excludeCheckbox.type = 'checkbox';
+            // Mismas clases que Checkbox.astro — armado a mano acá porque
+            // esta tabla es DOM creado en el navegador, no markup de Astro.
+            excludeCheckbox.className = 'border-border-strong accent-secondary-strong size-4 shrink-0 rounded-xs border';
+            excludeCheckbox.setAttribute('aria-label', `Excluir a ${registration.email} de la próxima campaña`);
+            excludeCheckbox.addEventListener('change', () => {
+              const email = registration.email.toLowerCase();
+              if (excludeCheckbox.checked) excludedEmails.add(email);
+              else excludedEmails.delete(email);
+              invalidatePreview();
+            });
+            excludeCell.appendChild(excludeCheckbox);
+
+            row.append(nameCell, emailCell, statusCell, excludeCell);
             registrationsBody.appendChild(row);
           });
         } catch {
           registrationsBody.innerHTML =
-            '<tr><td class="p-3 text-text-secondary" colspan="3">Error al cargar.</td></tr>';
+            '<tr><td class="p-3 text-text-secondary" colspan="4">Error al cargar.</td></tr>';
         }
       }
 
@@ -459,6 +558,11 @@ import Send from '@lucide/astro/icons/send';
 
       activitySelect?.addEventListener('change', () => {
         invalidatePreview();
+        // Las exclusiones son por fila de ESTA actividad — al cambiar de
+        // actividad la tabla se vuelve a armar de cero, así que las
+        // exclusiones viejas ya no tienen sentido. Los destinatarios
+        // manuales, en cambio, no dependen de la hoja: se mantienen.
+        excludedEmails.clear();
         if (activitySelect.value) void loadRegistrations(activitySelect.value);
       });
 
@@ -498,6 +602,8 @@ import Send from '@lucide/astro/icons/send';
               subject,
               body,
               includeSessionReminder: String(campaignReminder?.checked ?? false),
+              extraRecipients: JSON.stringify(extraRecipients),
+              excludedEmails: JSON.stringify([...excludedEmails]),
             }),
           });
 
@@ -570,7 +676,11 @@ import Send from '@lucide/astro/icons/send';
               message: `Campaña enviada: ${response.sent} de ${response.total}.`,
               variant: 'success',
             });
-            campaignForm.reset();
+            campaignForm.reset(); // dispara 'reset', que CampaignEditor escucha para vaciar el mensaje
+            extraRecipients = [];
+            excludedEmails.clear();
+            renderManualRecipients();
+            if (activitySelect?.value) void loadRegistrations(activitySelect.value);
             invalidatePreview();
           } else {
             // No reintentar solo: si el envío en sí ya salió y lo que se

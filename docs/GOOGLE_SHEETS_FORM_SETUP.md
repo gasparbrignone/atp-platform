@@ -580,11 +580,26 @@ actividad solo.
          .setMimeType(ContentService.MimeType.JSON);
      }
 
+     // Destinatarios de esta campaña puntual, aparte de los inscriptos de
+     // la hoja (Fase 5 del panel admin) — nunca se guardan en ninguna
+     // hoja nueva, solo viven acá 5 minutos como el resto del staging. Lo
+     // que manda el navegador no es más de fiar que cualquier otro
+     // parámetro de este endpoint: se filtra cualquier entrada sin algo
+     // con forma de email antes de guardarla.
+     var extraRecipients = (safeParseJson(params.extraRecipients) || [])
+       .filter(function (r) { return r && typeof r.email === 'string' && r.email.indexOf('@') !== -1; })
+       .map(function (r) { return { nombre: String(r.nombre || ''), email: String(r.email) }; });
+     var excludedEmails = (safeParseJson(params.excludedEmails) || [])
+       .filter(function (email) { return typeof email === 'string'; })
+       .map(function (email) { return email.toLowerCase(); });
+
      CacheService.getScriptCache().put('admin_campaign_' + params.campaignId, JSON.stringify({
        sheetName: params.sheetName || '',
        subject: params.subject || '',
        body: params.body || '',
        includeSessionReminder: params.includeSessionReminder === 'true',
+       extraRecipients: extraRecipients,
+       excludedEmails: excludedEmails,
      }), 300); // 5 minutos alcanzan de sobra entre estos pasos
 
      return ContentService
@@ -615,16 +630,27 @@ actividad solo.
      var data = sheet.getDataRange().getValues();
      var headers = data[0];
      var unsubCol = headers.indexOf('Dado de baja');
+     var excludedEmails = campaign.excludedEmails || [];
      var sampleTags = null;
      var activeCount = 0;
 
      for (var i = 1; i < data.length; i++) {
        var unsubscribed = unsubCol !== -1 && data[i][unsubCol] === true;
        var tags = buildTemplateTags(headers, data[i]);
-       if (!tags.email || unsubscribed) continue;
+       var excluded = tags.email && excludedEmails.indexOf(String(tags.email).toLowerCase()) !== -1;
+       if (!tags.email || unsubscribed || excluded) continue;
        activeCount++;
        if (!sampleTags) sampleTags = tags;
      }
+
+     // Los destinatarios manuales (Fase 5) también cuentan para la vista
+     // previa — si la hoja no tenía a nadie elegible, uno de ellos puede
+     // ser el ejemplo. La vista previa tiene que reflejar exactamente a
+     // quién le va a llegar el mail real (hoja + manuales), no solo la hoja.
+     (campaign.extraRecipients || []).forEach(function (recipient) {
+       activeCount++;
+       if (!sampleTags) sampleTags = { nombre: recipient.nombre, email: recipient.email };
+     });
 
      if (!sampleTags) return jsonpResponse({ result: 'no_recipients' }, params.callback);
 
@@ -683,18 +709,19 @@ actividad solo.
      var data = sheet.getDataRange().getValues();
      var headers = data[0];
      var unsubCol = headers.indexOf('Dado de baja');
+     var excludedEmails = campaign.excludedEmails || [];
      var sent = 0;
      var total = 0;
+     var sentEmails = {}; // dedup: un destinatario manual no debe recibir dos veces si ya está en la hoja
      // Una sola vez para toda la campaña, no por destinatario: el
      // recordatorio es del cronograma de la actividad, no de cada persona.
      var sessionsHtml = getCampaignSessionsHtml(campaign, sheet);
 
-     for (var i = 1; i < data.length; i++) {
-       var unsubscribed = unsubCol !== -1 && data[i][unsubCol] === true;
-       var tags = buildTemplateTags(headers, data[i]);
-       if (!tags.email || unsubscribed) continue;
+     // Compartida entre el loop de la hoja y el de destinatarios manuales
+     // (Fase 5) — antes solo existía dentro del loop de la hoja; se separó
+     // para no duplicar el mismo try/catch dos veces.
+     function sendCampaignEmailTo(tags) {
        total++;
-
        try {
          var subject = applyTemplateTags(campaign.subject, tags);
          var bodyHtml = buildCampaignBodyHtml(campaign, tags, sessionsHtml);
@@ -708,6 +735,24 @@ actividad solo.
          logError('campaign', mailErr, { email: tags.email, sheetName: campaign.sheetName });
        }
      }
+
+     for (var i = 1; i < data.length; i++) {
+       var unsubscribed = unsubCol !== -1 && data[i][unsubCol] === true;
+       var tags = buildTemplateTags(headers, data[i]);
+       var excluded = tags.email && excludedEmails.indexOf(String(tags.email).toLowerCase()) !== -1;
+       if (!tags.email || unsubscribed || excluded) continue;
+       sentEmails[String(tags.email).toLowerCase()] = true;
+       sendCampaignEmailTo(tags);
+     }
+
+     // Destinatarios manuales (Fase 5): mismo mail, mismo camino — salvo
+     // que ya lo hayan recibido por estar en la hoja, para no duplicar.
+     (campaign.extraRecipients || []).forEach(function (recipient) {
+       var email = String(recipient.email || '').toLowerCase();
+       if (!email || sentEmails[email]) return;
+       sentEmails[email] = true;
+       sendCampaignEmailTo({ nombre: recipient.nombre || '', email: recipient.email });
+     });
 
      logCampaignSent(campaign.sheetName, campaign.subject, sent, total);
 
@@ -741,18 +786,16 @@ actividad solo.
    // los mails de confirmación), y el recuadro de fecha/hora (si se pidió)
    // va aparte, debajo.
    function buildCampaignBodyHtml(campaign, tags, sessionsHtml) {
-     // El orden acá importa: primero reemplazar <nombre>/<apellido>/<email>
-     // (applyTemplateTags), RECIÉN DESPUÉS convertir los saltos de línea a
-     // <br>. Al revés (como estaba antes) rompía cualquier mensaje de más
-     // de un párrafo: applyTemplateTags no distingue "<nombre>" de "<br>"
-     // (su regex agarra cualquier <palabra>, a propósito, para que una
-     // etiqueta mal escrita como "<inventada>" se note en vez de
-     // desaparecer) — así que escapaba también los <br> recién insertados,
-     // y el mail mostraba el texto literal "<br>" en vez de un salto de
-     // línea real. Bug real encontrado en producción el 2026-09-05,
-     // probando con un mensaje de varios párrafos (las pruebas anteriores
-     // solo habían usado mensajes de una sola línea).
-     var messageHtml = applyTemplateTags(String(campaign.body), tags).replace(/\n/g, '<br>');
+     // Orden: primero reemplazar <nombre>/<apellido>/<email>
+     // (applyTemplateTags, regex acotado a esos 3 nombres — ver el
+     // comentario de esa función), RECIÉN DESPUÉS sanitizeCampaignHtml.
+     // Al revés, sanitizeCampaignHtml podría llegar a confundir un
+     // "<nombre>" todavía sin reemplazar con un tag desconocido y
+     // borrarlo entero (no es un nombre de tag permitido) — mismo tipo de
+     // bug de orden que el de <br> del 2026-09-05, ahora con el editor de
+     // texto enriquecido. Ya no hace falta convertir saltos de línea a
+     // <br> a mano: CampaignEditor.tsx genera <p>/<br> reales.
+     var messageHtml = sanitizeCampaignHtml(applyTemplateTags(String(campaign.body), tags));
      var boxedMessage =
        '<div style="border:1px solid #e5e9f0;background:#f8f9fb;border-radius:10px;padding:18px 20px;">' +
        messageHtml +
@@ -821,10 +864,83 @@ actividad solo.
    // (ej. "<inventada>") no se ve como texto de error, el navegador la
    // interpreta como una etiqueta HTML desconocida y la esconde entera —
    // exactamente lo contrario de la idea de que el error se note.
+   //
+   // El regex ANTES agarraba cualquier <palabra> a propósito (para atrapar
+   // justamente ese tipo de error de tipeo) — eso dejó de ser seguro
+   // cuando el mensaje de campaña empezó a poder traer HTML de verdad
+   // (editor de texto enriquecido, 2026-09-05): tags como <b>, <strong>,
+   // <em>, <p>, <br> también son "palabra sola" y quedaban escapados como
+   // texto literal, exactamente el mismo bug que el de <br> del
+   // 2026-09-05 pero también con la negrita/itálica reales. Por eso ahora
+   // el regex solo reconoce los 3 nombres conocidos — ya NO atrapa un tag
+   // inventado como <inventada>, ese trade-off se aceptó a propósito: ya
+   // no es sostenible tener HTML real y "cualquier <palabra> es un error"
+   // en el mismo campo. Ver docs/SECURITY_DECISIONS.md.
    function applyTemplateTags(text, tags) {
-     return String(text || '').replace(/<(\w+)>/g, function (match, tagName) {
+     return String(text || '').replace(/<(nombre|apellido|email)>/gi, function (match, tagName) {
        var value = tags[tagName.toLowerCase()];
        return escapeHtml(value !== undefined && value !== '' ? value : match);
+     });
+   }
+
+   // Allowlist a medida para el HTML que puede producir CampaignEditor.tsx
+   // (negrita, itálica, link, imagen, párrafo, salto de línea) — no es un
+   // sanitizador general tipo DOMPurify (no existe ninguna librería así en
+   // este proyecto, ni Apps Script tiene DOM real para parsear HTML de
+   // verdad), es una lista chica hecha a medida de lo que el editor puede
+   // generar. Cualquier tag fuera de la lista se descarta (se conserva el
+   // texto de adentro, se tira el tag) — así una campaña vieja guardada
+   // con otro formato, o cualquier cosa rara pegada a mano, nunca termina
+   // metiendo un <script>/<style>/<div onclick> real en el mail. `href`/
+   // `src` con un esquema que no sea http(s) (o mailto: para un link) se
+   // descarta entero — corta cualquier "javascript:"/"data:" antes de que
+   // llegue al mail.
+   var CAMPAIGN_ALLOWED_TAGS = { p: true, br: true, b: true, strong: true, i: true, em: true, a: true, img: true };
+
+   function sanitizeCampaignUrl(rawUrl, allowMailto) {
+     var url = String(rawUrl || '').trim();
+     if (/^https?:\/\//i.test(url)) return url;
+     if (allowMailto && /^mailto:/i.test(url)) return url;
+     return null;
+   }
+
+   function sanitizeCampaignHtml(html) {
+     // openAnchors: un <a href="..."> con un esquema no permitido
+     // (javascript:, data:, etc.) se descarta arriba — sin este contador,
+     // el </a> que le sigue quedaría suelto en el HTML final (no rompe
+     // nada, pero es descuidado). Solo hace falta para <a>: los demás
+     // tags permitidos nunca rechazan su apertura según sus atributos.
+     var openAnchors = 0;
+     return String(html || '').replace(/<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:\s+[^<>]*)?)>/g, function (match, closingSlash, tagName, attrs) {
+       var tag = tagName.toLowerCase();
+       if (!CAMPAIGN_ALLOWED_TAGS[tag]) return '';
+
+       if (tag === 'a' && closingSlash) {
+         if (openAnchors <= 0) return '';
+         openAnchors--;
+         return '</a>';
+       }
+       if (closingSlash) return '</' + tag + '>';
+
+       if (tag === 'a') {
+         var hrefMatch = attrs.match(/\bhref\s*=\s*"([^"]*)"/i) || attrs.match(/\bhref\s*=\s*'([^']*)'/i);
+         var href = hrefMatch ? sanitizeCampaignUrl(hrefMatch[1], true) : null;
+         if (!href) return '';
+         openAnchors++;
+         return '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">';
+       }
+
+       if (tag === 'img') {
+         var srcMatch = attrs.match(/\bsrc\s*=\s*"([^"]*)"/i) || attrs.match(/\bsrc\s*=\s*'([^']*)'/i);
+         var src = srcMatch ? sanitizeCampaignUrl(srcMatch[1], false) : null;
+         if (!src) return '';
+         var altMatch = attrs.match(/\balt\s*=\s*"([^"]*)"/i) || attrs.match(/\balt\s*=\s*'([^']*)'/i);
+         var alt = altMatch ? altMatch[1] : '';
+         return '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt) + '" style="max-width:100%;height:auto;">';
+       }
+
+       // p, br, b, strong, i, em: sin atributos, cualquiera que traigan se descarta.
+       return '<' + tag + '>';
      });
    }
 
