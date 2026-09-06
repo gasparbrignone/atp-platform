@@ -1,6 +1,6 @@
 # ANALYTICS_SETUP.md
 
-# Puesta en marcha de Analíticas (GoatCounter)
+# Puesta en marcha de Analíticas (GoatCounter + Microsoft Clarity)
 
 ## Objetivo
 
@@ -77,3 +77,57 @@ contar.
 3. Probar descargar un libro, inscribirse a una actividad o buscar algo en
    Biblioteca — esos aparecen en GoatCounter bajo "Events", no en el listado
    principal de páginas.
+
+---
+
+# Microsoft Clarity (grabación de sesiones + mapas de calor)
+
+## Por qué, además de GoatCounter
+
+GoatCounter cuenta vistas y clics puntuales, pero no puede mostrar
+grabaciones de sesiones reales, mapas de calor, ni detectar rage
+clicks/dead clicks — justo lo que hacía falta para la auditoría de UX
+de 2026-09-06 (ver el informe de esa conversación). Decisión tomada
+junto con el dueño del proyecto: sumar Clarity, no reemplazar
+GoatCounter (cada uno mide algo distinto).
+
+## Qué ya está listo (código)
+
+- `src/config/site.ts` → `clarityProjectId`: el Project ID real ya está
+  cargado (no un placeholder), obtenido de la cuenta gratuita de
+  [clarity.microsoft.com](https://clarity.microsoft.com).
+- `src/layouts/BaseLayout.astro`: snippet oficial de Microsoft, sin
+  modificar. Nunca corre en `/staff/**` porque esas páginas no usan
+  este layout — el panel admin y el check-in por QR no se graban.
+- `astro.config.mjs`: CSP con `*.clarity.ms` en `img-src`/
+  `connect-src`/`script-src` (Clarity rota el endpoint de recolección
+  entre varios subdominios de una letra — confirmado con navegador
+  real, de ahí el comodín).
+- Campos de teléfono/email/DNI de los 4 formularios que piden datos
+  personales (`ActivityRegistrationForm`,
+  `ActivityCertificateRegistrationForm`, `AgendaSaleSection`,
+  `sumate.astro`) llevan `data-clarity-mask="true"` — una grabación de
+  sesión nunca muestra esos datos en texto plano.
+
+## Decisión de privacidad: `c.bing.com` bloqueado a propósito
+
+Clarity intenta, de fábrica, un pixel de sincronización hacia
+`c.bing.com` (publicidad de Microsoft/Bing Ads) — encontrado probando
+con un navegador real, no algo que Clarity documente de entrada. No
+hace falta para grabar sesiones ni mapas de calor. Se dejó **fuera** de
+la CSP a propósito, así que ese pixel puntual queda bloqueado en
+silencio (el resto de Clarity funciona igual). Coherente con la
+decisión ya tomada de evitar tracking publicitario (ver por qué se
+descartó Google Analytics en `docs/STACK_DECISIONS.md`). Si en algún
+momento Clarity deja de funcionar bien, revisar si sumó una
+dependencia nueva de ese pixel antes de habilitarlo sin pensarlo.
+
+## Verificar que funciona
+
+1. Entrar a [clarity.microsoft.com](https://clarity.microsoft.com) →
+   el proyecto de ATP.
+2. Navegar el sitio real en otra pestaña — las grabaciones y los mapas
+   de calor tardan unos minutos en aparecer (no es instantáneo como
+   GoatCounter).
+3. Nunca va a aparecer nada de `/staff/panel/` ni `/staff/escanear/` —
+   es el comportamiento esperado, no un error.
