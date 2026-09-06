@@ -59,7 +59,11 @@ const instagramHandle = career.data.instagram
 >
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
-      <SectionHeader as="h1" title={career.data.name} description={career.data.description ?? undefined} />
+      <SectionHeader
+        as="h1"
+        title={career.data.name}
+        description={career.data.description ?? undefined}
+      />
 
       {
         career.data.instagram && (

@@ -423,7 +423,12 @@ collections:
         required: false
         fields:
           - { label: Imagen, name: src, widget: image }
-          - { label: Texto alternativo, name: alt, widget: string, hint: 'Describí la imagen para lectores de pantalla.' }
+          - {
+              label: Texto alternativo,
+              name: alt,
+              widget: string,
+              hint: 'Describí la imagen para lectores de pantalla.',
+            }
       - label: Recursos
         name: resources
         widget: list

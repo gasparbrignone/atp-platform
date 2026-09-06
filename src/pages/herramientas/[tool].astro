@@ -70,11 +70,7 @@ const Icon = toolIcons[tool.data.icon];
         set:html={renderInlineMarkdown(tool.data.description)}
       />
 
-      {
-        tool.data.content && (
-          <div class="max-w-2xl" set:html={renderMarkdown(tool.data.content)} />
-        )
-      }
+      {tool.data.content && <div class="max-w-2xl" set:html={renderMarkdown(tool.data.content)} />}
 
       {
         tool.data.images && tool.data.images.length > 0 && (
@@ -120,11 +116,13 @@ const Icon = toolIcons[tool.data.icon];
       }
 
       <div class="flex flex-wrap gap-3">
-        {tool.data.url && (
-          <Button href={tool.data.url} target="_blank" trackId={`herramienta:${tool.id}`}>
-            Acceder
-          </Button>
-        )}
+        {
+          tool.data.url && (
+            <Button href={tool.data.url} target="_blank" trackId={`herramienta:${tool.id}`}>
+              Acceder
+            </Button>
+          )
+        }
       </div>
     </Container>
   </Section>

@@ -66,13 +66,19 @@ const hasConfirmationLink = Boolean(confirmationLinkLabel && confirmationLinkUrl
     <input type="hidden" name="activityId" value={activityId} />
     <input type="hidden" name="activityTitle" value={activityTitle} />
     <input type="hidden" name="sessions" value={JSON.stringify(reminderSessions)} />
-    {confirmationMessage && <input type="hidden" name="confirmationMessage" value={confirmationMessage} />}
-    {hasConfirmationLink && (
-      <>
-        <input type="hidden" name="confirmationLinkLabel" value={confirmationLinkLabel} />
-        <input type="hidden" name="confirmationLinkUrl" value={confirmationLinkUrl} />
-      </>
-    )}
+    {
+      confirmationMessage && (
+        <input type="hidden" name="confirmationMessage" value={confirmationMessage} />
+      )
+    }
+    {
+      hasConfirmationLink && (
+        <>
+          <input type="hidden" name="confirmationLinkLabel" value={confirmationLinkLabel} />
+          <input type="hidden" name="confirmationLinkUrl" value={confirmationLinkUrl} />
+        </>
+      )
+    }
 
     <div class="flex flex-col gap-2">
       <label for="registration-name" class="text-caption text-text-secondary font-semibold">
@@ -106,7 +112,12 @@ const hasConfirmationLink = Boolean(confirmationLinkLabel && confirmationLinkUrl
       )
     }
 
-    <div class="cf-turnstile" data-sitekey={siteConfig.turnstileSiteKey} data-appearance="interaction-only" />
+    <div
+      class="cf-turnstile"
+      data-sitekey={siteConfig.turnstileSiteKey}
+      data-appearance="interaction-only"
+    >
+    </div>
 
     <Button
       type="submit"
@@ -124,7 +135,9 @@ const hasConfirmationLink = Boolean(confirmationLinkLabel && confirmationLinkUrl
     hidden
     class="border-border bg-surface flex flex-col items-start gap-4 rounded-md border p-6"
   >
-    <div class="bg-success/15 text-success inline-flex size-10 items-center justify-center rounded-full">
+    <div
+      class="bg-success/15 text-success inline-flex size-10 items-center justify-center rounded-full"
+    >
       <Check class="size-5" aria-hidden="true" />
     </div>
     <div class="flex flex-col gap-1">
@@ -155,7 +168,9 @@ const hasConfirmationLink = Boolean(confirmationLinkLabel && confirmationLinkUrl
   import { hasTurnstileToken, resetTurnstile } from '@/lib/turnstile';
 
   const form = document.querySelector<HTMLFormElement>('[data-activity-registration-form]');
-  const submitButton = form?.querySelector<HTMLButtonElement>('[data-activity-registration-submit]');
+  const submitButton = form?.querySelector<HTMLButtonElement>(
+    '[data-activity-registration-submit]',
+  );
   const successPanel = document.querySelector<HTMLElement>('[data-activity-registration-success]');
   const endpoint = form?.dataset.endpoint;
 

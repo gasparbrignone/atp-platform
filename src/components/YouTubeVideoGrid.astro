@@ -61,7 +61,12 @@ const videos = await getLatestYouTubeVideos(maxResults);
       ))}
     </div>
   ) : (
-    <Button href={siteConfig.youtubeChannelUrl} target="_blank" variant="outline" class="self-start">
+    <Button
+      href={siteConfig.youtubeChannelUrl}
+      target="_blank"
+      variant="outline"
+      class="self-start"
+    >
       Ver nuestro canal en YouTube
     </Button>
   )

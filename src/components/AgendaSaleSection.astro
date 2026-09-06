@@ -63,17 +63,18 @@ const features = [
           }
         </ul>
         <p class="text-h3 text-text font-bold">${PRICE}</p>
-        <Button href="#reservar-agenda" size="lg" class="self-start">
-          Reservar la mía
-        </Button>
+        <Button href="#reservar-agenda" size="lg" class="self-start"> Reservar la mía </Button>
       </div>
 
-      <div id="reservar-agenda" class="bg-surface border-border flex flex-col gap-6 rounded-md border p-6">
+      <div
+        id="reservar-agenda"
+        class="bg-surface border-border flex flex-col gap-6 rounded-md border p-6"
+      >
         <div class="flex flex-col gap-2">
           <h3 class="text-h4 text-text font-bold">Reservar</h3>
           <p class="text-body-sm text-text-secondary">
-            Completá tus datos. Te vamos a mandar por mail el alias para transferir y cómo
-            enviarnos el comprobante.
+            Completá tus datos. Te vamos a mandar por mail el alias para transferir y cómo enviarnos
+            el comprobante.
           </p>
         </div>
 
@@ -106,7 +107,9 @@ const features = [
               Email
             </label>
             <Input id="agenda-email" name="email" type="email" autocomplete="email" required />
-            <span class="text-caption text-text-secondary">Para mandarte las instrucciones de pago.</span>
+            <span class="text-caption text-text-secondary"
+              >Para mandarte las instrucciones de pago.</span
+            >
           </div>
 
           <div class="flex flex-col gap-2">
@@ -142,7 +145,10 @@ const features = [
             </p>
             <p class="text-body-sm text-text">
               2. Mandanos el comprobante por WhatsApp al{' '}
-              <a href="https://wa.me/5493406404841" class="text-secondary-strong underline underline-offset-2">
+              <a
+                href="https://wa.me/5493406404841"
+                class="text-secondary-strong underline underline-offset-2"
+              >
                 3406 40-4841
               </a>.
             </p>
@@ -151,9 +157,20 @@ const features = [
             </p>
           </div>
 
-          <div class="cf-turnstile" data-sitekey={siteConfig.turnstileSiteKey} data-appearance="interaction-only" />
+          <div
+            class="cf-turnstile"
+            data-sitekey={siteConfig.turnstileSiteKey}
+            data-appearance="interaction-only"
+          >
+          </div>
 
-          <Button type="submit" size="lg" data-agenda-submit class="self-start" trackId="reserva:agenda">
+          <Button
+            type="submit"
+            size="lg"
+            data-agenda-submit
+            class="self-start"
+            trackId="reserva:agenda"
+          >
             Reservar
           </Button>
         </form>

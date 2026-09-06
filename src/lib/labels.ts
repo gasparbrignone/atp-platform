@@ -11,13 +11,7 @@
 
 export type ActivityStatus = 'proxima' | 'activa' | 'finalizada';
 export type Weekday =
-  | 'lunes'
-  | 'martes'
-  | 'miercoles'
-  | 'jueves'
-  | 'viernes'
-  | 'sabado'
-  | 'domingo';
+  'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo';
 export type CareerSlug = 'medicina' | 'enfermeria' | 'fonoaudiologia' | 'terapia-ocupacional';
 export type ToolIconKey = 'book-open' | 'microscope' | 'calculator' | 'activity' | 'link';
 export type CareerToolIconKey = 'book-open' | 'microscope' | 'calendar-check';

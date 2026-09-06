@@ -64,7 +64,15 @@ function ensureRelease(tag) {
   try {
     execFileSync('gh', ['release', 'view', tag], { stdio: 'ignore' });
   } catch {
-    execFileSync('gh', ['release', 'create', tag, '--title', tag, '--notes', 'Material de la Biblioteca de ATP.']);
+    execFileSync('gh', [
+      'release',
+      'create',
+      tag,
+      '--title',
+      tag,
+      '--notes',
+      'Material de la Biblioteca de ATP.',
+    ]);
   }
 }
 

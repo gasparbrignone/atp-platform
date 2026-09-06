@@ -35,7 +35,8 @@ const { activity } = Astro.props as { activity: CollectionEntry<'activities'> };
 const sessions = activity.data.sessions ?? [];
 // Una actividad compuesta no tiene un único horario que mostrar como
 // description del heading — se lista cada sesión aparte, más abajo.
-const meta = sessions.length > 0 ? undefined : getActivityScheduleLabel(activity.data.schedule ?? {});
+const meta =
+  sessions.length > 0 ? undefined : getActivityScheduleLabel(activity.data.schedule ?? {});
 ---
 
 <BaseLayout

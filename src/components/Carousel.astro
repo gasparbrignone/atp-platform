@@ -151,8 +151,7 @@ const { label, autoplay = false, interval = 6000, class: className, ...rest }: P
     // `track.scrollTo()` (no `slide.scrollIntoView()`) para tocar únicamente
     // el scroll horizontal del track, nunca el de la página.
     function scrollToSlide(slide: HTMLElement) {
-      const left =
-        slide.offsetLeft - (trackEl.clientWidth - slide.clientWidth) / 2;
+      const left = slide.offsetLeft - (trackEl.clientWidth - slide.clientWidth) / 2;
       trackEl.scrollTo({ left, behavior: scrollBehavior });
     }
 

@@ -48,7 +48,10 @@ async function processEntry(entryPath, field, kind, width) {
   if (existsSync(outPath) && statSync(outPath).mtimeMs >= statSync(sourcePath).mtimeMs) return;
 
   mkdirSync(path.dirname(outPath), { recursive: true });
-  await sharp(sourcePath).resize({ width, withoutEnlargement: true }).webp({ quality: 78 }).toFile(outPath);
+  await sharp(sourcePath)
+    .resize({ width, withoutEnlargement: true })
+    .webp({ quality: 78 })
+    .toFile(outPath);
   console.log(`  thumbnail: ${path.basename(sourcePath)} -> ${outUrl}`);
 }
 

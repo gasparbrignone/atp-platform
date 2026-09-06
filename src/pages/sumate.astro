@@ -52,13 +52,28 @@ const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xwvdjvyz';
 const yearOptions = ['1° año', '2° año', '3° año', '4° año', '5° año', '6° año'];
 
 const galleryPhotos = [
-  { image: facultadRemera, alt: 'Integrantes de ATP con la remera oficial frente a la Facultad de Ciencias Médicas.' },
+  {
+    image: facultadRemera,
+    alt: 'Integrantes de ATP con la remera oficial frente a la Facultad de Ciencias Médicas.',
+  },
   { image: standRemera, alt: 'Integrantes de ATP en un stand informativo en la calle.' },
-  { image: acreditacionesRemera, alt: 'Integrantes de ATP en la mesa de acreditaciones de un encuentro.' },
+  {
+    image: acreditacionesRemera,
+    alt: 'Integrantes de ATP en la mesa de acreditaciones de un encuentro.',
+  },
   { image: escaleraRemera, alt: 'Integrantes de ATP reunidos en la escalinata de la facultad.' },
-  { image: charlaRemera, alt: 'Integrante de ATP dando una charla con material didáctico proyectado.' },
-  { image: bannerRemera, alt: 'Integrantes de ATP en la escalinata de la facultad bajo el cartel de ATP FCM UNR.' },
-  { image: retratoRemera, alt: 'Dos integrantes de ATP con la remera oficial durante una movilización.' },
+  {
+    image: charlaRemera,
+    alt: 'Integrante de ATP dando una charla con material didáctico proyectado.',
+  },
+  {
+    image: bannerRemera,
+    alt: 'Integrantes de ATP en la escalinata de la facultad bajo el cartel de ATP FCM UNR.',
+  },
+  {
+    image: retratoRemera,
+    alt: 'Dos integrantes de ATP con la remera oficial durante una movilización.',
+  },
 ];
 
 const beliefs = [
@@ -114,15 +129,13 @@ const reasons = [
       <div class="flex max-w-2xl flex-col items-center gap-4 text-center">
         <h1 data-enter class="text-h1 text-text font-extrabold">Sumate a ATP</h1>
         <p data-enter class="enter-delay-80 text-body-lg text-text-secondary">
-          Somos estudiantes de la Facultad de Ciencias Médicas que un día decidimos involucrarnos
-          un poco más para hacer que la cursada sea mejor para todos. Este formulario es para eso:
-          para sumarte a militar en ATP, ayudar a organizar actividades y llevar adelante
-          proyectos junto a nosotres — no hace falta haber militado antes ni tener experiencia,
-          alcanza con tener ganas de participar.
+          Somos estudiantes de la Facultad de Ciencias Médicas que un día decidimos involucrarnos un
+          poco más para hacer que la cursada sea mejor para todos. Este formulario es para eso: para
+          sumarte a militar en ATP, ayudar a organizar actividades y llevar adelante proyectos junto
+          a nosotres — no hace falta haber militado antes ni tener experiencia, alcanza con tener
+          ganas de participar.
         </p>
-        <Button href="#sumate-cta" size="lg" class="mt-2">
-          Completar formulario
-        </Button>
+        <Button href="#sumate-cta" size="lg" class="mt-2"> Completar formulario </Button>
       </div>
 
       <div data-enter class="enter-delay-140 w-full">
@@ -232,9 +245,7 @@ const reasons = [
               Año
             </label>
             <Select id="sumate-year" name="year" required>
-              <option value="" selected disabled>
-                Elegí un año
-              </option>
+              <option value="" selected disabled> Elegí un año </option>
               {yearOptions.map((year) => <option value={year}>{year}</option>)}
             </Select>
           </div>
@@ -244,9 +255,7 @@ const reasons = [
               Carrera
             </label>
             <Select id="sumate-career" name="career" required>
-              <option value="" selected disabled>
-                Elegí tu carrera
-              </option>
+              <option value="" selected disabled> Elegí tu carrera </option>
               {Object.values(careerLabels).map((label) => <option value={label}>{label}</option>)}
             </Select>
           </div>
@@ -263,7 +272,13 @@ const reasons = [
           />
         </div>
 
-        <Button type="submit" size="lg" data-sumate-submit class="mt-2 self-center" trackId="sumate-formulario">
+        <Button
+          type="submit"
+          size="lg"
+          data-sumate-submit
+          class="mt-2 self-center"
+          trackId="sumate-formulario"
+        >
           Enviar
         </Button>
       </form>

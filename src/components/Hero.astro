@@ -85,23 +85,21 @@ const isCentered = alignment === 'center';
   {
     backgroundImage && (
       <>
-        {
-          /*
-           * Este es el LCP de la home (foto de fondo a pantalla completa) —
-           * Lighthouse marcaba el compression factor de "mid" (quality 50)
-           * como insuficiente (~18KB de ahorro posible en el candidato de
-           * 1024w). 35 recorta eso sin verse peor: hay un degradado encima
-           * (más abajo) que ya tapa el detalle fino de la foto.
-           *
-           * `format="avif"` en vez de dejar el webp por default: a la misma
-           * calidad, el candidato de 1024w pesa ~42KB en vez de ~80KB (casi
-           * la mitad). Sin fallback a webp/jpg a propósito — es puramente
-           * decorativa (`alt=""`, `aria-hidden`) y el soporte de AVIF ya es
-           * prácticamente universal; si algún navegador viejo no la carga,
-           * el color de fondo de Section sigue ahí y el texto se sigue
-           * leyendo bien.
-           */
-        }
+        {/*
+         * Este es el LCP de la home (foto de fondo a pantalla completa) —
+         * Lighthouse marcaba el compression factor de "mid" (quality 50)
+         * como insuficiente (~18KB de ahorro posible en el candidato de
+         * 1024w). 35 recorta eso sin verse peor: hay un degradado encima
+         * (más abajo) que ya tapa el detalle fino de la foto.
+         *
+         * `format="avif"` en vez de dejar el webp por default: a la misma
+         * calidad, el candidato de 1024w pesa ~42KB en vez de ~80KB (casi
+         * la mitad). Sin fallback a webp/jpg a propósito — es puramente
+         * decorativa (`alt=""`, `aria-hidden`) y el soporte de AVIF ya es
+         * prácticamente universal; si algún navegador viejo no la carga,
+         * el color de fondo de Section sigue ahí y el texto se sigue
+         * leyendo bien.
+         */}
         <Image
           src={backgroundImage}
           alt=""
@@ -114,17 +112,15 @@ const isCentered = alignment === 'center';
           format="avif"
           class="absolute inset-0 -z-20 size-full object-cover"
         />
-        {
-          /*
-           * A single flat wash reads flat/dated and either crushes the
-           * photo everywhere or leaves the top too bright for white text —
-           * a top-to-bottom gradient keeps the photo's own brightness
-           * doing the work instead of fighting it. `--gray-900` (never pure
-           * black, per tokens.css) hardcoded as rgb here since Tailwind's
-           * gradient utilities can't consume a hex custom property's
-           * channels directly.
-           */
-        }
+        {/*
+         * A single flat wash reads flat/dated and either crushes the
+         * photo everywhere or leaves the top too bright for white text —
+         * a top-to-bottom gradient keeps the photo's own brightness
+         * doing the work instead of fighting it. `--gray-900` (never pure
+         * black, per tokens.css) hardcoded as rgb here since Tailwind's
+         * gradient utilities can't consume a hex custom property's
+         * channels directly.
+         */}
         <div class="hero-gradient absolute inset-0 -z-10" />
       </>
     )

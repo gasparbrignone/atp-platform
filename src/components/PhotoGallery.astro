@@ -19,7 +19,7 @@ interface Props {
 const { photos }: Props = Astro.props;
 ---
 
-<div class="grid grid-cols-2 gap-4 md:grid-cols-4 md:auto-rows-[200px]">
+<div class="grid grid-cols-2 gap-4 md:auto-rows-[200px] md:grid-cols-4">
   {
     photos.map(({ image, alt }, index) => (
       <div
@@ -27,7 +27,7 @@ const { photos }: Props = Astro.props;
           'group ease-standard relative overflow-hidden rounded-md transition-shadow duration-200',
           'shadow-[0_1px_2px_rgba(28,25,38,0.06),0_1px_1px_rgba(28,25,38,0.04)] hover:shadow-[0_12px_24px_rgba(28,25,38,0.12),0_2px_8px_rgba(28,25,38,0.06)]',
           index === 0
-            ? 'col-span-2 aspect-video md:aspect-auto md:row-span-2'
+            ? 'col-span-2 aspect-video md:row-span-2 md:aspect-auto'
             : 'aspect-square md:aspect-auto',
         ]}
       >

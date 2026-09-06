@@ -144,7 +144,9 @@ export function getReminderSessions(activity: {
 }): ReminderSession[] {
   if (activity.sessions && activity.sessions.length > 0) {
     return activity.sessions
-      .filter((session): session is ReminderSessionInput & { date: string } => Boolean(session.date))
+      .filter((session): session is ReminderSessionInput & { date: string } =>
+        Boolean(session.date),
+      )
       .map((session) => ({
         title: session.title,
         date: session.date,

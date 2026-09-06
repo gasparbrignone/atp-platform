@@ -127,7 +127,8 @@ const filterChips = [
         {
           publishedBooks.map((book) => {
             const subjectName = subjectNames.get(book.data.subject) ?? book.data.subject;
-            const typeName = resourceTypeNames.get(book.data.resourceType) ?? book.data.resourceType;
+            const typeName =
+              resourceTypeNames.get(book.data.resourceType) ?? book.data.resourceType;
             return (
               <Card
                 data-reveal

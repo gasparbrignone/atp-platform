@@ -28,7 +28,10 @@ import '@/styles/global.css';
     <div class="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 p-4">
       <h1 class="text-h4 text-text pt-4 text-center font-bold">Escanear asistencia</h1>
 
-      <form data-setup-form class="border-border bg-surface flex flex-col gap-4 rounded-md border p-6">
+      <form
+        data-setup-form
+        class="border-border bg-surface flex flex-col gap-4 rounded-md border p-6"
+      >
         <div class="flex flex-col gap-2">
           <label for="staff-secret" class="text-caption text-text-secondary font-semibold">
             Clave del staff
@@ -59,18 +62,24 @@ import '@/styles/global.css';
         </div>
         <button
           type="submit"
-          class="bg-primary-fill text-primary-fill-foreground hover:brightness-110 h-12 rounded-sm font-semibold transition-[filter] duration-150"
+          class="bg-primary-fill text-primary-fill-foreground h-12 rounded-sm font-semibold transition-[filter] duration-150 hover:brightness-110"
         >
           Empezar a escanear
         </button>
       </form>
 
       <div data-scan-view hidden class="flex flex-1 flex-col gap-4">
-        <div class="border-border bg-surface flex items-center justify-between rounded-md border p-3">
+        <div
+          class="border-border bg-surface flex items-center justify-between rounded-md border p-3"
+        >
           <span class="text-body-sm text-text-secondary">
             Encuentro: <strong data-session-label class="text-text"></strong>
           </span>
-          <button type="button" data-change-session class="text-body-sm text-secondary-strong font-semibold underline underline-offset-2">
+          <button
+            type="button"
+            data-change-session
+            class="text-body-sm text-secondary-strong font-semibold underline underline-offset-2"
+          >
             Cambiar
           </button>
         </div>
@@ -112,7 +121,8 @@ import '@/styles/global.css';
       const sessionInput = document.querySelector<HTMLInputElement>('#staff-session');
       const scanView = document.querySelector<HTMLElement>('[data-scan-view]');
       const sessionLabelEl = document.querySelector<HTMLElement>('[data-session-label]');
-      const changeSessionButton = document.querySelector<HTMLButtonElement>('[data-change-session]');
+      const changeSessionButton =
+        document.querySelector<HTMLButtonElement>('[data-change-session]');
       const video = document.querySelector<HTMLVideoElement>('[data-camera-video]');
       const canvas = document.querySelector<HTMLCanvasElement>('[data-camera-canvas]');
       const resultBanner = document.querySelector<HTMLElement>('[data-result-banner]');
@@ -170,7 +180,9 @@ import '@/styles/global.css';
           secret,
         })
           .then(handleCheckinResponse)
-          .catch(() => showBanner('error', 'Sin respuesta', 'Revisá la conexión y probá de nuevo.'));
+          .catch(() =>
+            showBanner('error', 'Sin respuesta', 'Revisá la conexión y probá de nuevo.'),
+          );
       }
 
       interface CheckinResponse {
@@ -184,7 +196,11 @@ import '@/styles/global.css';
             showBanner('ok', `✓ ${response.name ?? 'Presente'}`, 'Asistencia registrada.');
             break;
           case 'duplicate':
-            showBanner('duplicate', response.name ?? 'Ya había entrado', 'Ya estaba marcado en este encuentro.');
+            showBanner(
+              'duplicate',
+              response.name ?? 'Ya había entrado',
+              'Ya estaba marcado en este encuentro.',
+            );
             break;
           case 'not_found':
             showBanner('error', 'QR no reconocido', 'No corresponde a ninguna inscripción.');
