@@ -411,24 +411,31 @@ que **ese scope solo, sin nada más**, ya es suficiente para comprometer
 producción completa: cualquier push a `main` dispara el deploy automático,
 sin ningún paso de revisión humana en el medio.
 
-**Decisión:** identificado y documentado, **implementación pendiente**
-(no se activó todavía una environment protection rule con aprobación
-manual sobre el job `deploy`).
+**Decisión:** identificado y documentado. Vuelto a plantear explícitamente
+el 2026-09-06 (auditoría técnica + de UX de esa fecha) como una de las
+recomendaciones pendientes de sesiones anteriores — el dueño del proyecto
+lo **descartó de forma explícita** en esa conversación, sin agregar un
+motivo puntual. No es un olvido ni algo pendiente de retomar: es una
+decisión tomada dos veces (implícitamente al no priorizarlo en la revisión
+original, y explícitamente el 2026-09-06).
 
 **Alternativas consideradas:** exigir Pull Request antes de mergear a
 `main` (`editorial_workflow` en Sveltia) — descartada por el dueño del
 proyecto por la fricción que agregaría al flujo diario de carga de
 contenido. Environment protection rule (aprobación manual solo en el paso
 de deploy, no en cada commit) — evaluada como la de mejor relación
-seguridad/fricción, **pendiente de implementar**.
+seguridad/fricción, **presentada de nuevo el 2026-09-06 y descartada**.
 
 **Riesgo residual:** hoy, "PAT del CMS filtrado" = "sitio comprometido de
-inmediato", sin ninguna barrera intermedia.
+inmediato", sin ninguna barrera intermedia. Riesgo aceptado por el dueño
+del proyecto, no un vacío de implementación.
 
 **Qué NO hacer en el futuro:** no asumir que el scope acotado del PAT
 ("solo puede tocar este repo, solo contenido") limita el blast radius real
 — en esta arquitectura, no lo hace, porque el mecanismo de deploy no
-distingue "contenido" de "código".
+distingue "contenido" de "código". Tampoco volver a proponer la
+environment protection rule como si fuera un hallazgo nuevo — ya se
+presentó dos veces y se descartó las dos.
 
 ---
 

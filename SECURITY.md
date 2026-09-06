@@ -13,8 +13,9 @@ trivial en este proyecto debería leer este archivo primero**, junto con
 cada cosa) y [docs/SECURITY_CHANGELOG.md](docs/SECURITY_CHANGELOG.md) (qué
 cambió y cuándo). Ver también la sección "Seguridad" de `CLAUDE.md`.
 
-Última actualización: 2026-09-05 (editor de texto enriquecido + sanitizador
-de HTML nuevo para el mensaje de campaña del panel admin).
+Última actualización: 2026-09-06 (auditoría técnica y de UX: la
+environment protection rule sobre `deploy` pasó de "pendiente" a riesgo
+aceptado — el dueño del proyecto la descartó explícitamente).
 
 ---
 
@@ -34,7 +35,7 @@ Visitante (navegador)
 Editor de contenido (staff con PAT)
   └─ /admin/ (Sveltia CMS) ──► API de GitHub ──► push directo a `main`
         └─ push a `main` dispara el deploy automático a producción
-           (sin paso de aprobación humana intermedio — ver "Known Limitations")
+           (sin paso de aprobación humana intermedio — riesgo aceptado, ver "Accepted risks")
 
 CI/CD (GitHub Actions)
   ├─ deploy.yml: build + deploy a GitHub Pages, en cada push a `main`
@@ -49,7 +50,7 @@ CI/CD (GitHub Actions)
 | Visitante → sitio estático | El navegador ejecuta lo que Astro generó en build time | N/A — no hay lógica de servidor del lado del sitio en sí |
 | Visitante → Apps Script | El script confía en los parámetros del request, no en el origen | Rate limiting básico (`isRateLimited`/`bumpCounter`), HMAC en el link de baja, escaping de HTML en mails, secreto compartido para el check-in |
 | Staff (CMS) → GitHub | GitHub confía en el PAT que Sveltia manda | Scope del PAT documentado en `docs/CMS_SETUP.md` (fine-grained, un repo, `Contents: Read and write`) |
-| `main` → producción | El workflow de deploy confía en cualquier commit que llegue a `main` | **Ninguna aprobación humana intermedia hoy** — es el hallazgo más importante de toda la revisión de seguridad (ver Known Limitations) |
+| `main` → producción | El workflow de deploy confía en cualquier commit que llegue a `main` | **Ninguna aprobación humana intermedia hoy** — es el hallazgo más importante de toda la revisión de seguridad; riesgo aceptado por el dueño del proyecto (ver Accepted risks) |
 | CI → servicios externos | `migrate-drive-books.yml` confía en `gdown` (PyPI, sin versión fijada) y en `gh` (oficial) | Sin pin de versión en `gdown` — ver Known Limitations |
 
 ## Activos críticos
@@ -327,17 +328,14 @@ sin validarlo contra esta misma lista.
 
 ## Known limitations (pendientes, no arreglados todavía)
 
-1. **Sin aprobación humana entre `main` y producción** — el hallazgo de
-   mayor impacto de toda la revisión. Recomendación pendiente: environment
-   protection rule con "required reviewers" sobre el job `deploy`.
-2. **`gdown` sin versión fijada** en `migrate-drive-books.yml`.
-3. **Scope de `RELEASES_PAT` no documentado** — a diferencia del PAT del
+1. **`gdown` sin versión fijada** en `migrate-drive-books.yml`.
+2. **Scope de `RELEASES_PAT` no documentado** — a diferencia del PAT del
    CMS, no hay ninguna guía de qué permisos debería tener.
-4. **CSP `script-src`/`connect-src` no acotada al path exacto** del
+3. **CSP `script-src`/`connect-src` no acotada al path exacto** del
    deployment de Apps Script propio.
-5. **Nombres de archivo en `public/uploads/`** que delatan origen de
+4. **Nombres de archivo en `public/uploads/`** que delatan origen de
    buscador (riesgo de copyright/proceso, no de seguridad técnica).
-6. **El token de sesión del panel admin sigue viajando en la URL** de
+5. **El token de sesión del panel admin sigue viajando en la URL** de
    `adminListActivities`/`adminListRegistrations`/`adminPreviewCampaign`/
    `adminSendCampaign`/`adminLogout` (GET/JSONP — Apps Script no permite
    leer una respuesta por otra vía). Decisión consciente tomada el
@@ -350,6 +348,12 @@ sin validarlo contra esta misma lista.
 ## Accepted risks (decisiones conscientes, no descuidos)
 
 Ver `docs/SECURITY_DECISIONS.md` para el detalle de cada una:
+- **Ninguna aprobación humana entre `main` y producción** — el hallazgo de
+  mayor impacto de toda la revisión. Se propuso una environment protection
+  rule con "required reviewers" sobre el job `deploy`; el dueño del
+  proyecto la descartó explícitamente (primero de forma implícita, y de
+  nuevo de forma explícita el 2026-09-06) — no volver a plantearla como un
+  hallazgo nuevo.
 - Sveltia CMS cargado desde `unpkg.com` sin versión fijada ni SRI.
 - Retención indefinida de DNI en el Google Sheet de charlas.
 - QR de mail vía `api.qrserver.com` (tracker de apertura de bajo impacto).
