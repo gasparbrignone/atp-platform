@@ -118,7 +118,17 @@ import Send from '@lucide/astro/icons/send';
                     <th class="p-3">Nombre</th>
                     <th class="p-3">Email</th>
                     <th class="p-3">Estado</th>
-                    <th class="p-3">Excluir</th>
+                    <th class="p-3">
+                      <label class="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          data-exclude-all
+                          class="border-border-strong accent-secondary-strong size-4 shrink-0 rounded-xs border"
+                          aria-label="Excluir a todos los inscriptos de esta actividad"
+                        />
+                        Excluir
+                      </label>
+                    </th>
                   </tr>
                 </thead>
                 <tbody data-registrations-body>
@@ -270,6 +280,7 @@ import Send from '@lucide/astro/icons/send';
       const logoutButton = document.querySelector<HTMLButtonElement>('[data-logout-button]');
       const activitySelect = document.querySelector<HTMLSelectElement>('[data-activity-select]');
       const registrationsBody = document.querySelector<HTMLElement>('[data-registrations-body]');
+      const excludeAllCheckbox = document.querySelector<HTMLInputElement>('[data-exclude-all]');
 
       const campaignForm = document.querySelector<HTMLFormElement>('[data-campaign-form]');
       const campaignSubject = document.querySelector<HTMLInputElement>('[data-campaign-subject]');
@@ -351,6 +362,39 @@ import Send from '@lucide/astro/icons/send';
           manualRecipientList.appendChild(item);
         });
       }
+
+      // "Excluir" del header: prende/apaga todos los checkboxes de la tabla
+      // a la vez — pensado para el caso de mandarse una prueba a uno mismo
+      // (excluir a todos los inscriptos reales de una actividad real) sin
+      // tener que tildar uno por uno si la lista es larga.
+      function syncExcludeAllCheckbox() {
+        if (!excludeAllCheckbox || !registrationsBody) return;
+        const checkboxes = registrationsBody.querySelectorAll<HTMLInputElement>('[data-exclude-checkbox]');
+        if (checkboxes.length === 0) {
+          excludeAllCheckbox.checked = false;
+          excludeAllCheckbox.indeterminate = false;
+          return;
+        }
+        const checkedCount = Array.from(checkboxes).filter((cb) => cb.checked).length;
+        excludeAllCheckbox.checked = checkedCount === checkboxes.length;
+        excludeAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+      }
+
+      excludeAllCheckbox?.addEventListener('change', () => {
+        if (!registrationsBody) return;
+        // Capturado ANTES del loop a propósito: cada dispatchEvent de
+        // abajo corre el listener de esa fila, que llama a
+        // syncExcludeAllCheckbox() y reescribe excludeAllCheckbox.checked
+        // — leerlo de nuevo en cada vuelta terminaba usando ese valor ya
+        // pisado, y solo la primera fila quedaba tildada de verdad.
+        const shouldExclude = excludeAllCheckbox.checked;
+        const checkboxes =
+          registrationsBody.querySelectorAll<HTMLInputElement>('[data-exclude-checkbox]');
+        checkboxes.forEach((checkbox) => {
+          checkbox.checked = shouldExclude;
+          checkbox.dispatchEvent(new Event('change'));
+        });
+      });
 
       manualRecipientAdd?.addEventListener('click', () => {
         const nombre = manualRecipientName?.value.trim() ?? '';
@@ -468,11 +512,13 @@ import Send from '@lucide/astro/icons/send';
             // Mismas clases que Checkbox.astro — armado a mano acá porque
             // esta tabla es DOM creado en el navegador, no markup de Astro.
             excludeCheckbox.className = 'border-border-strong accent-secondary-strong size-4 shrink-0 rounded-xs border';
+            excludeCheckbox.setAttribute('data-exclude-checkbox', '');
             excludeCheckbox.setAttribute('aria-label', `Excluir a ${registration.email} de la próxima campaña`);
             excludeCheckbox.addEventListener('change', () => {
               const email = registration.email.toLowerCase();
               if (excludeCheckbox.checked) excludedEmails.add(email);
               else excludedEmails.delete(email);
+              syncExcludeAllCheckbox();
               invalidatePreview();
             });
             excludeCell.appendChild(excludeCheckbox);
@@ -480,6 +526,10 @@ import Send from '@lucide/astro/icons/send';
             row.append(nameCell, emailCell, statusCell, excludeCell);
             registrationsBody.appendChild(row);
           });
+          if (excludeAllCheckbox) {
+            excludeAllCheckbox.checked = false;
+            excludeAllCheckbox.indeterminate = false;
+          }
         } catch {
           registrationsBody.innerHTML =
             '<tr><td class="p-3 text-text-secondary" colspan="4">Error al cargar.</td></tr>';
@@ -617,8 +667,10 @@ import Send from '@lucide/astro/icons/send';
 
           if (response.result === 'no_recipients') {
             showToast({
-              message: 'Esta actividad todavía no tiene inscriptos activos — no hay a quién mandarle nada.',
-              variant: 'info',
+              message:
+                'No hay a quién mandarle nada: o esta actividad no tiene inscriptos activos, o excluiste a todos los que tenía y no agregaste ningún destinatario manual.',
+              variant: 'error',
+              duration: 9000,
             });
             return;
           }
