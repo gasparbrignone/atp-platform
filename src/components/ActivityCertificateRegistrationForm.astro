@@ -72,6 +72,7 @@ const yearOptions = ['1°', '2°', '3°', '4°', '5°', '6°', 'Egresado/a', 'Do
           pattern="\d{1,2}\.\d{3}\.\d{3}"
           title="Formato xx.xxx.xxx"
           data-certificate-dni
+          data-clarity-mask="true"
           required
         />
         <span class="text-caption text-text-secondary">Formato xx.xxx.xxx.</span>
@@ -81,14 +82,28 @@ const yearOptions = ['1°', '2°', '3°', '4°', '5°', '6°', 'Egresado/a', 'Do
         <label for="certificate-phone" class="text-caption text-text-secondary font-semibold">
           Teléfono
         </label>
-        <Input id="certificate-phone" name="phone" type="tel" autocomplete="tel" required />
+        <Input
+          id="certificate-phone"
+          name="phone"
+          type="tel"
+          autocomplete="tel"
+          data-clarity-mask="true"
+          required
+        />
       </div>
 
       <div class="flex flex-col gap-2">
         <label for="certificate-email" class="text-caption text-text-secondary font-semibold">
           Email
         </label>
-        <Input id="certificate-email" name="email" type="email" autocomplete="email" required />
+        <Input
+          id="certificate-email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          data-clarity-mask="true"
+          required
+        />
       </div>
 
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">

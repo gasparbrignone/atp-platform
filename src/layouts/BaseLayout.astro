@@ -151,6 +151,39 @@ const websiteJsonLd = {
       integrity="sha384-2UjvVpptg4JlEVgJI2PdscrjOjPcil/4F1ZvIMJ81CShQnEDSlPI+l4PfogvTLYi"
       crossorigin="anonymous"></script>
 
+    <!--
+      Microsoft Clarity (Fase 17 — UX): grabación de sesiones + mapas de
+      calor, complementa a GoatCounter (que solo cuenta vistas/clics, no
+      "cómo" navega la gente). `define:vars` obliga a `is:inline` (Astro
+      no puede procesar un script con variables inyectadas en build time)
+      — mismo mecanismo de hash automático por página que ya usa el
+      script de GoatCounter de arriba, no hace falta `'unsafe-inline'` en
+      la CSP. Nunca corre en /staff/** porque esas páginas no usan este
+      layout (tienen su propio <html> aparte) — no hace falta excluirlas
+      a mano.
+
+      Privacidad: los campos de teléfono/email/DNI de los formularios del
+      sitio llevan `data-clarity-mask="true"` (ver ActivityRegistrationForm,
+      ActivityCertificateRegistrationForm, AgendaSaleSection, sumate.astro)
+      para que una grabación de sesión nunca muestre esos datos en texto
+      plano, aunque alguien los haya tipeado.
+    -->
+    <script is:inline define:vars={{ clarityProjectId: siteConfig.clarityProjectId }}>
+      (function (c, l, a, r, i, t, y) {
+        c[a] =
+          c[a] ||
+          function () {
+            // eslint-disable-next-line prefer-rest-params -- snippet oficial de Microsoft, sin modificar
+            (c[a].q = c[a].q || []).push(arguments);
+          };
+        t = l.createElement(r);
+        t.async = 1;
+        t.src = 'https://www.clarity.ms/tag/' + i;
+        y = l.getElementsByTagName(r)[0];
+        y.parentNode.insertBefore(t, y);
+      })(window, document, 'clarity', 'script', clarityProjectId);
+    </script>
+
     <!-- Fase 15 (PWA): habilita instalación y uso offline básico. -->
     <script is:inline>
       if ('serviceWorker' in navigator) {

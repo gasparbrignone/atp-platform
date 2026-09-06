@@ -68,12 +68,30 @@ export default defineConfig({
   //  - static.cloudflareinsights.com: script propio que el widget de
   //    Turnstile carga para su verificación (parte del producto, no algo
   //    que se pueda desactivar).
+  //  - *.clarity.ms: Microsoft Clarity (grabación de sesiones + mapas de
+  //    calor, ver BaseLayout.astro) — www.clarity.ms sirve el tag
+  //    inicial, que carga el script real desde scripts.clarity.ms, que
+  //    manda datos de vuelta rotando entre varios subdominios de una
+  //    sola letra (c., e., o.clarity.ms confirmados con un navegador
+  //    real, probablemente más) — de ahí el comodín en vez de listarlos
+  //    uno por uno, mismo criterio que *.archive.org más arriba. Nunca
+  //    corre en /staff/** (esas páginas no usan BaseLayout).
+  //
+  //    A PROPÓSITO no se agregó c.bing.com: Clarity intenta un pixel de
+  //    sincronización hacia ese dominio (publicidad de Microsoft/Bing
+  //    Ads, no hace falta para grabar sesiones ni mapas de calor) —
+  //    encontrado con el mismo navegador real de arriba. Se deja
+  //    bloqueado por la CSP a propósito, coherente con la decisión ya
+  //    tomada de no sumar tracking publicitario (ver por qué se descartó
+  //    Google Analytics en docs/STACK_DECISIONS.md). Si Clarity deja de
+  //    funcionar bien en el futuro, revisar si agregó una dependencia
+  //    nueva de este pixel antes de habilitarlo sin pensarlo.
   security: {
     csp: {
       directives: [
         "default-src 'self'",
-        "img-src 'self' data: https://i.ytimg.com https://covers.openlibrary.org https://archive.org https://*.archive.org https://atpfcm.goatcounter.com",
-        "connect-src 'self' https://script.google.com https://script.googleusercontent.com https://gc.zgo.at https://atpfcm.goatcounter.com https://challenges.cloudflare.com",
+        "img-src 'self' data: https://i.ytimg.com https://covers.openlibrary.org https://archive.org https://*.archive.org https://atpfcm.goatcounter.com https://*.clarity.ms",
+        "connect-src 'self' https://script.google.com https://script.googleusercontent.com https://gc.zgo.at https://atpfcm.goatcounter.com https://challenges.cloudflare.com https://*.clarity.ms",
         "frame-src 'self' https://www.youtube-nocookie.com https://challenges.cloudflare.com",
         "font-src 'self'",
         "form-action 'self'",
@@ -88,6 +106,7 @@ export default defineConfig({
           'https://gc.zgo.at',
           'https://challenges.cloudflare.com',
           'https://static.cloudflareinsights.com',
+          'https://*.clarity.ms',
         ],
       },
     },

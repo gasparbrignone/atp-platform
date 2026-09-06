@@ -3,6 +3,11 @@ export const siteConfig = {
   locale: 'es',
   defaultOgImage: '/branding/logo.svg',
   goatcounterSite: 'atpfcm',
+  // Microsoft Clarity (grabación de sesiones + mapas de calor — ver
+  // docs/ANALYTICS_SETUP.md). Público a propósito, igual que el site code
+  // de GoatCounter de arriba: solo identifica a qué proyecto de Clarity
+  // van los datos, no es un secreto.
+  clarityProjectId: 'ye99sgprf3',
   // Canal "ATP FCM". Se usa la playlist de "Subidas" del canal para pedir
   // los últimos videos (ver src/lib/youtube.ts), no una lista de video IDs
   // a mano: YouTube genera esa playlist sola con cada video nuevo, así que

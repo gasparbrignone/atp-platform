@@ -91,14 +91,28 @@ const hasConfirmationLink = Boolean(confirmationLinkLabel && confirmationLinkUrl
       <label for="registration-email" class="text-caption text-text-secondary font-semibold">
         Email
       </label>
-      <Input id="registration-email" name="email" type="email" autocomplete="email" required />
+      <Input
+        id="registration-email"
+        name="email"
+        type="email"
+        autocomplete="email"
+        data-clarity-mask="true"
+        required
+      />
     </div>
 
     <div class="flex flex-col gap-2">
       <label for="registration-phone" class="text-caption text-text-secondary font-semibold">
         Teléfono
       </label>
-      <Input id="registration-phone" name="phone" type="tel" autocomplete="tel" required />
+      <Input
+        id="registration-phone"
+        name="phone"
+        type="tel"
+        autocomplete="tel"
+        data-clarity-mask="true"
+        required
+      />
     </div>
 
     {
