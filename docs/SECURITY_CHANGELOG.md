@@ -10,6 +10,29 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ---
 
+## 2026-09-05 (continuación — dos bugs encontrados probando en producción real)
+
+- **fix (CRITICAL, funcionalidad no seguridad):** el botón "Confirmar
+  envío" de una campaña no hacía nada, sin ningún mensaje — un
+  `<input required>` del diálogo de link/imagen (cerrado, pero igual
+  parte del árbol del `<form>` de la campaña) hacía que el navegador
+  cancelara en silencio la validación de TODO el formulario. Arreglado
+  sacando el diálogo del formulario con `createPortal` (React) — pasa a
+  vivir en `<body>`.
+- **fix:** el editor de texto (Tiptap) violaba la CSP del sitio en
+  producción — inyectaba su propio `<style>` en runtime, bloqueado por no
+  tener `'unsafe-inline'` para estilos. Arreglado con `injectCSS: false`
+  + una clase de Tailwind (`whitespace-pre-wrap`) en su lugar.
+- **fix:** el link insertado con el editor no se veía visualmente como
+  link en el mail (sin color/subrayado) — `sanitizeCampaignHtml` ahora le
+  agrega `style="color:...;text-decoration:underline;"` con el mismo
+  azul institucional (`BRAND_COLOR`) del resto de los links del sitio.
+- Ninguno de los dos primeros bugs lo detectó `astro check`, el arnés de
+  Node, ni un navegador headless contra el servidor de *desarrollo* —
+  solo aparecieron probando contra un build de producción real
+  (`astro build` + `astro preview`) o el sitio publicado de verdad. Ver
+  decisión completa en `SECURITY_DECISIONS.md`.
+
 ## 2026-09-05 (continuación — editor de texto enriquecido + destinatarios manuales)
 
 - **feat:** el mensaje de campaña ahora se escribe en un editor de texto

@@ -927,7 +927,7 @@ actividad solo.
          var href = hrefMatch ? sanitizeCampaignUrl(hrefMatch[1], true) : null;
          if (!href) return '';
          openAnchors++;
-         return '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">';
+         return '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" style="color:' + BRAND_COLOR + ';text-decoration:underline;">';
        }
 
        if (tag === 'img') {

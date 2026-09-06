@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import { Document } from '@tiptap/extension-document';
 import { Paragraph } from '@tiptap/extension-paragraph';
@@ -49,6 +50,12 @@ export default function CampaignEditor() {
   const [urlValue, setUrlValue] = React.useState('');
   const [labelValue, setLabelValue] = React.useState('');
 
+  // El <dialog> de link/imagen se porta afuera del <form> de la campaña
+  // (ver más abajo, createPortal) — necesita que el documento ya exista,
+  // así que "montado" recién es true del lado del cliente.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+
   const editor = useEditor({
     extensions: [
       Document,
@@ -67,11 +74,19 @@ export default function CampaignEditor() {
     ],
     editorProps: {
       attributes: {
-        class: 'min-h-48 px-3 py-2 focus:outline-none [&_p]:mb-3 last:[&_p]:mb-0',
+        class:
+          'min-h-48 px-3 py-2 whitespace-pre-wrap focus:outline-none [&_p]:mb-3 last:[&_p]:mb-0',
         'aria-label': 'Mensaje del mail',
         role: 'textbox',
       },
     },
+    // Por defecto Tiptap/ProseMirror inyectan un <style> propio en runtime
+    // (white-space, selección, etc.) — la CSP del sitio no tiene
+    // 'unsafe-inline' para estilos (solo hashes calculados en build time),
+    // así que ese <style> queda bloqueado (ver consola). Se desactiva y se
+    // repone lo único que hacía falta (white-space: pre-wrap) como clase
+    // de Tailwind de siempre, arriba.
+    injectCSS: false,
     immediatelyRender: false,
     onUpdate: ({ editor: updatedEditor }) => syncHiddenInput(updatedEditor),
     onCreate: ({ editor: createdEditor }) => syncHiddenInput(createdEditor),
@@ -172,7 +187,11 @@ export default function CampaignEditor() {
         >
           <Italic className="size-4" aria-hidden="true" />
         </ToolbarButton>
-        <ToolbarButton label="Link" active={editor?.isActive('link') ?? false} onClick={openLinkDialog}>
+        <ToolbarButton
+          label="Link"
+          active={editor?.isActive('link') ?? false}
+          onClick={openLinkDialog}
+        >
           <LinkIcon className="size-4" aria-hidden="true" />
         </ToolbarButton>
         <ToolbarButton label="Imagen" active={false} onClick={openImageDialog}>
@@ -189,99 +208,126 @@ export default function CampaignEditor() {
           data-campaign-body como si fuera el <textarea> de siempre. */}
       <input type="hidden" data-campaign-body ref={hiddenInputRef} />
 
-      <dialog
-        ref={dialogRef}
-        aria-labelledby="campaign-editor-dialog-title"
-        className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-md border-0 bg-transparent p-0 backdrop:bg-gray-900/60 backdrop:backdrop-blur-sm"
-      >
-        {/*
-          Un <form> acá adentro anidaría con el <form data-campaign-form>
-          de panel.astro que envuelve a este componente — HTML no permite
-          formularios anidados (el navegador descarta el interno al
-          parsear el HTML del server, aunque React SSR no avise), lo que
-          rompía la hidratación. Por eso es un <div> con Enter manejado a
-          mano, no un <form> con onSubmit.
-        */}
-        <div
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              confirmDialog();
-            }
-          }}
-          className="bg-surface flex max-h-[85dvh] flex-col gap-4 overflow-y-auto rounded-lg p-6 shadow-xl"
-        >
-          <div className="flex items-start justify-between gap-4">
-            <h2 id="campaign-editor-dialog-title" className="text-h4 text-text font-bold">
-              {dialogState?.mode === 'image' ? 'Insertar imagen' : 'Insertar link'}
-            </h2>
-            <button
-              type="button"
-              onClick={closeDialog}
-              aria-label="Cerrar"
-              className="text-text-secondary hover:bg-surface-alt inline-flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-150"
+      {/*
+        Portado afuera del <form data-campaign-form> a propósito: un
+        <dialog> cerrado sigue siendo parte del árbol del formulario que lo
+        contiene, y el navegador cuenta sus campos `required` (URL/texto
+        del link) al validar ESE formulario entero. Como el diálogo suele
+        estar oculto en ese momento, el navegador encontraba un campo
+        inválido que no podía enfocar para avisar del error — y en vez de
+        mostrar nada, cancelaba en silencio el envío de toda la campaña
+        (bug real encontrado en producción el 2026-09-05: "Confirmar
+        envío" no hacía nada, sin ningún mensaje). Con createPortal el
+        diálogo vive aparte, en <body>, y deja de contar para ese
+        formulario.
+      */}
+      {mounted &&
+        createPortal(
+          <dialog
+            ref={dialogRef}
+            aria-labelledby="campaign-editor-dialog-title"
+            className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-md border-0 bg-transparent p-0 backdrop:bg-gray-900/60 backdrop:backdrop-blur-sm"
+          >
+            {/*
+              Un <form> acá adentro anidaría con el <form data-campaign-form>
+              de panel.astro (aunque ahora esté portado afuera en el DOM
+              final, en el JSX este componente sigue siendo hijo de ese
+              formulario) — HTML no permite formularios anidados (el
+              navegador descarta el interno al parsear el HTML del
+              servidor, aunque React SSR no avise), lo que rompía la
+              hidratación. Por eso es un <div> con Enter manejado a mano,
+              no un <form> con onSubmit.
+            */}
+            <div
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  confirmDialog();
+                }
+              }}
+              className="bg-surface flex max-h-[85dvh] flex-col gap-4 overflow-y-auto rounded-lg p-6 shadow-xl"
             >
-              <X className="size-5" aria-hidden="true" />
-            </button>
-          </div>
+              <div className="flex items-start justify-between gap-4">
+                <h2 id="campaign-editor-dialog-title" className="text-h4 text-text font-bold">
+                  {dialogState?.mode === 'image' ? 'Insertar imagen' : 'Insertar link'}
+                </h2>
+                <button
+                  type="button"
+                  onClick={closeDialog}
+                  aria-label="Cerrar"
+                  className="text-text-secondary hover:bg-surface-alt inline-flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-150"
+                >
+                  <X className="size-5" aria-hidden="true" />
+                </button>
+              </div>
 
-          {dialogState?.mode === 'image' && (
-            <p className="text-caption text-text-secondary">
-              Pegá la URL de una imagen que ya esté publicada (por ejemplo, subida antes desde{' '}
-              <code>/admin/</code>). Este editor no sube archivos nuevos.
-            </p>
-          )}
+              {dialogState?.mode === 'image' && (
+                <p className="text-caption text-text-secondary">
+                  Pegá la URL de una imagen que ya esté publicada (por ejemplo, subida antes desde{' '}
+                  <code>/admin/</code>). Este editor no sube archivos nuevos.
+                </p>
+              )}
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor="campaign-editor-url" className="text-caption text-text-secondary font-semibold">
-              URL
-            </label>
-            <input
-              id="campaign-editor-url"
-              type="text"
-              required
-              autoFocus
-              value={urlValue}
-              onChange={(event) => setUrlValue(event.target.value)}
-              placeholder="https://"
-              className={getFieldClasses() + ' h-10 px-3'}
-            />
-          </div>
+              <div className="flex flex-col gap-2">
+                <label
+                  htmlFor="campaign-editor-url"
+                  className="text-caption text-text-secondary font-semibold"
+                >
+                  URL
+                </label>
+                <input
+                  id="campaign-editor-url"
+                  type="text"
+                  required
+                  autoFocus
+                  value={urlValue}
+                  onChange={(event) => setUrlValue(event.target.value)}
+                  placeholder="https://"
+                  className={getFieldClasses() + ' h-10 px-3'}
+                />
+              </div>
 
-          {(dialogState?.mode === 'image' || dialogState?.needsLabel) && (
-            <div className="flex flex-col gap-2">
-              <label htmlFor="campaign-editor-label" className="text-caption text-text-secondary font-semibold">
-                {dialogState?.mode === 'image' ? 'Texto alternativo (opcional)' : 'Texto del link'}
-              </label>
-              <input
-                id="campaign-editor-label"
-                type="text"
-                required={dialogState?.mode !== 'image'}
-                value={labelValue}
-                onChange={(event) => setLabelValue(event.target.value)}
-                className={getFieldClasses() + ' h-10 px-3'}
-              />
+              {(dialogState?.mode === 'image' || dialogState?.needsLabel) && (
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="campaign-editor-label"
+                    className="text-caption text-text-secondary font-semibold"
+                  >
+                    {dialogState?.mode === 'image'
+                      ? 'Texto alternativo (opcional)'
+                      : 'Texto del link'}
+                  </label>
+                  <input
+                    id="campaign-editor-label"
+                    type="text"
+                    required={dialogState?.mode !== 'image'}
+                    value={labelValue}
+                    onChange={(event) => setLabelValue(event.target.value)}
+                    className={getFieldClasses() + ' h-10 px-3'}
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeDialog}
+                  className="border-border-strong text-text text-body inline-flex h-10 items-center justify-center rounded-sm border px-4 font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDialog}
+                  className="bg-primary-fill text-primary-fill-foreground text-body inline-flex h-10 items-center justify-center rounded-sm px-4 font-semibold hover:brightness-110"
+                >
+                  Insertar
+                </button>
+              </div>
             </div>
-          )}
-
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={closeDialog}
-              className="border-border-strong text-text inline-flex h-10 items-center justify-center rounded-sm border px-4 text-body font-semibold"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={confirmDialog}
-              className="bg-primary-fill text-primary-fill-foreground inline-flex h-10 items-center justify-center rounded-sm px-4 text-body font-semibold hover:brightness-110"
-            >
-              Insertar
-            </button>
-          </div>
-        </div>
-      </dialog>
+          </dialog>,
+          document.body,
+        )}
     </div>
   );
 }

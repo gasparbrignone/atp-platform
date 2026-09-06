@@ -707,3 +707,52 @@ Tampoco poner un `<form>` de React dentro de otro `<form>` ya existente
 en la página — HTML no lo permite y el error (hidratación rota, no un
 error de consola obvio de leer) es fácil de pasar por alto sin probar de
 verdad en un navegador.
+
+**Actualización (mismo día, probado en producción real):** aparecieron
+dos problemas más al probar de verdad en el sitio publicado, ninguno
+detectado por `astro check` ni por el arnés de Node (ambos son bugs de
+integración con el navegador real, no de lógica pura):
+
+1. **El envío de la campaña no hacía nada, sin ningún mensaje de error.**
+   El `<input id="campaign-editor-url" required>` del diálogo de link/
+   imagen, aunque el diálogo estuviera cerrado, seguía siendo parte del
+   árbol del `<form data-campaign-form>` que lo contiene (el HTML asocia
+   un control a su `<form>` ancestro más cercano, sin importar si está
+   visible). Al hacer clic en "Confirmar envío", el navegador intentaba
+   validar TODO el formulario, encontraba ese campo `required` inválido,
+   no podía enfocarlo para avisar (estaba oculto) y **cancelaba el envío
+   en silencio** — sin disparar el evento `submit`, sin ningún mensaje en
+   pantalla, solo un aviso en la consola de desarrollador
+   ("An invalid form control with name='' is not focusable"). Arreglado
+   sacando el `<dialog>` completo del formulario con `createPortal` de
+   React (lo manda a vivir directo en `<body>`) — deja de contar para la
+   validación de ese formulario.
+2. **El editor de texto (Tiptap/ProseMirror) violaba la CSP en
+   producción.** Por defecto, Tiptap inyecta su propio `<style>` en
+   tiempo de ejecución (para el `white-space` del editor, entre otras
+   cosas) — la CSP del sitio no tiene `'unsafe-inline'` para estilos
+   (solo hashes calculados en build time por Astro), así que ese
+   `<style>` quedaba bloqueado. Arreglado con `injectCSS: false` en
+   `useEditor` más la única clase que hacía falta (`whitespace-pre-wrap`)
+   agregada a mano como clase de Tailwind normal.
+
+Ambos se encontraron porque el dueño del proyecto probó de verdad en el
+sitio publicado después de pegar el Apps Script — ni la revisión de
+código ni las pruebas automatizadas (tipos, Node, incluso un navegador
+headless contra el servidor de *desarrollo*) los habían detectado, porque
+ninguna de esas dos cosas (un `<form>` anidado en el árbol real del DOM,
+la CSP real de producción) se manifiesta igual fuera de "el sitio
+publicado de verdad". Verificado después con Playwright contra un build
+de producción real (`astro build` + `astro preview`), no solo contra el
+servidor de desarrollo — ahí sí aparecía la violación de CSP, confirmando
+que el dev server no la hubiera detectado.
+
+**Qué NO hacer en el futuro (actualización):** no dar por buena una
+funcionalidad de un componente que vive dentro de un `<form>` más grande
+sin verificar `formulario.checkValidity()` con el componente en su estado
+real (diálogos cerrados, campos condicionales) — un campo `required`
+oculto en cualquier parte del árbol de un formulario puede cancelar todo
+el envío en silencio. Tampoco confiar en que "no tira error en el
+servidor de desarrollo" sea suficiente para features que dependen de la
+CSP — hay que probar contra un build de producción real (`astro build` +
+`astro preview`) antes de darlas por probadas.
