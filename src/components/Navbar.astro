@@ -42,7 +42,7 @@ const navLinks = [
   { label: 'Biblioteca', href: '/biblioteca/' },
   { label: 'Actividades', href: '/actividades/' },
   { label: 'Carreras', href: '/carreras/', children: careerChildren },
-  { label: '+info', href: '/herramientas/', children: toolChildren },
+  { label: 'Herramientas', href: '/herramientas/', children: toolChildren },
 ];
 ---
 
@@ -146,7 +146,7 @@ const navLinks = [
   updateScrolled();
   window.addEventListener('scroll', updateScrolled, { passive: true });
 
-  // Desktop Carreras/+info dropdowns — closed by default, one open at a
+  // Desktop Carreras/Herramientas dropdowns — closed by default, one open at a
   // time, dismissed on outside click or Escape (unlike the mobile
   // accordion in MobileMenu.astro, which stays open within the drawer).
   const toggles = Array.from(

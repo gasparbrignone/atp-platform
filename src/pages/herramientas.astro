@@ -1,6 +1,6 @@
 ---
 /**
- * +info (listing). Simple catalog — no filters, consistent with the
+ * Herramientas (listing). Simple catalog — no filters, consistent with the
  * current identity/UX pass (Biblioteca/Actividades dropped their
  * multi-filter setups too).
  *
@@ -39,13 +39,13 @@ const publishedTools = await getCollection('tools', ({ data }) => data.published
 ---
 
 <BaseLayout
-  title="+info"
+  title="Herramientas"
   description="Atlas, simuladores y accesos útiles para estudiar."
   canonicalPath="/herramientas/"
 >
   <Section spacing="lg">
     <Container class="flex flex-col gap-10">
-      <SectionHeader as="h1" title="+info" />
+      <SectionHeader as="h1" title="Herramientas" />
 
       {
         publishedTools.length > 0 ? (

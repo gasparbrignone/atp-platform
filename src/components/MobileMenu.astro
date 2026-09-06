@@ -131,7 +131,7 @@ const { links }: Props = Astro.props;
     closeButton?.addEventListener('click', menu.close);
   }
 
-  // Accordion for the Carreras/+info sub-lists — each toggle button sits
+  // Accordion for the Carreras/Herramientas sub-lists — each toggle button sits
   // right next to its own <a>, so `nextElementSibling` from the button's
   // parent row always finds the matching <ul data-submenu>.
   document.querySelectorAll<HTMLButtonElement>('[data-submenu-toggle]').forEach((toggle) => {
