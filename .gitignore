@@ -29,3 +29,8 @@ pnpm-debug.log*
 # fotos sin editar/elegir todavía, esperando revisión — no son assets del
 # sitio (eso vive en src/assets/), solo material crudo para elegir de ahí
 raw-photos/
+
+# exports personales de Google Search Console (CSVs/zips descargados para
+# revisión manual) — no son parte del sitio ni de su documentación
+/google/
+docs/*Coverage-Validation*.zip

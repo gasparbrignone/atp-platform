@@ -2,7 +2,7 @@
 /**
  * Panel interno de administración: ver quiénes se inscribieron a una
  * actividad y mandarles una campaña de mail personalizada (etiquetas
- * <nombre>, <apellido>, <email>). Herramienta interna del staff, no una
+ * {{nombre}}, {{apellido}}, {{email}}). Herramienta interna del staff, no una
  * página del sitio — sin Navbar/Footer, noindex (mismo criterio que
  * public/admin/index.html y src/pages/staff/escanear.astro).
  *
@@ -44,12 +44,16 @@ import Send from '@lucide/astro/icons/send';
           Herramientas de staff
         </a>
         <div class="flex items-center gap-3">
-          <div class="bg-secondary/10 text-secondary-strong inline-flex size-11 shrink-0 items-center justify-center rounded-full">
+          <div
+            class="bg-secondary/10 text-secondary-strong inline-flex size-11 shrink-0 items-center justify-center rounded-full"
+          >
             <Lock class="size-5" aria-hidden="true" />
           </div>
           <div>
             <h1 class="text-h3 text-text font-extrabold">Panel admin</h1>
-            <p class="text-body-sm text-text-secondary">Inscriptos por actividad y campañas de mail</p>
+            <p class="text-body-sm text-text-secondary">
+              Inscriptos por actividad y campañas de mail
+            </p>
           </div>
         </div>
       </div>
@@ -83,7 +87,9 @@ import Send from '@lucide/astro/icons/send';
       </form>
 
       <div data-dashboard hidden class="flex flex-col gap-6">
-        <div class="border-border bg-surface flex items-center justify-between rounded-md border p-4">
+        <div
+          class="border-border bg-surface flex items-center justify-between rounded-md border p-4"
+        >
           <p class="text-body-sm text-text-secondary">Sesión iniciada</p>
           <button
             type="button"
@@ -95,14 +101,16 @@ import Send from '@lucide/astro/icons/send';
         </div>
 
         <div class="flex flex-col items-start gap-6 lg:flex-row">
-          <div class="border-border bg-surface flex w-full flex-col gap-4 rounded-md border p-6 lg:flex-1">
+          <div
+            class="border-border bg-surface flex w-full flex-col gap-4 rounded-md border p-6 lg:flex-1"
+          >
             <div class="flex items-center gap-3">
               <Users class="text-secondary-strong size-6 shrink-0" aria-hidden="true" />
               <div>
                 <p class="text-body font-bold">Inscriptos</p>
                 <p class="text-caption text-text-secondary">
-                  Elegí una actividad para ver quién se anotó. "Excluir" saca a esa persona solo de la
-                  próxima campaña que mandes, no la da de baja de verdad.
+                  Elegí una actividad para ver quién se anotó. "Excluir" saca a esa persona solo de
+                  la próxima campaña que mandes, no la da de baja de verdad.
                 </p>
               </div>
             </div>
@@ -132,7 +140,11 @@ import Send from '@lucide/astro/icons/send';
                   </tr>
                 </thead>
                 <tbody data-registrations-body>
-                  <tr><td class="text-text-secondary p-3 text-center" colspan="4">Elegí una actividad.</td></tr>
+                  <tr
+                    ><td class="text-text-secondary p-3 text-center" colspan="4"
+                      >Elegí una actividad.</td
+                    ></tr
+                  >
                 </tbody>
               </table>
             </div>
@@ -171,7 +183,9 @@ import Send from '@lucide/astro/icons/send';
               label="Incluir recordatorio de fecha y hora de la próxima clase"
             />
 
-            <div class="border-border-strong bg-surface-alt flex flex-col gap-3 rounded-md border p-4">
+            <div
+              class="border-border-strong bg-surface-alt flex flex-col gap-3 rounded-md border p-4"
+            >
               <p class="text-caption text-text-secondary font-semibold">
                 Agregar destinatarios manuales — además de los inscriptos de la actividad, solo para
                 este envío (por ejemplo, para mandarte una prueba a vos mismo)
@@ -192,14 +206,25 @@ import Send from '@lucide/astro/icons/send';
                   aria-label="Email del destinatario manual"
                   class="sm:flex-1"
                 />
-                <Button type="button" variant="secondary" data-manual-recipient-add class="shrink-0">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  data-manual-recipient-add
+                  class="shrink-0"
+                >
                   Agregar
                 </Button>
               </div>
               <ul data-manual-recipient-list class="flex flex-wrap gap-2"></ul>
             </div>
 
-            <Button type="button" size="lg" variant="secondary" data-preview-button class="self-start">
+            <Button
+              type="button"
+              size="lg"
+              variant="secondary"
+              data-preview-button
+              class="self-start"
+            >
               Ver vista previa
             </Button>
 
@@ -221,7 +246,7 @@ import Send from '@lucide/astro/icons/send';
                 siempre exactamente como wrapEmailHtml lo armó, igual que en
                 un cliente de mail real.
               -->
-              <div class="overflow-hidden rounded-xs border border-border">
+              <div class="border-border overflow-hidden rounded-xs border">
                 <div class="bg-white px-4 py-3">
                   <p class="text-caption font-semibold text-[#6b7280]">Asunto</p>
                   <p data-preview-subject class="text-body font-semibold text-[#111827]"></p>
@@ -230,8 +255,7 @@ import Send from '@lucide/astro/icons/send';
                   data-preview-body
                   title="Vista previa del mail"
                   sandbox="allow-same-origin"
-                  class="block w-full border-0"
-                ></iframe>
+                  class="block w-full border-0"></iframe>
               </div>
             </div>
 
@@ -291,10 +315,18 @@ import Send from '@lucide/astro/icons/send';
       const campaignBody = document.querySelector<HTMLInputElement>('[data-campaign-body]');
       const campaignReminder = document.querySelector<HTMLInputElement>('[data-campaign-reminder]');
       const campaignSubmit = document.querySelector<HTMLButtonElement>('[data-campaign-submit]');
-      const manualRecipientName = document.querySelector<HTMLInputElement>('[data-manual-recipient-name]');
-      const manualRecipientEmail = document.querySelector<HTMLInputElement>('[data-manual-recipient-email]');
-      const manualRecipientAdd = document.querySelector<HTMLButtonElement>('[data-manual-recipient-add]');
-      const manualRecipientList = document.querySelector<HTMLElement>('[data-manual-recipient-list]');
+      const manualRecipientName = document.querySelector<HTMLInputElement>(
+        '[data-manual-recipient-name]',
+      );
+      const manualRecipientEmail = document.querySelector<HTMLInputElement>(
+        '[data-manual-recipient-email]',
+      );
+      const manualRecipientAdd = document.querySelector<HTMLButtonElement>(
+        '[data-manual-recipient-add]',
+      );
+      const manualRecipientList = document.querySelector<HTMLElement>(
+        '[data-manual-recipient-list]',
+      );
       const previewButton = document.querySelector<HTMLButtonElement>('[data-preview-button]');
       const previewPanel = document.querySelector<HTMLElement>('[data-preview-panel]');
       const previewRecipient = document.querySelector<HTMLElement>('[data-preview-recipient]');
@@ -328,7 +360,7 @@ import Send from '@lucide/astro/icons/send';
       // nunca se guardan en ninguna planilla, solo viven en esta pestaña
       // mientras se arma el envío (ver Fase 5 del plan del panel admin).
       let extraRecipients: { nombre: string; email: string }[] = [];
-      let excludedEmails = new Set<string>();
+      const excludedEmails = new Set<string>();
 
       function getToken(): string | null {
         return sessionStorage.getItem(SESSION_KEY);
@@ -343,7 +375,9 @@ import Send from '@lucide/astro/icons/send';
             'bg-surface border-border-strong text-caption inline-flex items-center gap-2 rounded-full border py-1 pr-1 pl-3';
 
           const label = document.createElement('span');
-          label.textContent = recipient.nombre ? `${recipient.nombre} <${recipient.email}>` : recipient.email;
+          label.textContent = recipient.nombre
+            ? `${recipient.nombre} <${recipient.email}>`
+            : recipient.email;
           item.appendChild(label);
 
           const removeButton = document.createElement('button');
@@ -369,7 +403,8 @@ import Send from '@lucide/astro/icons/send';
       // tener que tildar uno por uno si la lista es larga.
       function syncExcludeAllCheckbox() {
         if (!excludeAllCheckbox || !registrationsBody) return;
-        const checkboxes = registrationsBody.querySelectorAll<HTMLInputElement>('[data-exclude-checkbox]');
+        const checkboxes =
+          registrationsBody.querySelectorAll<HTMLInputElement>('[data-exclude-checkbox]');
         if (checkboxes.length === 0) {
           excludeAllCheckbox.checked = false;
           excludeAllCheckbox.indeterminate = false;
@@ -405,7 +440,11 @@ import Send from '@lucide/astro/icons/send';
         // muestra la etiqueta literal en vez del saludo — ya pasó dos
         // veces en producción, mejor prevenirlo que confiar en el aviso.
         if (!nombre) {
-          showToast({ message: 'Escribí también el nombre — sin eso, el mail va a decir "Hola <nombre>!" literal.', variant: 'info' });
+          showToast({
+            message:
+              'Escribí también el nombre — sin eso, el mail va a decir "Hola <nombre>!" literal.',
+            variant: 'info',
+          });
           return;
         }
 
@@ -465,14 +504,18 @@ import Send from '@lucide/astro/icons/send';
             activitySelect.appendChild(option);
           });
         } catch {
-          showToast({ message: 'No pudimos cargar las actividades. Probá de nuevo.', variant: 'error' });
+          showToast({
+            message: 'No pudimos cargar las actividades. Probá de nuevo.',
+            variant: 'error',
+          });
         }
       }
 
       async function loadRegistrations(sheetName: string) {
         const token = getToken();
         if (!token || !registrationsBody) return;
-        registrationsBody.innerHTML = '<tr><td class="p-3 text-text-secondary" colspan="4">Cargando…</td></tr>';
+        registrationsBody.innerHTML =
+          '<tr><td class="p-3 text-text-secondary" colspan="4">Cargando…</td></tr>';
 
         try {
           const response = await jsonpRequest<{
@@ -520,9 +563,13 @@ import Send from '@lucide/astro/icons/send';
             excludeCheckbox.type = 'checkbox';
             // Mismas clases que Checkbox.astro — armado a mano acá porque
             // esta tabla es DOM creado en el navegador, no markup de Astro.
-            excludeCheckbox.className = 'border-border-strong accent-secondary-strong size-4 shrink-0 rounded-xs border';
+            excludeCheckbox.className =
+              'border-border-strong accent-secondary-strong size-4 shrink-0 rounded-xs border';
             excludeCheckbox.setAttribute('data-exclude-checkbox', '');
-            excludeCheckbox.setAttribute('aria-label', `Excluir a ${registration.email} de la próxima campaña`);
+            excludeCheckbox.setAttribute(
+              'aria-label',
+              `Excluir a ${registration.email} de la próxima campaña`,
+            );
             excludeCheckbox.addEventListener('change', () => {
               const email = registration.email.toLowerCase();
               if (excludeCheckbox.checked) excludedEmails.add(email);
@@ -582,10 +629,13 @@ import Send from '@lucide/astro/icons/send';
             body: new URLSearchParams({ action: 'adminLoginAttempt', password, code, loginId }),
           });
 
-          const response = await jsonpRequest<{ result: string; token?: string }>(GOOGLE_FORMS_ENDPOINT, {
-            action: 'adminLoginPoll',
-            loginId,
-          });
+          const response = await jsonpRequest<{ result: string; token?: string }>(
+            GOOGLE_FORMS_ENDPOINT,
+            {
+              action: 'adminLoginPoll',
+              loginId,
+            },
+          );
 
           if (response.result === 'success' && response.token) {
             sessionStorage.setItem(SESSION_KEY, response.token);
@@ -610,7 +660,10 @@ import Send from '@lucide/astro/icons/send';
       logoutButton?.addEventListener('click', () => {
         const token = getToken();
         sessionStorage.removeItem(SESSION_KEY);
-        if (token) void jsonpRequest(GOOGLE_FORMS_ENDPOINT, { action: 'adminLogout', token }).catch(() => {});
+        if (token)
+          void jsonpRequest(GOOGLE_FORMS_ENDPOINT, { action: 'adminLogout', token }).catch(
+            () => {},
+          );
         if (dashboard) dashboard.hidden = true;
         if (loginForm) loginForm.hidden = false;
       });
@@ -636,7 +689,10 @@ import Send from '@lucide/astro/icons/send';
         const body = campaignBody?.value.trim();
 
         if (!token || !sheetName || !subject || !body) {
-          showToast({ message: 'Completá actividad, asunto y mensaje antes de pedir la vista previa.', variant: 'info' });
+          showToast({
+            message: 'Completá actividad, asunto y mensaje antes de pedir la vista previa.',
+            variant: 'info',
+          });
           return;
         }
 
@@ -685,7 +741,10 @@ import Send from '@lucide/astro/icons/send';
           }
 
           if (response.result !== 'success' || !response.bodyHtml) {
-            showToast({ message: 'No pudimos armar la vista previa. Probá de nuevo.', variant: 'error' });
+            showToast({
+              message: 'No pudimos armar la vista previa. Probá de nuevo.',
+              variant: 'error',
+            });
             return;
           }
 
@@ -702,7 +761,10 @@ import Send from '@lucide/astro/icons/send';
             campaignSubmit.textContent = `Confirmar envío a ${previewActiveCount} persona(s)`;
           }
         } catch {
-          showToast({ message: 'No pudimos armar la vista previa. Probá de nuevo.', variant: 'error' });
+          showToast({
+            message: 'No pudimos armar la vista previa. Probá de nuevo.',
+            variant: 'error',
+          });
         } finally {
           previewButton.disabled = false;
         }
@@ -749,14 +811,16 @@ import Send from '@lucide/astro/icons/send';
             // mandaría la campaña dos veces. La pestaña "Campañas
             // enviadas" de la planilla es la fuente real de si salió o no.
             showToast({
-              message: 'No pudimos confirmar el envío — antes de reintentar, revisá la pestaña "Campañas enviadas" de la planilla, puede que ya se haya mandado.',
+              message:
+                'No pudimos confirmar el envío — antes de reintentar, revisá la pestaña "Campañas enviadas" de la planilla, puede que ya se haya mandado.',
               variant: 'error',
             });
             invalidatePreview();
           }
         } catch {
           showToast({
-            message: 'No pudimos confirmar el envío — antes de reintentar, revisá la pestaña "Campañas enviadas" de la planilla, puede que ya se haya mandado.',
+            message:
+              'No pudimos confirmar el envío — antes de reintentar, revisá la pestaña "Campañas enviadas" de la planilla, puede que ya se haya mandado.',
             variant: 'error',
           });
           invalidatePreview();

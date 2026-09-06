@@ -1,18 +1,5 @@
 @import 'tailwindcss';
 @import './tokens.css';
-/*
- * shadcn/cult-ui components rely on ARIA/data-state variants
- * (data-open, data-checked...) and entrance-animation utilities
- * (animate-in, fade-in...) that Tailwind doesn't ship by default —
- * these two imports are pure CSS (custom variants + keyframes), no JS.
- * No `@custom-variant dark` override here on purpose: this project has
- * no theme toggle, so Tailwind's default media-query-based `dark:`
- * (prefers-color-scheme) already matches how tokens.css itself switches
- * — a class-based override would silently break every `dark:` utility
- * shadcn/cult-ui components ship with.
- */
-@import 'tw-animate-css';
-@import 'shadcn/tailwind.css';
 
 /*
  * Tailwind v4 theme mapping.

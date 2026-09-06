@@ -45,6 +45,18 @@ export default defineConfig({
   //    endpoint real: `Location: https://script.googleusercontent.com/...`.
   //  - gc.zgo.at / *.goatcounter.com: analíticas (GoatCounter).
   //  - i.ytimg.com / youtube-nocookie.com: miniaturas y embed de YouTube.
+  //  - covers.openlibrary.org: tapa de libro remota para las entradas de
+  //    la Biblioteca que no subieron una propia a /uploads/ (ver
+  //    src/lib/uploadThumb.ts) — sin esto, el navegador bloqueaba la
+  //    imagen en silencio y la tapa nunca se veía en /biblioteca/.
+  //    *.archive.org: algunas tapas de covers.openlibrary.org no están
+  //    en su caché y redirigen (302) a archive.org, que a su vez
+  //    redirige otra vez a un subdominio numerado que varía en cada
+  //    pedido (ej. ia800505.us.archive.org — el nodo del CDN de
+  //    Internet Archive que tenga ese ítem) — de ahí el comodín, no
+  //    alcanza con permitir el dominio exacto. Mismo patrón que la
+  //    redirección de Apps Script de abajo, confirmado viendo el error
+  //    real en consola del navegador.
   //  - data: en img-src: el QR de acceso (ActivityCertificateRegistrationForm.astro)
   //    se genera en el propio navegador con la librería `qrcode` como un
   //    data URI (`QRCode.toDataURL`), no un archivo — sin esto, la imagen
@@ -60,7 +72,7 @@ export default defineConfig({
     csp: {
       directives: [
         "default-src 'self'",
-        "img-src 'self' data: https://i.ytimg.com https://atpfcm.goatcounter.com",
+        "img-src 'self' data: https://i.ytimg.com https://covers.openlibrary.org https://archive.org https://*.archive.org https://atpfcm.goatcounter.com",
         "connect-src 'self' https://script.google.com https://script.googleusercontent.com https://gc.zgo.at https://atpfcm.goatcounter.com https://challenges.cloudflare.com",
         "frame-src 'self' https://www.youtube-nocookie.com https://challenges.cloudflare.com",
         "font-src 'self'",
