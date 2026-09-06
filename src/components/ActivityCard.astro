@@ -32,7 +32,7 @@ const scheduleLabel =
     : getActivityScheduleLabel(activity.data.schedule ?? {});
 ---
 
-<Card data-reveal class={className}>
+<Card data-reveal class:list={['relative', className]}>
   {
     activity.data.image && (
       <img
@@ -54,7 +54,24 @@ const scheduleLabel =
   </p>
   <p class="mt-2">{activity.data.summary}</p>
   <div slot="actions" class="flex flex-wrap items-center gap-2">
-    <Button href={`/actividades/${activity.id}/`} variant="outline" size="sm"> Ver más </Button>
+    {
+      /*
+       * "Ver más" estira un ::after invisible sobre TODA la tarjeta
+       * (ancla en el <Card> de arriba, que por eso es `relative`) — así
+       * el rectángulo entero es clickeable, no solo este botón chico,
+       * sin volver inválido el HTML metiendo un <a> adentro de otro
+       * <a> ni duplicar el destino para quien navega con teclado/lector
+       * de pantalla (sigue habiendo un solo link real: este).
+       */
+    }
+    <Button
+      href={`/actividades/${activity.id}/`}
+      variant="outline"
+      size="sm"
+      class="after:absolute after:inset-0 after:content-['']"
+    >
+      Ver más
+    </Button>
     {
       activity.data.registration?.registrationUrl && (
         <Button
@@ -63,6 +80,7 @@ const scheduleLabel =
           size="sm"
           disabled={activity.data.status === 'finalizada'}
           trackId={`inscripcion:${activity.id}`}
+          class="relative z-10"
         >
           Inscribirse
         </Button>
