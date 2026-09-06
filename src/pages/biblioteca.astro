@@ -254,6 +254,15 @@ const filterChips = [
   typeSelect?.addEventListener('change', applyFilters);
   searchInput?.addEventListener('input', applyFilters);
 
+  // Pre-carga la búsqueda si se llega con ?q= (el buscador global,
+  // GlobalSearch.astro, manda acá así para un libro puntual — la
+  // biblioteca no tiene página propia por libro).
+  const queryParam = new URLSearchParams(window.location.search).get('q');
+  if (queryParam && searchInput) {
+    searchInput.value = queryParam;
+    applyFilters();
+  }
+
   let searchTrackTimeout: ReturnType<typeof setTimeout> | undefined;
   searchInput?.addEventListener('input', () => {
     clearTimeout(searchTrackTimeout);

@@ -17,6 +17,7 @@
  * remaining phases still ahead, e.g. institutional pages).
  */
 import Menu from '@lucide/astro/icons/menu';
+import Search from '@lucide/astro/icons/search';
 import ChevronDown from '@lucide/astro/icons/chevron-down';
 import Container from './Container.astro';
 import Button from './Button.astro';
@@ -114,6 +115,16 @@ const navLinks = [
     </ul>
 
     <div class="flex items-center gap-2">
+      <button
+        type="button"
+        data-modal-open="global-search"
+        aria-haspopup="dialog"
+        class="text-text-secondary ease-standard hover:bg-surface-alt inline-flex size-10 items-center justify-center rounded-full transition-colors duration-150"
+      >
+        <span class="sr-only">Buscar</span>
+        <Search class="size-5" aria-hidden="true" />
+      </button>
+
       <Button href="/sumate/" size="sm" class="hidden md:inline-flex">
         <AtpMark slot="icon-start" class="size-4" />
         Sumate a ATP

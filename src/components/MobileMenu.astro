@@ -7,6 +7,7 @@
  * on the same page (see Navbar.astro).
  */
 import X from '@lucide/astro/icons/x';
+import Search from '@lucide/astro/icons/search';
 import ChevronDown from '@lucide/astro/icons/chevron-down';
 import Button from './Button.astro';
 import SocialLinks from './SocialLinks.astro';
@@ -45,6 +46,16 @@ const { links }: Props = Astro.props;
         <X class="size-5" aria-hidden="true" />
       </button>
     </div>
+
+    <button
+      type="button"
+      id="mobile-menu-search-trigger"
+      data-modal-open="global-search"
+      class="border-border-strong text-text-secondary ease-standard hover:bg-surface-alt flex items-center gap-3 rounded-sm border px-3 py-3 text-left font-semibold transition-colors duration-150"
+    >
+      <Search class="size-5" aria-hidden="true" />
+      Buscar en el sitio
+    </button>
 
     <nav aria-label="Navegación del menú móvil">
       <ul class="flex flex-col gap-1">
@@ -129,6 +140,13 @@ const { links }: Props = Astro.props;
 
     trigger?.addEventListener('click', menu.open);
     closeButton?.addEventListener('click', menu.close);
+
+    // El buscador global es OTRO <dialog> (ver GlobalSearch.astro) — cerrar
+    // este cajón antes de que se abra, para no terminar con los dos
+    // superpuestos en pantalla.
+    document
+      .querySelector<HTMLElement>('#mobile-menu-search-trigger')
+      ?.addEventListener('click', menu.close);
   }
 
   // Accordion for the Carreras/Herramientas sub-lists — each toggle button sits

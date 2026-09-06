@@ -1,0 +1,139 @@
+---
+/**
+ * Buscador global (Fase 18 — UX): un único cuadro de búsqueda que
+ * encuentra actividades, herramientas, carreras y libros a la vez, sin
+ * que quien busca tenga que adivinar en qué sección mirar primero.
+ *
+ * Se renderiza UNA vez acá (BaseLayout.astro) y se abre desde cualquier
+ * botón con `data-modal-open="global-search"` en cualquier página —
+ * mismo patrón desacoplado que ya usa Modal.astro (Navbar.astro y
+ * MobileMenu.astro tienen cada uno su propio botón disparador).
+ *
+ * Sin backend nuevo: el índice es un JSON estático generado en build
+ * time (src/pages/search-index.json.ts), buscado con el mismo
+ * matchesQuery tolerante a tipeos que ya usa Biblioteca
+ * (src/lib/textSearch.ts) — no se reinventa la búsqueda, se reusa.
+ */
+import Modal from './Modal.astro';
+import SearchBar from './SearchBar.astro';
+---
+
+<Modal id="global-search">
+  <span slot="title">Buscar</span>
+  <div class="flex flex-col gap-4">
+    <SearchBar
+      data-global-search-input
+      label="Buscar en todo el sitio"
+      placeholder="Actividades, herramientas, carreras, libros…"
+      autofocus
+    />
+    <div data-global-search-results class="flex flex-col gap-5"></div>
+  </div>
+</Modal>
+
+<script>
+  import { toSearchWords, matchesQuery } from '@/lib/textSearch';
+
+  interface SearchItem {
+    type: 'actividad' | 'herramienta' | 'carrera' | 'libro';
+    title: string;
+    subtitle: string;
+    text: string;
+    url: string;
+  }
+
+  const SECTION_LABELS: Record<SearchItem['type'], string> = {
+    actividad: 'Actividades',
+    herramienta: 'Herramientas',
+    carrera: 'Carreras',
+    libro: 'Biblioteca',
+  };
+
+  // Orden fijo (no el orden en que llegan del JSON) — actividades primero
+  // porque suelen ser lo más urgente/buscado ("¿cuándo es tal cosa?").
+  const SECTION_ORDER: SearchItem['type'][] = ['actividad', 'herramienta', 'carrera', 'libro'];
+
+  const MAX_RESULTS_PER_SECTION = 5;
+
+  const input = document.querySelector<HTMLInputElement>('[data-global-search-input]');
+  const resultsRoot = document.querySelector<HTMLElement>('[data-global-search-results]');
+  if (!input || !resultsRoot)
+    throw new Error('GlobalSearch: faltan el input o el contenedor de resultados');
+
+  // JSON chico (título + resumen de todo el contenido publicado) — se pide
+  // una sola vez ni bien carga el script, no recién al abrir el diálogo:
+  // así el primer tipeo ya tiene datos, sin esperar un fetch de por medio.
+  let items: (SearchItem & { words: string[] })[] = [];
+  const indexReady = fetch('/search-index.json')
+    .then((response) => response.json())
+    .then((data: { items: SearchItem[] }) => {
+      items = data.items.map((item) => ({ ...item, words: toSearchWords(item.text) }));
+    })
+    .catch(() => {
+      // Sin índice, la búsqueda simplemente no devuelve nada — no rompe el
+      // resto del sitio por un fetch fallido.
+    });
+
+  function renderResults(query: string) {
+    if (!resultsRoot) return;
+    resultsRoot.innerHTML = '';
+
+    const trimmed = query.trim();
+    if (!trimmed) return;
+
+    const matches = items.filter((item) => matchesQuery(trimmed, item.words));
+    if (matches.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'text-body-sm text-text-secondary text-center py-4';
+      empty.textContent = 'No encontramos nada con esa búsqueda.';
+      resultsRoot.appendChild(empty);
+      return;
+    }
+
+    SECTION_ORDER.forEach((type) => {
+      const sectionMatches = matches
+        .filter((item) => item.type === type)
+        .slice(0, MAX_RESULTS_PER_SECTION);
+      if (sectionMatches.length === 0) return;
+
+      const section = document.createElement('div');
+      section.className = 'flex flex-col gap-1.5';
+
+      const heading = document.createElement('p');
+      heading.className = 'text-overline text-text-secondary font-semibold uppercase';
+      heading.textContent = SECTION_LABELS[type];
+      section.appendChild(heading);
+
+      const list = document.createElement('ul');
+      list.className = 'flex flex-col';
+      sectionMatches.forEach((item) => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = item.url;
+        a.className =
+          'ease-standard hover:bg-surface-alt -mx-2 flex flex-col gap-0.5 rounded-sm px-2 py-2 transition-colors duration-150';
+
+        const title = document.createElement('span');
+        title.className = 'text-body text-text font-semibold';
+        title.textContent = item.title;
+        a.appendChild(title);
+
+        if (item.subtitle) {
+          const subtitle = document.createElement('span');
+          subtitle.className = 'text-body-sm text-text-secondary line-clamp-1';
+          subtitle.textContent = item.subtitle;
+          a.appendChild(subtitle);
+        }
+
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+      section.appendChild(list);
+      resultsRoot.appendChild(section);
+    });
+  }
+
+  input.addEventListener('input', () => {
+    void indexReady.then(() => renderResults(input.value));
+  });
+</script>

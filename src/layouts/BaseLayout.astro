@@ -6,6 +6,7 @@ import type { SeoProps } from '@/types/seo';
 import Navbar from '@/components/Navbar.astro';
 import Footer from '@/components/Footer.astro';
 import Toast from '@/components/Toast.astro';
+import GlobalSearch from '@/components/GlobalSearch.astro';
 
 type Props = SeoProps;
 
@@ -206,6 +207,7 @@ const websiteJsonLd = {
     </main>
     <Footer />
     <Toast />
+    <GlobalSearch />
     <script>
       import { initScrollReveal } from '@/lib/scrollReveal';
 
