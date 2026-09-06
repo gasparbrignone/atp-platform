@@ -1394,12 +1394,26 @@ actividad solo.
    // `unsubscribeUrl` es opcional: los mails de reserva de la agenda son
    // transaccionales (la persona acaba de pedir algo puntual, no es una
    // suscripción a una lista), así que no llevan pie de "darme de baja".
+   //
+   // Las dos <meta name="..."> de acá abajo (color-scheme,
+   // supported-color-schemes) son las que entienden Gmail/Outlook/Apple
+   // Mail para decidir si "modo oscuro" del cliente de mail del
+   // destinatario puede recolorear este mail solo. Sin ellas, algunos
+   // clientes invierten fondos/textos claros a oscuros por su cuenta
+   // (dejando las imágenes tal cual, por eso el logo se veía bien pero el
+   // fondo rosa se veía negro) — este diseño tiene colores de marca fijos
+   // (ACCENT_COLOR, etc.), no está pensado para adaptarse, así que se le
+   // pide explícitamente al cliente que no lo toque. Bug real encontrado
+   // el 2026-09-05 en la primera vista previa de una campaña real.
    function wrapEmailHtml(bodyHtml, unsubscribeUrl) {
      var footerLink = unsubscribeUrl
        ? '<br><a href="' + unsubscribeUrl.replace(/&/g, '&amp;') + '" style="color:#9aa3af;text-decoration:underline;">Darme de baja de estos mails</a>'
        : '';
 
      return (
+       '<!doctype html><html><head><meta charset="utf-8">' +
+       '<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">' +
+       '</head><body style="margin:0;">' +
        '<div style="background:#eef1f6;padding:32px 16px;font-family:Helvetica,Arial,sans-serif;">' +
        '<div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 16px rgba(198,41,158,0.12);">' +
        '<div style="background:' + ACCENT_COLOR + ';padding:32px 28px;text-align:center;">' +
@@ -1411,7 +1425,8 @@ actividad solo.
        'ATP, Facultad de Ciencias Médicas (UNR).' + footerLink +
        '</div>' +
        '</div>' +
-       '</div>'
+       '</div>' +
+       '</body></html>'
      );
    }
 

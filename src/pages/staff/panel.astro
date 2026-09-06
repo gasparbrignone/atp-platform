@@ -180,17 +180,24 @@ import Send from '@lucide/astro/icons/send';
               <!--
                 El contenido de acá adentro es HTML de mail (wrapEmailHtml del
                 Apps Script, con sus propios colores fijos pensados para
-                fondo blanco de un cliente de mail) — nunca colores del
-                sistema de diseño del sitio (`text-text`, etc.): esos son
-                claros en modo oscuro, pensados para fondo oscuro, e ilegibles
-                sobre esta caja blanca que simula el mail real.
+                fondo blanco de un cliente de mail) — va en un <iframe> con
+                `srcdoc`, no inyectado directo en la página: así queda
+                aislado del CSS y del tema (claro/oscuro) del sitio, y de
+                cualquier "modo oscuro forzado" del navegador — se ve
+                siempre exactamente como wrapEmailHtml lo armó, igual que en
+                un cliente de mail real.
               -->
               <div class="overflow-hidden rounded-xs border border-border">
                 <div class="bg-white px-4 py-3">
                   <p class="text-caption font-semibold text-[#6b7280]">Asunto</p>
                   <p data-preview-subject class="text-body font-semibold text-[#111827]"></p>
                 </div>
-                <div data-preview-body></div>
+                <iframe
+                  data-preview-body
+                  title="Vista previa del mail"
+                  sandbox="allow-same-origin"
+                  class="block w-full border-0"
+                ></iframe>
               </div>
             </div>
 
@@ -249,7 +256,21 @@ import Send from '@lucide/astro/icons/send';
       const previewPanel = document.querySelector<HTMLElement>('[data-preview-panel]');
       const previewRecipient = document.querySelector<HTMLElement>('[data-preview-recipient]');
       const previewSubject = document.querySelector<HTMLElement>('[data-preview-subject]');
-      const previewBody = document.querySelector<HTMLElement>('[data-preview-body]');
+      const previewBody = document.querySelector<HTMLIFrameElement>('[data-preview-body]');
+
+      // Con sandbox="allow-same-origin" (sin allow-scripts) el iframe no
+      // puede ejecutar JS del mail, pero sí se puede leer su altura real
+      // para que no quede ni cortado ni con espacio de sobra debajo.
+      if (previewBody) {
+        previewBody.addEventListener('load', () => {
+          try {
+            const doc = previewBody.contentDocument;
+            if (doc) previewBody.style.height = doc.documentElement.scrollHeight + 'px';
+          } catch {
+            previewBody.style.height = '480px';
+          }
+        });
+      }
 
       // La vista previa "gatea" el envío: solo se puede mandar una
       // campaña cuyo texto exacto ya se vio armado con un destinatario
@@ -268,7 +289,7 @@ import Send from '@lucide/astro/icons/send';
         stagedCampaignId = null;
         previewActiveCount = 0;
         if (previewPanel) previewPanel.hidden = true;
-        if (previewBody) previewBody.innerHTML = '';
+        if (previewBody) previewBody.srcdoc = '';
         if (campaignSubmit) {
           campaignSubmit.disabled = true;
           campaignSubmit.textContent = 'Pedí una vista previa primero';
@@ -506,7 +527,7 @@ import Send from '@lucide/astro/icons/send';
 
           if (previewRecipient) previewRecipient.textContent = response.sampleName ?? '';
           if (previewSubject) previewSubject.textContent = response.subject ?? '';
-          if (previewBody) previewBody.innerHTML = response.bodyHtml;
+          if (previewBody) previewBody.srcdoc = response.bodyHtml;
           if (previewPanel) previewPanel.hidden = false;
 
           if (campaignSubmit) {
