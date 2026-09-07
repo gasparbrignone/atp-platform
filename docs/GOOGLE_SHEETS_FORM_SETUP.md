@@ -2149,6 +2149,18 @@ actividad solo.
    // freno funcionando, no un bug. Para probar el flujo completo de verdad,
    // usar el sitio real (ver "Verificar que funciona" más abajo).
 
+   // Cuántos mails puede mandar TODAVÍA hoy esta cuenta antes de toparse
+   // con "Servicio solicitado demasiadas veces en un mismo día: email"
+   // (el límite diario de Gmail/Workspace, no algo que dependa del
+   // código) — para saber con certeza si ya se agotó del todo o si
+   // queda margen, en vez de asumirlo. Para correrla: en el editor de
+   // Apps Script, elegí "checkMailQuota" del desplegable de funciones
+   // (arriba, al lado de "Depurar") y apretá "Ejecutar" — el número
+   // sale abajo, en el panel de registro de ejecución.
+   function checkMailQuota() {
+     Logger.log('Mails que todavía puede mandar esta cuenta hoy: ' + MailApp.getRemainingDailyQuota());
+   }
+
    function testDoPost() {
      var fakeEvent = {
        parameter: {
