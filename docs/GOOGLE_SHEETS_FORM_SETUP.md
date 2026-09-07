@@ -1208,11 +1208,16 @@ actividad solo.
          // Identifica a la persona para las Fases 6+ (adminStageCertificate/
          // adminSendCertificate) — nunca por nombre/DNI, mismo criterio que
          // ya usa findAndMarkAttendance para el check-in por QR.
-         registrationId: data[i][idCol] || '',
-         nombre: data[i][1] || '',
-         apellido: data[i][2] || '',
-         dni: data[i][3] || '',
-         email: data[i][5] || '',
+         // String(...): un DNI de solo dígitos sin formato "Texto plano"
+         // en la celda vuelve como number, no string (Sheets detecta el
+         // tipo de cada celda) — bug real encontrado en producción:
+         // pdf-lib (Fase 4) exige texto de verdad para escribir el
+         // certificado y tiraba un error críptico con un DNI numérico.
+         registrationId: String(data[i][idCol] || ''),
+         nombre: String(data[i][1] || ''),
+         apellido: String(data[i][2] || ''),
+         dni: String(data[i][3] || ''),
+         email: String(data[i][5] || ''),
          asistio: attendance.length > 0,
          certificadoEnviado: certSentCol !== -1 && data[i][certSentCol] ? String(data[i][certSentCol]) : null,
          certificadoError: certErrorCol !== -1 && data[i][certErrorCol] ? String(data[i][certErrorCol]) : null,

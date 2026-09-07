@@ -210,7 +210,11 @@ export default function CertificateFieldEditor() {
       try {
         const pdfBytes = await generateCertificatePdf(templateBytes, fields, {
           nombreCompleto: `${attendee.nombre} ${attendee.apellido}`.trim(),
-          dni: attendee.dni,
+          // String(...): un DNI de solo dígitos sin formato "Texto plano"
+          // en la planilla vuelve como number, no string (Google Sheets
+          // detecta el tipo de cada celda) — pdf-lib exige texto de
+          // verdad y tira justo este error si no se fuerza acá.
+          dni: String(attendee.dni),
         });
         results.push({ attendee, pdfBytes, included: true });
       } catch (error) {
