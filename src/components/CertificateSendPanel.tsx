@@ -174,27 +174,34 @@ export default function CertificateSendPanel({
             const id = certificate.attendee.registrationId;
             const status = statuses[id];
             return (
-              <li key={id} className="text-body-sm flex items-center justify-between gap-2">
-                <span className="text-text">
-                  {certificate.attendee.nombre} {certificate.attendee.apellido}
-                </span>
-                <span
-                  className={
-                    status === 'sent'
-                      ? 'text-success-strong font-semibold'
-                      : status === 'error'
-                        ? 'text-error-strong font-semibold'
-                        : status === 'sending'
-                          ? 'text-secondary-strong font-semibold'
-                          : 'text-text-secondary'
-                  }
-                  title={status === 'error' ? errorMessages[id] : undefined}
-                >
-                  {status === 'sent' && 'Enviado'}
-                  {status === 'error' && 'Error'}
-                  {status === 'sending' && 'Enviando…'}
-                  {!status && 'Pendiente'}
-                </span>
+              <li key={id} className="text-body-sm flex flex-col gap-0.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-text">
+                    {certificate.attendee.nombre} {certificate.attendee.apellido}
+                  </span>
+                  <span
+                    className={
+                      status === 'sent'
+                        ? 'text-success-strong font-semibold'
+                        : status === 'error'
+                          ? 'text-error-strong font-semibold'
+                          : status === 'sending'
+                            ? 'text-secondary-strong font-semibold'
+                            : 'text-text-secondary'
+                    }
+                  >
+                    {status === 'sent' && 'Enviado'}
+                    {status === 'error' && 'Error'}
+                    {status === 'sending' && 'Enviando…'}
+                    {!status && 'Pendiente'}
+                  </span>
+                </div>
+                {/* Antes el motivo real solo se veía al pasar el mouse
+                    (title) — imposible de leer para quien reporta el
+                    problema por chat en vez de mirar la pantalla. */}
+                {status === 'error' && errorMessages[id] && (
+                  <p className="text-error-strong text-caption">{errorMessages[id]}</p>
+                )}
               </li>
             );
           })}
