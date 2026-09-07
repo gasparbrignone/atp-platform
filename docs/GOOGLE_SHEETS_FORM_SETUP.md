@@ -1313,7 +1313,8 @@ actividad solo.
      return testBanner +
        '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + escapeHtml(recipientName) + ',</p>' +
        '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Tu certificado de<br>"' + escapeHtml(activityTitle) + '"</h1>' +
-       '<p style="margin:0;color:#374151;">Lo encontrás adjunto a este mail, en PDF.</p>';
+       '<p style="margin:0 0 24px;color:#374151;">Lo encontrás adjunto a este mail, en PDF.</p>' +
+       '<p style="margin:0;color:#374151;">Gracias por venir. Desde ATP, como agrupación estudiantil de la Facultad de Ciencias Médicas, seguimos apostando por instancias de formación para todxs. Te esperamos la próxima.</p>';
    }
 
    // ====== ENVÍO DE CERTIFICADOS (Fases 6+7) ======
@@ -1399,7 +1400,18 @@ actividad solo.
        try {
          var activityTitle = params.activityTitle || params.sheetName || '';
          var subject = 'Tu certificado de ' + activityTitle;
-         var body = buildCertificateEmailBody(params.recipientName || '', activityTitle, testMode);
+         // wrapEmailHtml: mismo header/pie de marca que usa cualquier
+         // otro mail del sitio (ver esa función más abajo) — antes el
+         // certificado salía "pelado", sin el diseño de ATP, porque acá
+         // faltaba este paso que todos los demás mails sí hacen. El link
+         // de darse de baja usa siempre el mail REAL de la persona
+         // (params.recipientEmail), nunca el de la cuenta de prueba —
+         // si no, en modo de prueba apuntaría a la casilla de ATP.
+         var unsubscribeUrl = buildUnsubscribeUrl(params.sheetName, params.recipientEmail);
+         var body = wrapEmailHtml(
+           buildCertificateEmailBody(params.recipientName || '', activityTitle, testMode),
+           unsubscribeUrl,
+         );
          sendCertificateEmailViaResend(
            recipientEmail,
            subject,
