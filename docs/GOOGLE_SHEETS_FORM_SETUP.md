@@ -225,6 +225,21 @@ actividad solo.
    var ADMIN_PASSWORD = 'CAMBIAR-ESTA-CLAVE-DE-ADMIN';
    var ADMIN_TOTP_SECRET = 'CAMBIAR-ESTE-SECRETO-BASE32';
 
+   // Resend (sumado 2026-09-07): servicio de mail dedicado, usado SOLO
+   // para el envío de certificados (src/components/CertificateSendPanel.tsx)
+   // — GmailApp (más abajo) sigue mandando todo lo demás (inscripciones,
+   // recordatorios, campañas) igual que siempre, porque nunca tuvieron
+   // problema de volumen. Se sumó específicamente porque GmailApp tiene
+   // un límite diario chico (pensado para una cuenta de mail normal, no
+   // para mandar un lote de varios cientos de certificados de golpe el
+   // día de un evento) — ver la sección de límites de envío en este doc.
+   // RESEND_API_KEY sale del panel de Resend (API Keys). RESEND_FROM_EMAIL
+   // tiene que ser una dirección del dominio ya verificado ahí (no hace
+   // falta que exista una casilla real detrás). CAMBIAR los dos antes de
+   // publicar.
+   var RESEND_API_KEY = 'CAMBIAR-ESTA-CLAVE-DE-RESEND';
+   var RESEND_FROM_EMAIL = 'certificados@atpfcm.com.ar';
+
    // Pestaña donde queda el historial de campañas realmente enviadas
    // (fecha, hoja, asunto, cuántos de cuántos) — ver logCampaignSent().
    // Nunca es una hoja de inscripciones, así que getEligibleActivitySheet
@@ -1246,13 +1261,49 @@ actividad solo.
    }
 
    // Modo de prueba (Fase 7): en vez de pedirle a quien esté operando el
-   // panel que escriba su propio mail cada vez, se manda a la cuenta que
-   // ejecuta este script — la misma que ya manda todos los mails reales
-   // (GmailApp.sendEmail sale desde acá) — así el modo de prueba cae
-   // siempre en la casilla del equipo, sin depender de qué persona esté
+   // panel que escriba su propio mail cada vez, se manda a la cuenta de
+   // Google que ejecuta este script (la que ya manda todo lo demás con
+   // GmailApp — el certificado en sí sale por Resend, ver más abajo,
+   // pero sigue siendo la casilla de referencia del equipo) — así el
+   // modo de prueba cae siempre en la casilla de ATP, sin depender de qué
+   // persona esté
    // usando el panel en ese momento.
    function getTestModeRecipient() {
      return Session.getEffectiveUser().getEmail();
+   }
+
+   // Manda el certificado por Resend en vez de GmailApp — a diferencia
+   // de GmailApp, pensado para poder mandar un lote grande (cientos) de
+   // golpe sin el límite diario chico de una cuenta de mail normal (ver
+   // RESEND_API_KEY más arriba). `pdfBase64` va tal cual, sin decodificar
+   // primero: tanto lo que manda el navegador como lo que espera la API
+   // de Resend para un adjunto es un string en base64, así que acá no
+   // hace falta pasar por Utilities.base64Decode/newBlob como sí hacía
+   // falta con GmailApp.
+   function sendCertificateEmailViaResend(recipientEmail, subject, htmlBody, pdfBase64, filename) {
+     var response = UrlFetchApp.fetch('https://api.resend.com/emails', {
+       method: 'post',
+       contentType: 'application/json',
+       headers: { Authorization: 'Bearer ' + RESEND_API_KEY },
+       payload: JSON.stringify({
+         from: SENDER_NAME + ' <' + RESEND_FROM_EMAIL + '>',
+         to: [recipientEmail],
+         subject: subject,
+         html: htmlBody,
+         attachments: [{ filename: filename, content: pdfBase64 }],
+       }),
+       muteHttpExceptions: true,
+     });
+
+     var code = response.getResponseCode();
+     if (code >= 200 && code < 300) return;
+
+     // Resend siempre devuelve un JSON con el motivo real del error
+     // (dominio sin verificar, clave inválida, límite del plan, etc.) —
+     // se lo pasamos tal cual a quien llame (termina en CertificadoError
+     // y en el cartel del panel) en vez de un "no funcionó" genérico.
+     var errorBody = safeParseJson(response.getContentText()) || {};
+     throw new Error('Resend (' + code + '): ' + (errorBody.message || response.getContentText()));
    }
 
    function buildCertificateEmailBody(recipientName, activityTitle, testMode) {
@@ -1349,11 +1400,13 @@ actividad solo.
          var activityTitle = params.activityTitle || params.sheetName || '';
          var subject = 'Tu certificado de ' + activityTitle;
          var body = buildCertificateEmailBody(params.recipientName || '', activityTitle, testMode);
-         GmailApp.sendEmail(recipientEmail, subject, '', {
-           htmlBody: body,
-           name: SENDER_NAME,
-           attachments: [Utilities.newBlob(Utilities.base64Decode(params.pdfBase64 || ''), MimeType.PDF, params.filename || 'certificado.pdf')],
-         });
+         sendCertificateEmailViaResend(
+           recipientEmail,
+           subject,
+           body,
+           params.pdfBase64 || '',
+           params.filename || 'certificado.pdf',
+         );
 
          if (certSentCol !== -1) sheet.getRange(row, certSentCol + 1).setValue(new Date());
          if (certErrorCol !== -1) sheet.getRange(row, certErrorCol + 1).setValue('');
