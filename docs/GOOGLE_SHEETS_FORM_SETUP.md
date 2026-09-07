@@ -401,6 +401,12 @@ actividad solo.
      if (e.parameter.action === 'adminSendCampaign') {
        return handleAdminSendCampaign(e.parameter);
      }
+     if (e.parameter.action === 'adminListCertificateActivities') {
+       return handleAdminListCertificateActivities(e.parameter);
+     }
+     if (e.parameter.action === 'adminListAttendees') {
+       return handleAdminListAttendees(e.parameter);
+     }
      return HtmlService.createHtmlOutput('ATP');
    }
 
@@ -1087,12 +1093,117 @@ actividad solo.
      var sheet = spreadsheet.getSheetByName(sheetName);
      if (!sheet) {
        sheet = spreadsheet.insertSheet(sheetName);
+       // CertificadoEnviado/CertificadoError (sistema de certificados,
+       // Fase 2, 2026-09-06): agregadas DESPUÉS de ActivityId a propósito
+       // — handleCharlaRegistration solo reescribe las columnas 1-9 al
+       // actualizar una fila existente (ver esa función), así que
+       // cualquier columna después de la L sobrevive intacta si alguien
+       // reenvía el formulario de inscripción. Las hojas creadas ANTES de
+       // esta fecha no tienen estas dos columnas todavía — el código que
+       // las lee (getCharlaSheet/handleAdminListAttendees) y el que
+       // algún día las va a escribir tienen que tratar "la columna no
+       // existe" como "todavía nadie tiene certificado", nunca asumir
+       // que siempre están presentes.
        sheet.appendRow([
          'Fecha', 'Nombres', 'Apellidos', 'DNI', 'Teléfono', 'Email',
          'Carrera', 'Año', 'RegistrationId', 'Asistencias', 'Dado de baja', 'ActivityId',
+         'CertificadoEnviado', 'CertificadoError',
        ]);
      }
      return sheet;
+   }
+
+   // Único punto de entrada a una hoja "charla" (mismo criterio que
+   // getEligibleActivitySheet para las hojas de inscripción simple, ver
+   // más abajo) — identifica la hoja por su forma real (tiene
+   // RegistrationId + Asistencias) en vez de por su nombre, así no hay
+   // que mantener una lista aparte de qué hojas son de charla. Usado por
+   // las acciones de solo lectura del sistema de certificados
+   // (handleAdminListCertificateActivities/handleAdminListAttendees).
+   function getCharlaSheet(sheetName) {
+     if (!sheetName) return null;
+     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+     if (!sheet || sheet.getName() === 'Errores' || sheet.getName() === AGENDA_SHEET_NAME) return null;
+     if (sheet.getLastRow() < 1) return null;
+
+     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+     if (headers.indexOf('RegistrationId') === -1 || headers.indexOf('Asistencias') === -1) return null;
+
+     return sheet;
+   }
+
+   // ====== SISTEMA DE CERTIFICADOS (solo lectura por ahora — Fase 2) ======
+   //
+   // src/pages/staff/certificados.astro. Mismo `isValidAdminSession` que
+   // el resto del panel — ninguna acción nueva se agrega sin pasar por
+   // ahí primero. Estas dos acciones todavía no generan ni mandan nada,
+   // solo muestran el estado real de cada actividad con certificado.
+
+   function handleAdminListCertificateActivities(params) {
+     if (!isValidAdminSession(params.token)) {
+       return jsonpResponse({ result: 'unauthorized' }, params.callback);
+     }
+
+     var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+     var activities = [];
+     sheets.forEach(function (sheetRef) {
+       var name = sheetRef.getName();
+       var sheet = getCharlaSheet(name);
+       if (!sheet) return;
+
+       var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+       var attendanceCol = headers.indexOf('Asistencias');
+       var certSentCol = headers.indexOf('CertificadoEnviado'); // -1 en hojas viejas, ver getOrCreateCharlaSheet
+       var data = sheet.getDataRange().getValues();
+
+       var attended = 0;
+       var certificatesSent = 0;
+       for (var i = 1; i < data.length; i++) {
+         var attendance = safeParseJson(data[i][attendanceCol]) || [];
+         if (attendance.length > 0) attended++;
+         if (certSentCol !== -1 && data[i][certSentCol]) certificatesSent++;
+       }
+
+       activities.push({
+         sheetName: name,
+         total: data.length - 1,
+         attended: attended,
+         certificatesSent: certificatesSent,
+       });
+     });
+
+     return jsonpResponse({ result: 'success', activities: activities }, params.callback);
+   }
+
+   function handleAdminListAttendees(params) {
+     if (!isValidAdminSession(params.token)) {
+       return jsonpResponse({ result: 'unauthorized' }, params.callback);
+     }
+
+     var sheet = getCharlaSheet(params.sheetName);
+     if (!sheet) return jsonpResponse({ result: 'not_found' }, params.callback);
+
+     var data = sheet.getDataRange().getValues();
+     var headers = data[0];
+     var attendanceCol = headers.indexOf('Asistencias');
+     var certSentCol = headers.indexOf('CertificadoEnviado');
+     var certErrorCol = headers.indexOf('CertificadoError');
+
+     var attendees = [];
+     for (var i = 1; i < data.length; i++) {
+       var attendance = safeParseJson(data[i][attendanceCol]) || [];
+       attendees.push({
+         nombre: data[i][1] || '',
+         apellido: data[i][2] || '',
+         dni: data[i][3] || '',
+         email: data[i][5] || '',
+         asistio: attendance.length > 0,
+         certificadoEnviado: certSentCol !== -1 && data[i][certSentCol] ? String(data[i][certSentCol]) : null,
+         certificadoError: certErrorCol !== -1 && data[i][certErrorCol] ? String(data[i][certErrorCol]) : null,
+       });
+     }
+
+     return jsonpResponse({ result: 'success', attendees: attendees }, params.callback);
    }
 
    // Columna D (índice 3) = DNI, según los encabezados de arriba. Usado por

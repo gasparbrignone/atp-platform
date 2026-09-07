@@ -1,0 +1,306 @@
+---
+/**
+ * Gestión de certificados (Fase 2, sistema de certificados — solo
+ * lectura por ahora: ver estado real de inscriptos/asistentes/
+ * certificados enviados de cada actividad "con certificado". Generar,
+ * revisar, aprobar y mandar certificados llega en fases siguientes.
+ *
+ * Reusa la MISMA sesión que /staff/panel/ (mismo sessionStorage
+ * `atp-admin-token`) en vez de duplicar el login con contraseña+TOTP —
+ * si ya entraste al panel en esta pestaña, entrás derecho acá también.
+ * Si no hay sesión (o venció), se pide ir a loguearse a /staff/panel/
+ * en vez de reimplementar el formulario de login acá.
+ */
+import '@/styles/global.css';
+import Button from '@/components/Button.astro';
+import Select from '@/components/Select.astro';
+import Toast from '@/components/Toast.astro';
+import ArrowLeft from '@lucide/astro/icons/arrow-left';
+import Award from '@lucide/astro/icons/award';
+import LogIn from '@lucide/astro/icons/log-in';
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Certificados — ATP</title>
+  </head>
+  <body class="bg-background text-text min-h-screen">
+    <div class="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 p-4 sm:p-6 lg:p-10">
+      <div class="flex flex-col gap-3">
+        <a
+          href="/staff/"
+          class="text-body-sm text-secondary-strong inline-flex w-fit items-center gap-1.5 font-semibold underline-offset-2 hover:underline"
+        >
+          <ArrowLeft class="size-4" aria-hidden="true" />
+          Herramientas de staff
+        </a>
+        <div class="flex items-center gap-3">
+          <div
+            class="bg-secondary/10 text-secondary-strong inline-flex size-11 shrink-0 items-center justify-center rounded-full"
+          >
+            <Award class="size-5" aria-hidden="true" />
+          </div>
+          <div>
+            <h1 class="text-h3 text-text font-extrabold">Certificados</h1>
+            <p class="text-body-sm text-text-secondary">
+              Inscriptos, asistencia y estado de certificados por actividad
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div
+        data-needs-login
+        hidden
+        class="border-border bg-surface flex flex-col items-start gap-3 rounded-md border p-6"
+      >
+        <p class="text-body text-text-secondary">
+          Necesitás iniciar sesión en el panel admin antes de entrar acá — es la misma sesión para
+          los dos.
+        </p>
+        <Button href="/staff/panel/">
+          <LogIn slot="icon-start" class="size-4" />
+          Ir a iniciar sesión
+        </Button>
+      </div>
+
+      <div data-dashboard hidden class="flex flex-col gap-6">
+        <div class="border-border bg-surface flex flex-col gap-4 rounded-md border p-6">
+          <div class="flex flex-col gap-2">
+            <label
+              for="certificate-activity"
+              class="text-caption text-text-secondary font-semibold"
+            >
+              Actividad
+            </label>
+            <Select id="certificate-activity" data-activity-select aria-label="Actividad">
+              <option value="" selected disabled>Cargando actividades…</option>
+            </Select>
+          </div>
+
+          <div data-summary hidden class="grid grid-cols-3 gap-4 text-center">
+            <div class="border-border rounded-md border p-4">
+              <p class="text-h3 text-text font-extrabold" data-summary-total></p>
+              <p class="text-caption text-text-secondary">Inscriptos</p>
+            </div>
+            <div class="border-border rounded-md border p-4">
+              <p class="text-h3 text-text font-extrabold" data-summary-attended></p>
+              <p class="text-caption text-text-secondary">Asistieron</p>
+            </div>
+            <div class="border-border rounded-md border p-4">
+              <p class="text-h3 text-text font-extrabold" data-summary-sent></p>
+              <p class="text-caption text-text-secondary">Certificados enviados</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-border overflow-x-auto rounded-md border">
+          <table class="text-body-sm w-full">
+            <thead class="bg-surface-alt text-left">
+              <tr>
+                <th class="p-3">Nombre</th>
+                <th class="p-3">DNI</th>
+                <th class="p-3">Email</th>
+                <th class="p-3">Asistencia</th>
+                <th class="p-3">Certificado</th>
+              </tr>
+            </thead>
+            <tbody data-attendees-body>
+              <tr>
+                <td class="text-text-secondary p-3 text-center" colspan="5">Elegí una actividad.</td
+                >
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      import { jsonpRequest } from '@/lib/jsonp';
+      import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+
+      const SESSION_KEY = 'atp-admin-token';
+
+      interface CertificateActivitySummary {
+        sheetName: string;
+        total: number;
+        attended: number;
+        certificatesSent: number;
+      }
+
+      interface Attendee {
+        nombre: string;
+        apellido: string;
+        dni: string;
+        email: string;
+        asistio: boolean;
+        certificadoEnviado: string | null;
+        certificadoError: string | null;
+      }
+
+      const needsLogin = document.querySelector<HTMLElement>('[data-needs-login]');
+      const dashboard = document.querySelector<HTMLElement>('[data-dashboard]');
+      const activitySelect = document.querySelector<HTMLSelectElement>('[data-activity-select]');
+      const summary = document.querySelector<HTMLElement>('[data-summary]');
+      const summaryTotal = document.querySelector<HTMLElement>('[data-summary-total]');
+      const summaryAttended = document.querySelector<HTMLElement>('[data-summary-attended]');
+      const summarySent = document.querySelector<HTMLElement>('[data-summary-sent]');
+      const attendeesBody = document.querySelector<HTMLElement>('[data-attendees-body]');
+
+      function getToken(): string | null {
+        return sessionStorage.getItem(SESSION_KEY);
+      }
+
+      function handleSessionExpired() {
+        sessionStorage.removeItem(SESSION_KEY);
+        if (dashboard) dashboard.hidden = true;
+        if (needsLogin) needsLogin.hidden = false;
+      }
+
+      let activitiesCache: CertificateActivitySummary[] = [];
+
+      async function loadActivities() {
+        const token = getToken();
+        if (!token || !activitySelect) return;
+
+        try {
+          const response = await jsonpRequest<{
+            result: string;
+            activities?: CertificateActivitySummary[];
+          }>(GOOGLE_FORMS_ENDPOINT, { action: 'adminListCertificateActivities', token });
+
+          if (response.result === 'unauthorized') return handleSessionExpired();
+          if (response.result !== 'success' || !response.activities) return;
+
+          activitiesCache = response.activities;
+          activitySelect.innerHTML = '';
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.disabled = true;
+          placeholder.selected = true;
+          placeholder.textContent =
+            activitiesCache.length > 0
+              ? 'Elegí una actividad'
+              : 'No hay actividades con certificado';
+          activitySelect.appendChild(placeholder);
+
+          activitiesCache.forEach((activity) => {
+            const option = document.createElement('option');
+            option.value = activity.sheetName;
+            option.textContent = `${activity.sheetName} (${activity.attended} de ${activity.total} asistieron)`;
+            activitySelect.appendChild(option);
+          });
+        } catch {
+          // Sin conexión momentánea — se puede reintentar recargando la página,
+          // no hace falta un manejo más elaborado para una pantalla de solo lectura.
+        }
+      }
+
+      function renderSummary(activity: CertificateActivitySummary) {
+        if (!summary || !summaryTotal || !summaryAttended || !summarySent) return;
+        summaryTotal.textContent = String(activity.total);
+        summaryAttended.textContent = String(activity.attended);
+        summarySent.textContent = String(activity.certificatesSent);
+        summary.hidden = false;
+      }
+
+      async function loadAttendees(sheetName: string) {
+        const token = getToken();
+        if (!token || !attendeesBody) return;
+        attendeesBody.innerHTML =
+          '<tr><td class="p-3 text-text-secondary" colspan="5">Cargando…</td></tr>';
+
+        try {
+          const response = await jsonpRequest<{ result: string; attendees?: Attendee[] }>(
+            GOOGLE_FORMS_ENDPOINT,
+            { action: 'adminListAttendees', token, sheetName },
+          );
+
+          if (response.result === 'unauthorized') return handleSessionExpired();
+
+          if (response.result !== 'success' || !response.attendees) {
+            attendeesBody.innerHTML =
+              '<tr><td class="p-3 text-text-secondary" colspan="5">No se encontró la actividad.</td></tr>';
+            return;
+          }
+
+          attendeesBody.innerHTML = '';
+          response.attendees.forEach((attendee) => {
+            const row = document.createElement('tr');
+            row.className = 'border-border border-t';
+
+            const nameCell = document.createElement('td');
+            nameCell.className = 'p-3';
+            nameCell.textContent = `${attendee.nombre} ${attendee.apellido}`.trim();
+
+            const dniCell = document.createElement('td');
+            dniCell.className = 'p-3';
+            dniCell.textContent = attendee.dni;
+
+            const emailCell = document.createElement('td');
+            emailCell.className = 'p-3';
+            emailCell.textContent = attendee.email;
+
+            const attendanceCell = document.createElement('td');
+            attendanceCell.className = 'p-3';
+            const attendanceBadge = document.createElement('span');
+            // Mismas clases que Badge.astro (variant success/neutral) — DOM
+            // armado a mano acá, no se puede usar el componente de Astro.
+            attendanceBadge.className = attendee.asistio
+              ? 'text-caption inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold bg-success text-success-foreground'
+              : 'text-caption inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold bg-gray-100 text-gray-700';
+            attendanceBadge.textContent = attendee.asistio ? 'Asistió' : 'No asistió';
+            attendanceCell.appendChild(attendanceBadge);
+
+            const certificateCell = document.createElement('td');
+            certificateCell.className = 'p-3';
+            const certificateBadge = document.createElement('span');
+            let certificateLabel: string;
+            let certificateClasses: string;
+            if (attendee.certificadoEnviado) {
+              certificateLabel = 'Enviado';
+              certificateClasses = 'bg-success text-success-foreground';
+            } else if (attendee.certificadoError) {
+              certificateLabel = 'Error al enviar';
+              certificateClasses = 'bg-error text-error-foreground';
+            } else {
+              certificateLabel = 'Pendiente';
+              certificateClasses = 'bg-gray-100 text-gray-700';
+            }
+            certificateBadge.className = `text-caption inline-flex items-center gap-1 rounded-full px-3 py-1 font-semibold ${certificateClasses}`;
+            certificateBadge.textContent = certificateLabel;
+            certificateBadge.title = attendee.certificadoError ?? '';
+            certificateCell.appendChild(certificateBadge);
+
+            row.append(nameCell, dniCell, emailCell, attendanceCell, certificateCell);
+            attendeesBody.appendChild(row);
+          });
+        } catch {
+          attendeesBody.innerHTML =
+            '<tr><td class="p-3 text-text-secondary" colspan="5">Error al cargar.</td></tr>';
+        }
+      }
+
+      activitySelect?.addEventListener('change', () => {
+        const sheetName = activitySelect.value;
+        if (!sheetName) return;
+        const activity = activitiesCache.find((a) => a.sheetName === sheetName);
+        if (activity) renderSummary(activity);
+        void loadAttendees(sheetName);
+      });
+
+      if (getToken()) {
+        if (dashboard) dashboard.hidden = false;
+        void loadActivities();
+      } else {
+        if (needsLogin) needsLogin.hidden = false;
+      }
+    </script>
+    <Toast />
+  </body>
+</html>

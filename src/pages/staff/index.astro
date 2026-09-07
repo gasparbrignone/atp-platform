@@ -10,6 +10,7 @@ import Card from '@/components/Card.astro';
 import Button from '@/components/Button.astro';
 import QrCode from '@lucide/astro/icons/qr-code';
 import Mail from '@lucide/astro/icons/mail';
+import Award from '@lucide/astro/icons/award';
 
 const tools = [
   {
@@ -23,6 +24,12 @@ const tools = [
     icon: Mail,
     title: 'Panel admin',
     description: 'Ver quiénes se inscribieron a una actividad y mandarles una campaña de mail.',
+  },
+  {
+    href: '/staff/certificados/',
+    icon: Award,
+    title: 'Certificados',
+    description: 'Ver inscriptos, asistencia y estado de los certificados de cada actividad.',
   },
 ];
 ---
