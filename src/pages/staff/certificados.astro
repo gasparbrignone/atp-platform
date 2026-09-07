@@ -15,6 +15,7 @@ import '@/styles/global.css';
 import Button from '@/components/Button.astro';
 import Select from '@/components/Select.astro';
 import Toast from '@/components/Toast.astro';
+import CertificateFieldEditor from '@/components/CertificateFieldEditor.tsx';
 import ArrowLeft from '@lucide/astro/icons/arrow-left';
 import Award from '@lucide/astro/icons/award';
 import LogIn from '@lucide/astro/icons/log-in';
@@ -117,6 +118,8 @@ import LogIn from '@lucide/astro/icons/log-in';
             </tbody>
           </table>
         </div>
+
+        <CertificateFieldEditor client:load />
       </div>
     </div>
 
@@ -280,6 +283,15 @@ import LogIn from '@lucide/astro/icons/log-in';
             row.append(nameCell, dniCell, emailCell, attendanceCell, certificateCell);
             attendeesBody.appendChild(row);
           });
+
+          // CertificateFieldEditor.tsx (Fase 3) reusa esta misma lista en
+          // vez de volver a pedirla — evita duplicar el fetch y que las
+          // dos partes de la pantalla queden desincronizadas.
+          window.dispatchEvent(
+            new CustomEvent('atp:certificate-attendees', {
+              detail: { sheetName, attendees: response.attendees },
+            }),
+          );
         } catch {
           attendeesBody.innerHTML =
             '<tr><td class="p-3 text-text-secondary" colspan="5">Error al cargar.</td></tr>';
