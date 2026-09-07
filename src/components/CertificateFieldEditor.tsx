@@ -11,6 +11,7 @@ import { generateCertificatePdf } from '@/lib/generateCertificatePdf';
 import CertificateReviewCarousel, {
   type GeneratedCertificate,
 } from '@/components/CertificateReviewCarousel.tsx';
+import CertificateSendPanel from '@/components/CertificateSendPanel.tsx';
 
 /*
  * Fase 3 del sistema de certificados: subir la plantilla en PDF (el
@@ -45,6 +46,7 @@ interface DragState {
 }
 
 interface AttendeeRecord {
+  registrationId: string;
   nombre: string;
   apellido: string;
   dni: string;
@@ -71,6 +73,7 @@ export default function CertificateFieldEditor() {
   const [generatedCertificates, setGeneratedCertificates] = React.useState<GeneratedCertificate[]>(
     [],
   );
+  const [isBatchApproved, setIsBatchApproved] = React.useState(false);
   const [generationProgress, setGenerationProgress] = React.useState<{
     done: number;
     total: number;
@@ -134,6 +137,7 @@ export default function CertificateFieldEditor() {
     setActiveFieldKey(null);
     setGeneratedCertificates([]);
     setGenerationProgress(null);
+    setIsBatchApproved(false);
     const canvas = canvasRef.current;
     canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
   }
@@ -164,6 +168,7 @@ export default function CertificateFieldEditor() {
       setActiveFieldKey(null);
       setGeneratedCertificates([]);
       setGenerationProgress(null);
+      setIsBatchApproved(false);
     } catch {
       showToast({
         message: 'No se pudo leer ese archivo como PDF — probá subirlo de nuevo.',
@@ -222,6 +227,7 @@ export default function CertificateFieldEditor() {
 
     setGeneratedCertificates(results);
     setGenerationProgress(null);
+    setIsBatchApproved(false);
     setBatchId((id) => id + 1);
   }
 
@@ -424,7 +430,13 @@ export default function CertificateFieldEditor() {
                   key={batchId}
                   certificates={generatedCertificates}
                   onChangeCertificates={setGeneratedCertificates}
+                  isApproved={isBatchApproved}
+                  onChangeApproved={setIsBatchApproved}
                 />
+              )}
+
+              {isBatchApproved && sheetName && (
+                <CertificateSendPanel sheetName={sheetName} certificates={generatedCertificates} />
               )}
             </>
           )}

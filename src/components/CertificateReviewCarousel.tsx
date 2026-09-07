@@ -14,6 +14,7 @@ import { pdfjsLib } from '@/lib/pdfWorker';
  */
 
 export interface CertificateAttendee {
+  registrationId: string;
   nombre: string;
   apellido: string;
   dni: string;
@@ -30,6 +31,8 @@ export interface GeneratedCertificate {
 interface CertificateReviewCarouselProps {
   certificates: GeneratedCertificate[];
   onChangeCertificates: (next: GeneratedCertificate[]) => void;
+  isApproved: boolean;
+  onChangeApproved: (approved: boolean) => void;
 }
 
 const PREVIEW_MAX_WIDTH_PX = 720;
@@ -37,9 +40,10 @@ const PREVIEW_MAX_WIDTH_PX = 720;
 export default function CertificateReviewCarousel({
   certificates,
   onChangeCertificates,
+  isApproved,
+  onChangeApproved,
 }: CertificateReviewCarouselProps) {
   const [currentIndex, setCurrentIndex] = React.useState(0);
-  const [isApproved, setIsApproved] = React.useState(false);
   const [containerWidth, setContainerWidth] = React.useState(0);
 
   const resizeObserverRef = React.useRef<ResizeObserver | null>(null);
@@ -99,7 +103,7 @@ export default function CertificateReviewCarousel({
         i === index ? { ...certificate, included: !certificate.included } : certificate,
       ),
     );
-    setIsApproved(false);
+    onChangeApproved(false);
   }
 
   if (!current) return null;
@@ -174,7 +178,7 @@ export default function CertificateReviewCarousel({
             </span>
             <button
               type="button"
-              onClick={() => setIsApproved(false)}
+              onClick={() => onChangeApproved(false)}
               className="text-body-sm text-text-secondary font-semibold underline-offset-2 hover:underline"
             >
               Deshacer aprobación
@@ -183,7 +187,7 @@ export default function CertificateReviewCarousel({
         ) : (
           <button
             type="button"
-            onClick={() => setIsApproved(true)}
+            onClick={() => onChangeApproved(true)}
             disabled={includedCount === 0}
             className="bg-primary-fill text-primary-fill-foreground text-body inline-flex h-10 items-center justify-center rounded-sm px-4 font-semibold hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
           >

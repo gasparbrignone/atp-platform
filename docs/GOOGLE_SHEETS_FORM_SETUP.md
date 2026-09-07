@@ -263,6 +263,14 @@ actividad solo.
          return handleAdminStageCampaign(params);
        }
 
+       // Sistema de certificados (Fase 6) — mismo criterio que
+       // adminStageCampaign arriba: ya protegido por isValidAdminSession
+       // adentro de handleAdminStageCertificate, no tiene sentido pasarlo
+       // además por el freno de spam o Turnstile de más abajo.
+       if (params.action === 'adminStageCertificate') {
+         return handleAdminStageCertificate(params);
+       }
+
        // Freno básico de spam/abuso: máximo 5 envíos por email por hora, y
        // 40 en total cada 10 minutos entre todo el mundo — ver
        // isRateLimited(). No es infalible (alguien puede rotar de email),
@@ -406,6 +414,9 @@ actividad solo.
      }
      if (e.parameter.action === 'adminListAttendees') {
        return handleAdminListAttendees(e.parameter);
+     }
+     if (e.parameter.action === 'adminSendCertificate') {
+       return handleAdminSendCertificate(e.parameter);
      }
      return HtmlService.createHtmlOutput('ATP');
    }
@@ -1185,6 +1196,7 @@ actividad solo.
 
      var data = sheet.getDataRange().getValues();
      var headers = data[0];
+     var idCol = headers.indexOf('RegistrationId');
      var attendanceCol = headers.indexOf('Asistencias');
      var certSentCol = headers.indexOf('CertificadoEnviado');
      var certErrorCol = headers.indexOf('CertificadoError');
@@ -1193,6 +1205,10 @@ actividad solo.
      for (var i = 1; i < data.length; i++) {
        var attendance = safeParseJson(data[i][attendanceCol]) || [];
        attendees.push({
+         // Identifica a la persona para las Fases 6+ (adminStageCertificate/
+         // adminSendCertificate) — nunca por nombre/DNI, mismo criterio que
+         // ya usa findAndMarkAttendance para el check-in por QR.
+         registrationId: data[i][idCol] || '',
          nombre: data[i][1] || '',
          apellido: data[i][2] || '',
          dni: data[i][3] || '',
@@ -1204,6 +1220,165 @@ actividad solo.
      }
 
      return jsonpResponse({ result: 'success', attendees: attendees }, params.callback);
+   }
+
+   // Fila exacta de una hoja de charla por RegistrationId (a diferencia de
+   // findCharlaRowByDni, que es solo para el paso de inscripción) — usado
+   // por el sistema de certificados (Fase 6) para saber a qué fila
+   // corresponde un envío. Recibe la hoja ya resuelta (getCharlaSheet) en
+   // vez de buscarla de nuevo, porque tanto stage como send ya la
+   // necesitan resuelta para otra cosa antes de llamar a esto.
+   function findCharlaRowByRegistrationId(sheet, registrationId) {
+     if (!registrationId) return null;
+     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+     var idCol = headers.indexOf('RegistrationId');
+     if (idCol === -1) return null;
+     var data = sheet.getDataRange().getValues();
+     for (var i = 1; i < data.length; i++) {
+       if (String(data[i][idCol]) === String(registrationId)) return i + 1;
+     }
+     return null;
+   }
+
+   // Modo de prueba (Fase 7): en vez de pedirle a quien esté operando el
+   // panel que escriba su propio mail cada vez, se manda a la cuenta que
+   // ejecuta este script — la misma que ya manda todos los mails reales
+   // (GmailApp.sendEmail sale desde acá) — así el modo de prueba cae
+   // siempre en la casilla del equipo, sin depender de qué persona esté
+   // usando el panel en ese momento.
+   function getTestModeRecipient() {
+     return Session.getEffectiveUser().getEmail();
+   }
+
+   function buildCertificateEmailBody(recipientName, activityTitle, testMode) {
+     var testBanner = testMode
+       ? '<p style="margin:0 0 20px;padding:10px 14px;background:#fef3c7;color:#92400e;border-radius:8px;font-size:13px;">Modo de prueba: este mail se mandó acá en vez de a la persona real.</p>'
+       : '';
+     return testBanner +
+       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + escapeHtml(recipientName) + ',</p>' +
+       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Tu certificado de<br>"' + escapeHtml(activityTitle) + '"</h1>' +
+       '<p style="margin:0;color:#374151;">Lo encontrás adjunto a este mail, en PDF.</p>';
+   }
+
+   // ====== ENVÍO DE CERTIFICADOS (Fases 6+7) ======
+   //
+   // src/components/CertificateFieldEditor.tsx + CertificateReviewCarousel.tsx.
+   // Mismo patrón de 2 pasos que handleAdminStageCampaign/handleAdminSendCampaign:
+   // el PDF (base64) puede ser más largo de lo que entra en una URL de GET,
+   // así que primero se guarda en el cache (POST, sin necesidad de leer la
+   // respuesta) y el envío real es aparte (GET/JSONP, sí legible) — el
+   // navegador manda un certificado por vez, uno detrás del otro, así que
+   // nunca hace falta acumular más de uno a la vez en el cache.
+   function handleAdminStageCertificate(params) {
+     if (!isValidAdminSession(params.token)) {
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'unauthorized' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     }
+
+     var sheet = getCharlaSheet(params.sheetName);
+     if (!sheet) {
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'not_found' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     }
+
+     var row = findCharlaRowByRegistrationId(sheet, params.registrationId);
+     if (!row) {
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'not_found' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     }
+
+     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+     var certSentCol = headers.indexOf('CertificadoEnviado');
+     if (certSentCol !== -1 && sheet.getRange(row, certSentCol + 1).getValue()) {
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'already_sent' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     }
+
+     CacheService.getScriptCache().put('admin_certificate_' + params.requestId, JSON.stringify({
+       sheetName: params.sheetName || '',
+       registrationId: params.registrationId || '',
+       pdfBase64: params.pdfBase64 || '',
+       filename: params.filename || 'certificado.pdf',
+       recipientName: params.recipientName || '',
+       recipientEmail: params.recipientEmail || '',
+       activityTitle: params.activityTitle || params.sheetName || '',
+       testMode: params.testMode === 'true',
+     }), 300); // 5 minutos alcanzan de sobra hasta el paso 2
+
+     return ContentService
+       .createTextOutput(JSON.stringify({ result: 'success' }))
+       .setMimeType(ContentService.MimeType.JSON);
+   }
+
+   // Paso final: manda el mail real con el PDF adjunto y deja
+   // CertificadoEnviado (o CertificadoError si falla) en la fila
+   // correspondiente — esa columna es la única fuente de verdad de "a
+   // quién ya se le mandó": si el navegador se cierra a mitad de un lote
+   // grande, al volver a entrar y generar/revisar de nuevo, esta columna
+   // es lo que después va a permitir saltear a quien ya lo tiene (ver
+   // decisión de arquitectura del plan — nunca se manda dos veces).
+   function handleAdminSendCertificate(params) {
+     if (!isValidAdminSession(params.token)) {
+       return jsonpResponse({ result: 'unauthorized' }, params.callback);
+     }
+
+     // Mismo candado real que handleAdminSendCampaign: sin esto, un
+     // reintento del navegador tras perder la respuesta de un envío que sí
+     // salió bien podría mandar el mismo certificado dos veces.
+     var lock = LockService.getScriptLock();
+     lock.waitLock(30000);
+
+     var staged;
+     try {
+       var cache = CacheService.getScriptCache();
+       var raw = cache.get('admin_certificate_' + params.requestId);
+       if (!raw) return jsonpResponse({ result: 'not_found' }, params.callback);
+       cache.remove('admin_certificate_' + params.requestId); // un solo uso
+       staged = JSON.parse(raw);
+     } finally {
+       lock.releaseLock();
+     }
+
+     var sheet = getCharlaSheet(staged.sheetName);
+     if (!sheet) return jsonpResponse({ result: 'not_found' }, params.callback);
+
+     var row = findCharlaRowByRegistrationId(sheet, staged.registrationId);
+     if (!row) return jsonpResponse({ result: 'not_found' }, params.callback);
+
+     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+     var certSentCol = headers.indexOf('CertificadoEnviado');
+     var certErrorCol = headers.indexOf('CertificadoError');
+
+     if (certSentCol !== -1 && sheet.getRange(row, certSentCol + 1).getValue()) {
+       return jsonpResponse({ result: 'already_sent' }, params.callback);
+     }
+
+     var recipientEmail = staged.testMode ? getTestModeRecipient() : staged.recipientEmail;
+     if (!recipientEmail) return jsonpResponse({ result: 'no_email' }, params.callback);
+
+     try {
+       var subject = 'Tu certificado de ' + staged.activityTitle;
+       var body = buildCertificateEmailBody(staged.recipientName, staged.activityTitle, staged.testMode);
+       GmailApp.sendEmail(recipientEmail, subject, '', {
+         htmlBody: body,
+         name: SENDER_NAME,
+         attachments: [Utilities.newBlob(Utilities.base64Decode(staged.pdfBase64), MimeType.PDF, staged.filename)],
+       });
+
+       if (certSentCol !== -1) sheet.getRange(row, certSentCol + 1).setValue(new Date());
+       if (certErrorCol !== -1) sheet.getRange(row, certErrorCol + 1).setValue('');
+
+       return jsonpResponse({ result: 'success' }, params.callback);
+     } catch (mailErr) {
+       var message = 'Error: ' + mailErr.message;
+       if (certErrorCol !== -1) sheet.getRange(row, certErrorCol + 1).setValue(message);
+       logError('certificate', mailErr, { sheetName: staged.sheetName, registrationId: staged.registrationId });
+       return jsonpResponse({ result: 'error', message: message }, params.callback);
+     }
    }
 
    // Columna D (índice 3) = DNI, según los encabezados de arriba. Usado por
