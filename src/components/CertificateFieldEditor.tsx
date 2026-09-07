@@ -209,16 +209,23 @@ export default function CertificateFieldEditor() {
     for (const attendee of pendingAttendees) {
       try {
         const pdfBytes = await generateCertificatePdf(templateBytes, fields, {
-          nombre: attendee.nombre,
-          apellido: attendee.apellido,
+          nombreCompleto: `${attendee.nombre} ${attendee.apellido}`.trim(),
           dni: attendee.dni,
         });
         results.push({ attendee, pdfBytes, included: true });
-      } catch {
+      } catch (error) {
+        // Se muestra el mensaje real del error (antes quedaba oculto,
+        // imposible de diagnosticar a distancia) — casi siempre es un
+        // problema de la plantilla en sí (p. ej. un PDF "encriptado" sin
+        // contraseña real, típico de exportar desde Canva), no de esta
+        // persona puntual, así que va a fallar igual para el resto: se
+        // corta acá en vez de repetir el mismo toast una vez por persona.
+        console.error('generateCertificatePdf', error);
         showToast({
-          message: `No se pudo generar el certificado de ${attendee.nombre} ${attendee.apellido} — se lo salteó, revisá sus datos en la planilla.`,
+          message: `No se pudo generar el certificado de ${attendee.nombre} ${attendee.apellido}: ${error instanceof Error ? error.message : 'error desconocido'}`,
           variant: 'error',
         });
+        break;
       }
       setGenerationProgress((previous) =>
         previous ? { done: previous.done + 1, total: previous.total } : previous,
@@ -363,10 +370,17 @@ export default function CertificateFieldEditor() {
                       aria-label={`Campo ${field.label} — arrastrar para reposicionar`}
                       onPointerDown={(event) => handleMovePointerDown(event, field.key)}
                       className={
-                        'absolute flex cursor-move items-center justify-center overflow-hidden border-2 text-center leading-none font-semibold select-none ' +
+                        // Negro literal a propósito, no el token `text-text`
+                        // del sitio: ese token es el azul marino de marca
+                        // (--color-text: var(--color-secondary-strong)), no
+                        // negro — acá el recuadro se dibuja encima de un PDF
+                        // subido por el staff, de cualquier diseño/fondo, así
+                        // que la letra necesita el contraste universal del
+                        // negro puro, no el color de marca del sitio.
+                        'absolute flex cursor-move items-center justify-center overflow-hidden border-2 text-center leading-none font-semibold text-black select-none ' +
                         (isActive
-                          ? 'border-secondary-strong bg-secondary/20 text-secondary-strong'
-                          : 'border-secondary-strong/50 bg-secondary/10 text-secondary-strong/80')
+                          ? 'border-secondary-strong bg-secondary/20'
+                          : 'border-secondary-strong/50 bg-secondary/10')
                       }
                       style={{
                         left: leftPx,

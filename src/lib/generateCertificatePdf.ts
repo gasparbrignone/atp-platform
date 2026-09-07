@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, type PDFFont } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib';
 import type { CertificateField } from '@/lib/certificateFields';
 
 /**
@@ -17,12 +17,6 @@ import type { CertificateField } from '@/lib/certificateFields';
 const MIN_FONT_SIZE_PT = 6;
 const FONT_SIZE_STEP_PT = 1;
 
-export interface CertificateValues {
-  nombre: string;
-  apellido: string;
-  dni: string;
-}
-
 function fitFontSize(
   font: PDFFont,
   text: string,
@@ -39,14 +33,23 @@ function fitFontSize(
 export async function generateCertificatePdf(
   templateBytes: Uint8Array,
   fields: CertificateField[],
-  values: CertificateValues,
+  // Diccionario libre (key del campo -> texto), no una forma fija: así
+  // sumar un campo nuevo (p. ej. "carrera") no requiere tocar esta
+  // función, solo el array de fields y quien arma este objeto.
+  values: Record<string, string>,
 ): Promise<Uint8Array> {
-  const pdfDoc = await PDFDocument.load(templateBytes);
+  // ignoreEncryption: muchos exportadores de diseño (Canva, Adobe,
+  // impresión a PDF de varios programas) marcan el PDF como "encriptado"
+  // con una contraseña de dueño vacía — nunca piden clave al abrirlo en
+  // un lector normal, pero pdf-lib igual rechaza cargarlo por default
+  // (EncryptedPDFError). Esto no habilita leer un PDF con clave real
+  // (pdf-lib no descifra contenido), solo evita este falso rechazo.
+  const pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const page = pdfDoc.getPages()[0];
 
   for (const field of fields) {
-    const text = values[field.key as keyof CertificateValues] ?? '';
+    const text = values[field.key] ?? '';
     if (!text) continue;
 
     const fontSize = fitFontSize(font, text, field.widthPt, field.fontSize);
@@ -64,7 +67,10 @@ export async function generateCertificatePdf(
     const x = field.xPt + (field.widthPt - textWidth) / 2;
     const y = field.yPt + (field.heightPt - heightWithDescender) / 2 + descent;
 
-    page.drawText(text, { x, y, size: fontSize, font });
+    // Color explícito (aunque negro ya sea el default de pdf-lib): más
+    // claro de leer acá que confiar en un default implícito de la
+    // librería, y a prueba de que ese default cambie el día de mañana.
+    page.drawText(text, { x, y, size: fontSize, font, color: rgb(0, 0, 0) });
   }
 
   return pdfDoc.save();

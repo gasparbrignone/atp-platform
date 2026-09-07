@@ -20,13 +20,13 @@ export interface CertificateField extends CertificateFieldDefinition {
   fontSize: number;
 }
 
-// Estos 3 son los únicos datos que la Fase 4 necesita para completar el
-// certificado (ver relevamiento) — la estructura es un array, no 3 campos
-// sueltos, para poder sumar más adelante (p. ej. "carrera") sin tocar el
-// editor ni el modelo de datos.
+// Nombre y apellido van en un solo campo (pedido explícito del dueño del
+// proyecto: en sus diseños de certificado el nombre completo ocupa un
+// único renglón, no dos separados) — la estructura sigue siendo un
+// array, no campos sueltos, para poder sumar más adelante (p. ej.
+// "carrera") sin tocar el editor ni el modelo de datos.
 export const CERTIFICATE_FIELD_DEFINITIONS: CertificateFieldDefinition[] = [
-  { key: 'nombre', label: 'Nombre' },
-  { key: 'apellido', label: 'Apellido' },
+  { key: 'nombreCompleto', label: 'Nombre y apellido' },
   { key: 'dni', label: 'DNI' },
 ];
 
@@ -41,8 +41,7 @@ const DEFAULT_LAYOUT_FRACTIONS: Record<
   string,
   { xFrac: number; yFrac: number; widthFrac: number; heightFrac: number; fontSize: number }
 > = {
-  nombre: { xFrac: 0.2, yFrac: 0.56, widthFrac: 0.6, heightFrac: 0.09, fontSize: 28 },
-  apellido: { xFrac: 0.2, yFrac: 0.45, widthFrac: 0.6, heightFrac: 0.08, fontSize: 24 },
+  nombreCompleto: { xFrac: 0.15, yFrac: 0.48, widthFrac: 0.7, heightFrac: 0.12, fontSize: 30 },
   dni: { xFrac: 0.35, yFrac: 0.26, widthFrac: 0.3, heightFrac: 0.05, fontSize: 14 },
 };
 
