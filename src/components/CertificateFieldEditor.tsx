@@ -1,6 +1,5 @@
 import * as React from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { pdfjsLib } from '@/lib/pdfWorker';
 import { showToast } from '@/lib/toast';
 import {
   createDefaultFields,
@@ -8,6 +7,10 @@ import {
   MIN_CERTIFICATE_FIELD_SIZE_PT,
   type CertificateField,
 } from '@/lib/certificateFields';
+import { generateCertificatePdf } from '@/lib/generateCertificatePdf';
+import CertificateReviewCarousel, {
+  type GeneratedCertificate,
+} from '@/components/CertificateReviewCarousel.tsx';
 
 /*
  * Fase 3 del sistema de certificados: subir la plantilla en PDF (el
@@ -22,8 +25,6 @@ import {
  * decisión de arquitectura del plan — nada se persiste hasta el envío
  * real de cada certificado, en una fase posterior).
  */
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const CANVAS_MAX_WIDTH_PX = 720;
 
@@ -43,14 +44,23 @@ interface DragState {
   topPt: number;
 }
 
+interface AttendeeRecord {
+  nombre: string;
+  apellido: string;
+  dni: string;
+  email: string;
+  asistio: boolean;
+  certificadoEnviado: string | null;
+}
+
 interface AttendeesLoadedDetail {
   sheetName: string;
-  attendees: { asistio: boolean; certificadoEnviado: string | null }[];
+  attendees: AttendeeRecord[];
 }
 
 export default function CertificateFieldEditor() {
   const [sheetName, setSheetName] = React.useState<string | null>(null);
-  const [pendingCount, setPendingCount] = React.useState(0);
+  const [pendingAttendees, setPendingAttendees] = React.useState<AttendeeRecord[]>([]);
   const [pageSize, setPageSize] = React.useState<{ widthPt: number; heightPt: number } | null>(
     null,
   );
@@ -58,11 +68,24 @@ export default function CertificateFieldEditor() {
   const [activeFieldKey, setActiveFieldKey] = React.useState<string | null>(null);
   const [isLoadingPdf, setIsLoadingPdf] = React.useState(false);
   const [containerWidth, setContainerWidth] = React.useState(0);
+  const [generatedCertificates, setGeneratedCertificates] = React.useState<GeneratedCertificate[]>(
+    [],
+  );
+  const [generationProgress, setGenerationProgress] = React.useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  // Cambia en cada tanda nueva generada — se usa como `key` del carrusel
+  // de revisión para que arranque de cero (posición, aprobación) en cada
+  // tanda, sin que tocar el checkbox "incluir" de un certificado
+  // (que también actualiza el array) dispare el mismo reseteo.
+  const [batchId, setBatchId] = React.useState(0);
 
   const resizeObserverRef = React.useRef<ResizeObserver | null>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const pdfPageRef = React.useRef<pdfjsLib.PDFPageProxy | null>(null);
+  const templateBytesRef = React.useRef<Uint8Array | null>(null);
   const dragStateRef = React.useRef<DragState | null>(null);
 
   // El dashboard existente (certificados.astro, Fases 1-2, ya en
@@ -77,7 +100,7 @@ export default function CertificateFieldEditor() {
         if (previous !== newSheetName) resetTemplate();
         return newSheetName;
       });
-      setPendingCount(attendees.filter((a) => a.asistio && !a.certificadoEnviado).length);
+      setPendingAttendees(attendees.filter((a) => a.asistio && !a.certificadoEnviado));
     }
     window.addEventListener('atp:certificate-attendees', handleAttendeesLoaded);
     return () => window.removeEventListener('atp:certificate-attendees', handleAttendeesLoaded);
@@ -105,9 +128,12 @@ export default function CertificateFieldEditor() {
 
   function resetTemplate() {
     pdfPageRef.current = null;
+    templateBytesRef.current = null;
     setPageSize(null);
     setFields([]);
     setActiveFieldKey(null);
+    setGeneratedCertificates([]);
+    setGenerationProgress(null);
     const canvas = canvasRef.current;
     canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
   }
@@ -118,7 +144,10 @@ export default function CertificateFieldEditor() {
     setIsLoadingPdf(true);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+      // pdf.js toma posesión del array que se le pasa — se guarda una
+      // copia aparte para pdf-lib, que la va a necesitar intacta más
+      // tarde (una vez por certificado a generar en la Fase 5).
+      const pdf = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
       if (pdf.numPages !== 1) {
         showToast({
           message: `Ese PDF tiene ${pdf.numPages} páginas — subí uno de una sola página (la plantilla del certificado, vacía de datos).`,
@@ -129,9 +158,12 @@ export default function CertificateFieldEditor() {
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 1 });
       pdfPageRef.current = page;
+      templateBytesRef.current = bytes;
       setPageSize({ widthPt: viewport.width, heightPt: viewport.height });
       setFields(createDefaultFields(viewport.width, viewport.height));
       setActiveFieldKey(null);
+      setGeneratedCertificates([]);
+      setGenerationProgress(null);
     } catch {
       showToast({
         message: 'No se pudo leer ese archivo como PDF — probá subirlo de nuevo.',
@@ -161,6 +193,37 @@ export default function CertificateFieldEditor() {
     renderTask.promise.catch(() => {});
     return () => renderTask.cancel();
   }, [scale, pageSize]);
+
+  async function handleGenerateForReview() {
+    const templateBytes = templateBytesRef.current;
+    if (!templateBytes || pendingAttendees.length === 0) return;
+
+    setGenerationProgress({ done: 0, total: pendingAttendees.length });
+    const results: GeneratedCertificate[] = [];
+
+    for (const attendee of pendingAttendees) {
+      try {
+        const pdfBytes = await generateCertificatePdf(templateBytes, fields, {
+          nombre: attendee.nombre,
+          apellido: attendee.apellido,
+          dni: attendee.dni,
+        });
+        results.push({ attendee, pdfBytes, included: true });
+      } catch {
+        showToast({
+          message: `No se pudo generar el certificado de ${attendee.nombre} ${attendee.apellido} — se lo salteó, revisá sus datos en la planilla.`,
+          variant: 'error',
+        });
+      }
+      setGenerationProgress((previous) =>
+        previous ? { done: previous.done + 1, total: previous.total } : previous,
+      );
+    }
+
+    setGeneratedCertificates(results);
+    setGenerationProgress(null);
+    setBatchId((id) => id + 1);
+  }
 
   function updateFontSize(key: string, fontSize: number) {
     setFields((previous) => previous.map((f) => (f.key === key ? { ...f, fontSize } : f)));
@@ -250,7 +313,7 @@ export default function CertificateFieldEditor() {
         <h2 className="text-h4 text-text font-bold">Plantilla y posición de los datos</h2>
         <p className="text-body-sm text-text-secondary">
           {sheetName
-            ? `Subí el diseño del certificado (PDF de una sola página, vacío de datos) y arrastrá los recuadros hasta donde va cada dato.${pendingCount > 0 ? ` Hay ${pendingCount} certificado${pendingCount === 1 ? '' : 's'} pendiente${pendingCount === 1 ? '' : 's'} de generar para esta actividad.` : ''}`
+            ? `Subí el diseño del certificado (PDF de una sola página, vacío de datos) y arrastrá los recuadros hasta donde va cada dato.${pendingAttendees.length > 0 ? ` Hay ${pendingAttendees.length} certificado${pendingAttendees.length === 1 ? '' : 's'} pendiente${pendingAttendees.length === 1 ? '' : 's'} de generar para esta actividad.` : ''}`
             : 'Elegí una actividad arriba para poder subir la plantilla del certificado.'}
         </p>
       </div>
@@ -336,6 +399,33 @@ export default function CertificateFieldEditor() {
                   </label>
                 ))}
               </div>
+
+              <div className="border-border-strong flex flex-col gap-3 border-t pt-4">
+                <button
+                  type="button"
+                  onClick={handleGenerateForReview}
+                  disabled={pendingAttendees.length === 0 || generationProgress !== null}
+                  className="bg-primary-fill text-primary-fill-foreground text-body inline-flex h-10 w-fit items-center justify-center rounded-sm px-4 font-semibold hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {generationProgress
+                    ? `Generando ${generationProgress.done} de ${generationProgress.total}…`
+                    : `Generar ${pendingAttendees.length} certificado${pendingAttendees.length === 1 ? '' : 's'} para revisar`}
+                </button>
+                {pendingAttendees.length === 0 && (
+                  <p className="text-body-sm text-text-secondary">
+                    No hay certificados pendientes de generar para esta actividad (nadie asistió sin
+                    certificado ya enviado).
+                  </p>
+                )}
+              </div>
+
+              {generatedCertificates.length > 0 && (
+                <CertificateReviewCarousel
+                  key={batchId}
+                  certificates={generatedCertificates}
+                  onChangeCertificates={setGeneratedCertificates}
+                />
+              )}
             </>
           )}
         </>
