@@ -45,19 +45,42 @@ import '@/styles/global.css';
           />
         </div>
         <div class="flex flex-col gap-2">
-          <label for="staff-session" class="text-caption text-text-secondary font-semibold">
-            Nombre de este encuentro
+          <label for="staff-activity" class="text-caption text-text-secondary font-semibold">
+            Actividad
           </label>
-          <input
-            id="staff-session"
-            type="text"
+          <select
+            id="staff-activity"
+            data-activity-select
             required
+            class="border-border-strong bg-surface text-body text-text focus:border-secondary-strong h-10 w-full rounded-xs border px-4"
+          >
+            <option value="" selected disabled>Cargando actividades…</option>
+          </select>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label for="staff-encounter" class="text-caption text-text-secondary font-semibold">
+            Encuentro
+          </label>
+          <select
+            id="staff-encounter"
+            data-encounter-select
+            required
+            class="border-border-strong bg-surface text-body text-text focus:border-secondary-strong h-10 w-full rounded-xs border px-4"
+          >
+            <option value="" selected disabled>Elegí una actividad primero</option>
+          </select>
+          <input
+            id="staff-encounter-text"
+            data-encounter-text
+            type="text"
+            hidden
             placeholder="Ej: Encuentro 1"
             class="border-border-strong bg-surface text-body text-text focus:border-secondary-strong h-10 w-full rounded-xs border px-4"
           />
-          <span class="text-caption text-text-secondary">
-            Usá el mismo nombre en todos los puntos de escaneo de este encuentro, y uno distinto
-            para cada encuentro (ej. "Encuentro 1", "Encuentro 2") si la actividad tiene varios.
+          <span data-encounter-text-hint hidden class="text-caption text-text-secondary">
+            Esta actividad es recurrente y no tiene una lista fija de encuentros — escribí uno (usá
+            el mismo nombre en todos los puntos de escaneo de este encuentro, y uno distinto para
+            cada encuentro).
           </span>
         </div>
         <button
@@ -73,7 +96,8 @@ import '@/styles/global.css';
           class="border-border bg-surface flex items-center justify-between rounded-md border p-3"
         >
           <span class="text-body-sm text-text-secondary">
-            Encuentro: <strong data-session-label class="text-text"></strong>
+            <strong data-activity-label class="text-text"></strong> —
+            <strong data-session-label class="text-text"></strong>
           </span>
           <button
             type="button"
@@ -110,16 +134,28 @@ import '@/styles/global.css';
       import { jsonpRequest } from '@/lib/jsonp';
 
       const SESSION_STORAGE_SECRET = 'atp-staff-secret';
+      const SESSION_STORAGE_ACTIVITY_ID = 'atp-staff-activity-id';
+      const SESSION_STORAGE_ACTIVITY_TITLE = 'atp-staff-activity-title';
       const SESSION_STORAGE_SESSION = 'atp-staff-session-label';
       // Ventana durante la que se ignoran nuevas lecturas después de un
       // escaneo exitoso — si no, el mismo QR frente a la cámara dispara el
       // check-in decenas de veces por segundo mientras la persona se aleja.
       const SCAN_COOLDOWN_MS = 2500;
 
+      interface CertificateActivity {
+        id: string;
+        title: string;
+        encounters: string[] | null;
+      }
+
       const setupForm = document.querySelector<HTMLFormElement>('[data-setup-form]');
       const secretInput = document.querySelector<HTMLInputElement>('#staff-secret');
-      const sessionInput = document.querySelector<HTMLInputElement>('#staff-session');
+      const activitySelect = document.querySelector<HTMLSelectElement>('[data-activity-select]');
+      const encounterSelect = document.querySelector<HTMLSelectElement>('[data-encounter-select]');
+      const encounterTextInput = document.querySelector<HTMLInputElement>('[data-encounter-text]');
+      const encounterTextHint = document.querySelector<HTMLElement>('[data-encounter-text-hint]');
       const scanView = document.querySelector<HTMLElement>('[data-scan-view]');
+      const activityLabelEl = document.querySelector<HTMLElement>('[data-activity-label]');
       const sessionLabelEl = document.querySelector<HTMLElement>('[data-session-label]');
       const changeSessionButton =
         document.querySelector<HTMLButtonElement>('[data-change-session]');
@@ -144,9 +180,91 @@ import '@/styles/global.css';
         return sessionStorage.getItem(SESSION_STORAGE_SECRET) ?? '';
       }
 
+      function getActivityId(): string {
+        return sessionStorage.getItem(SESSION_STORAGE_ACTIVITY_ID) ?? '';
+      }
+
+      function getActivityTitle(): string {
+        return sessionStorage.getItem(SESSION_STORAGE_ACTIVITY_TITLE) ?? '';
+      }
+
       function getSessionLabel(): string {
         return sessionStorage.getItem(SESSION_STORAGE_SESSION) ?? '';
       }
+
+      // Carga las actividades con certificado una sola vez al abrir la
+      // página — es un JSON chico generado en build time (ver
+      // certificate-activities.json.ts), no hace falta pedírselo al Apps
+      // Script. Sin esto (o si falla), el desplegable de actividad queda
+      // vacío — no hay forma de escanear sin elegir una, a propósito: ya
+      // no se puede tipear un encuentro "a ciegas" como antes.
+      let certificateActivities: CertificateActivity[] = [];
+
+      async function loadCertificateActivities() {
+        if (!activitySelect) return;
+        try {
+          const response = await fetch('/certificate-activities.json');
+          const data: { activities: CertificateActivity[] } = await response.json();
+          certificateActivities = data.activities;
+
+          activitySelect.innerHTML = '';
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.disabled = true;
+          placeholder.selected = true;
+          placeholder.textContent = 'Elegí una actividad';
+          activitySelect.appendChild(placeholder);
+
+          certificateActivities.forEach((activity) => {
+            const option = document.createElement('option');
+            option.value = activity.id;
+            option.textContent = activity.title;
+            activitySelect.appendChild(option);
+          });
+        } catch {
+          activitySelect.innerHTML =
+            '<option value="" selected disabled>No se pudieron cargar las actividades</option>';
+        }
+      }
+
+      // Al elegir una actividad, arma el desplegable de encuentros con los
+      // reales de esa actividad — o, si es recurrente y no tiene una lista
+      // fija (ver certificate-activities.json.ts), muestra el campo de
+      // texto libre de siempre en su lugar.
+      function updateEncounterOptions() {
+        if (!encounterSelect || !encounterTextInput || !encounterTextHint) return;
+        const activity = certificateActivities.find((a) => a.id === activitySelect?.value);
+
+        if (activity?.encounters) {
+          encounterSelect.innerHTML = '';
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.disabled = true;
+          placeholder.selected = true;
+          placeholder.textContent = 'Elegí un encuentro';
+          encounterSelect.appendChild(placeholder);
+          activity.encounters.forEach((label) => {
+            const option = document.createElement('option');
+            option.value = label;
+            option.textContent = label;
+            encounterSelect.appendChild(option);
+          });
+          encounterSelect.hidden = false;
+          encounterSelect.required = true;
+          encounterTextInput.hidden = true;
+          encounterTextInput.required = false;
+          encounterTextHint.hidden = true;
+        } else {
+          encounterSelect.hidden = true;
+          encounterSelect.required = false;
+          encounterTextInput.hidden = false;
+          encounterTextInput.required = true;
+          encounterTextHint.hidden = !activity;
+        }
+      }
+
+      activitySelect?.addEventListener('change', updateEncounterOptions);
+      void loadCertificateActivities();
 
       function showBanner(variant: 'ok' | 'duplicate' | 'error', title: string, subtitle: string) {
         if (!resultBanner || !resultTitle || !resultSubtitle) return;
@@ -177,6 +295,7 @@ import '@/styles/global.css';
           action: 'checkin',
           id,
           session: sessionLabel,
+          activityId: getActivityId(),
           secret,
         })
           .then(handleCheckinResponse)
@@ -186,7 +305,7 @@ import '@/styles/global.css';
       }
 
       interface CheckinResponse {
-        result: 'ok' | 'duplicate' | 'not_found' | 'unauthorized' | 'error';
+        result: 'ok' | 'duplicate' | 'not_found' | 'unauthorized' | 'wrong_activity' | 'error';
         name?: string;
       }
 
@@ -204,6 +323,13 @@ import '@/styles/global.css';
             break;
           case 'not_found':
             showBanner('error', 'QR no reconocido', 'No corresponde a ninguna inscripción.');
+            break;
+          case 'wrong_activity':
+            showBanner(
+              'error',
+              response.name ?? 'Actividad equivocada',
+              'Este QR es de otra actividad, no de la que elegiste arriba.',
+            );
             break;
           case 'unauthorized':
             showBanner('error', 'Clave incorrecta', 'Tocá "Cambiar" y volvé a escribirla bien.');
@@ -257,6 +383,7 @@ import '@/styles/global.css';
       function enterScanView() {
         if (setupForm) setupForm.hidden = true;
         if (scanView) scanView.hidden = false;
+        if (activityLabelEl) activityLabelEl.textContent = getActivityTitle();
         if (sessionLabelEl) sessionLabelEl.textContent = getSessionLabel();
         void startCamera();
       }
@@ -264,9 +391,16 @@ import '@/styles/global.css';
       setupForm?.addEventListener('submit', (event) => {
         event.preventDefault();
         const secret = secretInput?.value.trim();
-        const sessionLabel = sessionInput?.value.trim();
-        if (!secret || !sessionLabel) return;
+        const activityId = activitySelect?.value;
+        const activityTitle = activitySelect?.selectedOptions[0]?.textContent ?? '';
+        const usingTextFallback = encounterTextInput && !encounterTextInput.hidden;
+        const sessionLabel = (
+          usingTextFallback ? encounterTextInput?.value : encounterSelect?.value
+        )?.trim();
+        if (!secret || !activityId || !sessionLabel) return;
         sessionStorage.setItem(SESSION_STORAGE_SECRET, secret);
+        sessionStorage.setItem(SESSION_STORAGE_ACTIVITY_ID, activityId);
+        sessionStorage.setItem(SESSION_STORAGE_ACTIVITY_TITLE, activityTitle);
         sessionStorage.setItem(SESSION_STORAGE_SESSION, sessionLabel);
         enterScanView();
       });
@@ -275,14 +409,18 @@ import '@/styles/global.css';
         scanning = false;
         cameraStream?.getTracks().forEach((track) => track.stop());
         sessionStorage.removeItem(SESSION_STORAGE_SECRET);
+        sessionStorage.removeItem(SESSION_STORAGE_ACTIVITY_ID);
+        sessionStorage.removeItem(SESSION_STORAGE_ACTIVITY_TITLE);
         sessionStorage.removeItem(SESSION_STORAGE_SESSION);
         if (scanView) scanView.hidden = true;
         if (setupForm) setupForm.hidden = false;
         if (secretInput) secretInput.value = '';
-        if (sessionInput) sessionInput.value = '';
+        if (activitySelect) activitySelect.selectedIndex = 0;
+        if (encounterTextInput) encounterTextInput.value = '';
+        updateEncounterOptions();
       });
 
-      if (getSecret() && getSessionLabel()) {
+      if (getSecret() && getActivityId() && getSessionLabel()) {
         enterScanView();
       }
     </script>

@@ -1174,12 +1174,20 @@ actividad solo.
        }
        result = { result: 'unauthorized' };
      } else {
-       result = findAndMarkAttendance(params.id, params.session);
+       result = findAndMarkAttendance(params.id, params.session, params.activityId);
      }
      return jsonpResponse(result, params.callback);
    }
 
-   function findAndMarkAttendance(registrationId, sessionLabel) {
+   // `expectedActivityId` es opcional a propósito (compatibilidad hacia
+   // atrás si algún día algo llama a esto sin mandarlo) — pero
+   // /staff/escanear/ (Fase 1, sistema de certificados, 2026-09-06)
+   // siempre lo manda desde que el staff elige la actividad de un
+   // desplegable en vez de tipear el encuentro a mano. Sirve para
+   // detectar que alguien escaneó el QR de OTRA actividad mientras tenía
+   // esta seleccionada — antes ese caso marcaba presente igual, en la
+   // actividad equivocada, sin ningún aviso.
+   function findAndMarkAttendance(registrationId, sessionLabel, expectedActivityId) {
      if (!registrationId) return { result: 'not_found' };
 
      var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
@@ -1188,6 +1196,7 @@ actividad solo.
        var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
        var idCol = headers.indexOf('RegistrationId');
        var attendanceCol = headers.indexOf('Asistencias');
+       var activityIdCol = headers.indexOf('ActivityId');
        if (idCol === -1 || attendanceCol === -1) continue; // no es una hoja de charla
 
        var data = sheet.getDataRange().getValues();
@@ -1195,6 +1204,14 @@ actividad solo.
          if (String(data[i][idCol]) !== String(registrationId)) continue;
 
          var name = (data[i][1] || '') + ' ' + (data[i][2] || '');
+
+         if (expectedActivityId && activityIdCol !== -1) {
+           var rowActivityId = String(data[i][activityIdCol] || '');
+           if (rowActivityId && rowActivityId !== String(expectedActivityId)) {
+             return { result: 'wrong_activity', name: name.trim() };
+           }
+         }
+
          var attendance = safeParseJson(data[i][attendanceCol]) || [];
 
          if (attendance.indexOf(sessionLabel) !== -1) {
