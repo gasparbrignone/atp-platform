@@ -263,12 +263,12 @@ actividad solo.
          return handleAdminStageCampaign(params);
        }
 
-       // Sistema de certificados (Fase 6) — mismo criterio que
+       // Sistema de certificados (Fases 6+7) — mismo criterio que
        // adminStageCampaign arriba: ya protegido por isValidAdminSession
-       // adentro de handleAdminStageCertificate, no tiene sentido pasarlo
-       // además por el freno de spam o Turnstile de más abajo.
-       if (params.action === 'adminStageCertificate') {
-         return handleAdminStageCertificate(params);
+       // adentro de handleAdminSendCertificateNow, no tiene sentido
+       // pasarlo además por el freno de spam o Turnstile de más abajo.
+       if (params.action === 'adminSendCertificateNow') {
+         return handleAdminSendCertificateNow(params);
        }
 
        // Freno básico de spam/abuso: máximo 5 envíos por email por hora, y
@@ -415,8 +415,8 @@ actividad solo.
      if (e.parameter.action === 'adminListAttendees') {
        return handleAdminListAttendees(e.parameter);
      }
-     if (e.parameter.action === 'adminSendCertificate') {
-       return handleAdminSendCertificate(e.parameter);
+     if (e.parameter.action === 'adminCheckCertificateStatus') {
+       return handleAdminCheckCertificateStatus(e.parameter);
      }
      return HtmlService.createHtmlOutput('ATP');
    }
@@ -1267,14 +1267,37 @@ actividad solo.
 
    // ====== ENVÍO DE CERTIFICADOS (Fases 6+7) ======
    //
-   // src/components/CertificateFieldEditor.tsx + CertificateReviewCarousel.tsx.
-   // Mismo patrón de 2 pasos que handleAdminStageCampaign/handleAdminSendCampaign:
-   // el PDF (base64) puede ser más largo de lo que entra en una URL de GET,
-   // así que primero se guarda en el cache (POST, sin necesidad de leer la
-   // respuesta) y el envío real es aparte (GET/JSONP, sí legible) — el
-   // navegador manda un certificado por vez, uno detrás del otro, así que
-   // nunca hace falta acumular más de uno a la vez en el cache.
-   function handleAdminStageCertificate(params) {
+   // src/components/CertificateSendPanel.tsx.
+   //
+   // Diseño anterior (2026-09-07, bug real en producción): un patrón de
+   // 2 pasos calcado del de las campañas de mail — guardar en
+   // CacheService (POST) y mandar de verdad después (GET/JSONP). Las
+   // campañas solo guardan texto (asunto/cuerpo, siempre chico); un
+   // certificado es un PDF entero en base64, y CacheService RECHAZA
+   // cualquier valor de más de 100KB ("Argumento demasiado grande:
+   // value") — cualquier plantilla con una imagen de fondo (lo normal)
+   // superaba ese límite, así que el guardado fallaba en silencio (el
+   // POST es no-cors, el navegador nunca ve el error) y el paso 2
+   // siempre encontraba "nada guardado" → 'not_found'. Nunca llegó a
+   // mandarse un solo certificado real por esto.
+   //
+   // Diseño nuevo: el PDF nunca pasa por CacheService. El POST
+   // (adminSendCertificateNow) manda el mail de una, adentro de la
+   // misma ejecución que recibe el PDF — el límite real acá es el
+   // tamaño máximo de un pedido a Apps Script (bastante más generoso
+   // que 100KB), no el de CacheService. Como sigue siendo un POST
+   // no-cors, el navegador no puede leer si salió bien o mal ahí mismo
+   // — por eso el segundo paso (adminCheckCertificateStatus, GET/JSONP)
+   // no "hace" nada: solo relee CertificadoEnviado/CertificadoError de
+   // la planilla, que el POST ya escribió, y se lo cuenta al navegador.
+   // Esa columna sigue siendo la única fuente de verdad de "a quién ya
+   // se le mandó" (resumible si el navegador se cierra a mitad de un
+   // lote grande, igual que antes).
+   function handleAdminSendCertificateNow(params) {
+     // No-cors: el navegador nunca lee este ContentService, pero se
+     // arma igual (mismo criterio que el resto de doPost) para que
+     // quede algo coherente en las Ejecuciones de Apps Script si hace
+     // falta revisarlas a mano.
      if (!isValidAdminSession(params.token)) {
        return ContentService
          .createTextOutput(JSON.stringify({ result: 'unauthorized' }))
@@ -1288,102 +1311,99 @@ actividad solo.
          .setMimeType(ContentService.MimeType.JSON);
      }
 
-     var row = findCharlaRowByRegistrationId(sheet, params.registrationId);
-     if (!row) {
-       return ContentService
-         .createTextOutput(JSON.stringify({ result: 'not_found' }))
-         .setMimeType(ContentService.MimeType.JSON);
+     // Mismo candado que antes, con el mismo motivo: sin esto, un
+     // reintento del navegador (o un doble click) que llegue a mandar
+     // el mismo POST dos veces casi a la vez podría mandar el mismo
+     // certificado dos veces antes de que ninguno alcance a escribir
+     // CertificadoEnviado todavía.
+     var lock = LockService.getScriptLock();
+     lock.waitLock(30000);
+     try {
+       var row = findCharlaRowByRegistrationId(sheet, params.registrationId);
+       if (!row) {
+         return ContentService
+           .createTextOutput(JSON.stringify({ result: 'not_found' }))
+           .setMimeType(ContentService.MimeType.JSON);
+       }
+
+       var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+       var certSentCol = headers.indexOf('CertificadoEnviado');
+       var certErrorCol = headers.indexOf('CertificadoError');
+
+       if (certSentCol !== -1 && sheet.getRange(row, certSentCol + 1).getValue()) {
+         return ContentService
+           .createTextOutput(JSON.stringify({ result: 'already_sent' }))
+           .setMimeType(ContentService.MimeType.JSON);
+       }
+
+       var testMode = params.testMode === 'true';
+       var recipientEmail = testMode ? getTestModeRecipient() : params.recipientEmail;
+       if (!recipientEmail) {
+         if (certErrorCol !== -1) sheet.getRange(row, certErrorCol + 1).setValue('Sin email');
+         return ContentService
+           .createTextOutput(JSON.stringify({ result: 'no_email' }))
+           .setMimeType(ContentService.MimeType.JSON);
+       }
+
+       try {
+         var activityTitle = params.activityTitle || params.sheetName || '';
+         var subject = 'Tu certificado de ' + activityTitle;
+         var body = buildCertificateEmailBody(params.recipientName || '', activityTitle, testMode);
+         GmailApp.sendEmail(recipientEmail, subject, '', {
+           htmlBody: body,
+           name: SENDER_NAME,
+           attachments: [Utilities.newBlob(Utilities.base64Decode(params.pdfBase64 || ''), MimeType.PDF, params.filename || 'certificado.pdf')],
+         });
+
+         if (certSentCol !== -1) sheet.getRange(row, certSentCol + 1).setValue(new Date());
+         if (certErrorCol !== -1) sheet.getRange(row, certErrorCol + 1).setValue('');
+
+         return ContentService
+           .createTextOutput(JSON.stringify({ result: 'success' }))
+           .setMimeType(ContentService.MimeType.JSON);
+       } catch (mailErr) {
+         var message = 'Error: ' + mailErr.message;
+         if (certErrorCol !== -1) sheet.getRange(row, certErrorCol + 1).setValue(message);
+         logError('certificate', mailErr, { sheetName: params.sheetName, registrationId: params.registrationId });
+         return ContentService
+           .createTextOutput(JSON.stringify({ result: 'error', message: message }))
+           .setMimeType(ContentService.MimeType.JSON);
+       }
+     } finally {
+       lock.releaseLock();
      }
-
-     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-     var certSentCol = headers.indexOf('CertificadoEnviado');
-     if (certSentCol !== -1 && sheet.getRange(row, certSentCol + 1).getValue()) {
-       return ContentService
-         .createTextOutput(JSON.stringify({ result: 'already_sent' }))
-         .setMimeType(ContentService.MimeType.JSON);
-     }
-
-     CacheService.getScriptCache().put('admin_certificate_' + params.requestId, JSON.stringify({
-       sheetName: params.sheetName || '',
-       registrationId: params.registrationId || '',
-       pdfBase64: params.pdfBase64 || '',
-       filename: params.filename || 'certificado.pdf',
-       recipientName: params.recipientName || '',
-       recipientEmail: params.recipientEmail || '',
-       activityTitle: params.activityTitle || params.sheetName || '',
-       testMode: params.testMode === 'true',
-     }), 300); // 5 minutos alcanzan de sobra hasta el paso 2
-
-     return ContentService
-       .createTextOutput(JSON.stringify({ result: 'success' }))
-       .setMimeType(ContentService.MimeType.JSON);
    }
 
-   // Paso final: manda el mail real con el PDF adjunto y deja
-   // CertificadoEnviado (o CertificadoError si falla) en la fila
-   // correspondiente — esa columna es la única fuente de verdad de "a
-   // quién ya se le mandó": si el navegador se cierra a mitad de un lote
-   // grande, al volver a entrar y generar/revisar de nuevo, esta columna
-   // es lo que después va a permitir saltear a quien ya lo tiene (ver
-   // decisión de arquitectura del plan — nunca se manda dos veces).
-   function handleAdminSendCertificate(params) {
+   // Paso 2 (GET/JSONP, legible): el POST de arriba ya hizo todo el
+   // trabajo real — esto solo relee lo que quedó escrito en la fila
+   // (CertificadoEnviado/CertificadoError) y se lo traduce al navegador,
+   // que es la única forma de que el panel sepa si el envío salió bien
+   // de verdad (un no-cors POST nunca lo puede saber por sí solo).
+   function handleAdminCheckCertificateStatus(params) {
      if (!isValidAdminSession(params.token)) {
        return jsonpResponse({ result: 'unauthorized' }, params.callback);
      }
 
-     // Mismo candado real que handleAdminSendCampaign: sin esto, un
-     // reintento del navegador tras perder la respuesta de un envío que sí
-     // salió bien podría mandar el mismo certificado dos veces.
-     var lock = LockService.getScriptLock();
-     lock.waitLock(30000);
-
-     var staged;
-     try {
-       var cache = CacheService.getScriptCache();
-       var raw = cache.get('admin_certificate_' + params.requestId);
-       if (!raw) return jsonpResponse({ result: 'not_found' }, params.callback);
-       cache.remove('admin_certificate_' + params.requestId); // un solo uso
-       staged = JSON.parse(raw);
-     } finally {
-       lock.releaseLock();
-     }
-
-     var sheet = getCharlaSheet(staged.sheetName);
+     var sheet = getCharlaSheet(params.sheetName);
      if (!sheet) return jsonpResponse({ result: 'not_found' }, params.callback);
 
-     var row = findCharlaRowByRegistrationId(sheet, staged.registrationId);
+     var row = findCharlaRowByRegistrationId(sheet, params.registrationId);
      if (!row) return jsonpResponse({ result: 'not_found' }, params.callback);
 
      var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
      var certSentCol = headers.indexOf('CertificadoEnviado');
      var certErrorCol = headers.indexOf('CertificadoError');
 
-     if (certSentCol !== -1 && sheet.getRange(row, certSentCol + 1).getValue()) {
-       return jsonpResponse({ result: 'already_sent' }, params.callback);
-     }
+     var sent = certSentCol !== -1 ? sheet.getRange(row, certSentCol + 1).getValue() : null;
+     if (sent) return jsonpResponse({ result: 'success' }, params.callback);
 
-     var recipientEmail = staged.testMode ? getTestModeRecipient() : staged.recipientEmail;
-     if (!recipientEmail) return jsonpResponse({ result: 'no_email' }, params.callback);
+     var error = certErrorCol !== -1 ? sheet.getRange(row, certErrorCol + 1).getValue() : '';
+     if (error) return jsonpResponse({ result: 'error', message: String(error) }, params.callback);
 
-     try {
-       var subject = 'Tu certificado de ' + staged.activityTitle;
-       var body = buildCertificateEmailBody(staged.recipientName, staged.activityTitle, staged.testMode);
-       GmailApp.sendEmail(recipientEmail, subject, '', {
-         htmlBody: body,
-         name: SENDER_NAME,
-         attachments: [Utilities.newBlob(Utilities.base64Decode(staged.pdfBase64), MimeType.PDF, staged.filename)],
-       });
-
-       if (certSentCol !== -1) sheet.getRange(row, certSentCol + 1).setValue(new Date());
-       if (certErrorCol !== -1) sheet.getRange(row, certErrorCol + 1).setValue('');
-
-       return jsonpResponse({ result: 'success' }, params.callback);
-     } catch (mailErr) {
-       var message = 'Error: ' + mailErr.message;
-       if (certErrorCol !== -1) sheet.getRange(row, certErrorCol + 1).setValue(message);
-       logError('certificate', mailErr, { sheetName: staged.sheetName, registrationId: staged.registrationId });
-       return jsonpResponse({ result: 'error', message: message }, params.callback);
-     }
+     // El navegador espera a que el POST termine antes de llamar acá, así
+     // que en el uso normal esto no debería pasar — solo si el POST se
+     // perdió en el camino (corte de red) antes de llegar a escribir nada.
+     return jsonpResponse({ result: 'pending' }, params.callback);
    }
 
    // Columna D (índice 3) = DNI, según los encabezados de arriba. Usado por

@@ -12,12 +12,22 @@ import type { GeneratedCertificate } from '@/components/CertificateReviewCarouse
  * vez de en la de cada persona, para poder probar el flujo entero sin
  * arriesgar mandarle algo a gente real.
  *
- * Cada certificado se manda con 2 pedidos al Apps Script (mismo patrón
- * que ya usan las campañas de mail): un POST que guarda el PDF en el
- * cache del script (un PDF en base64 no entra en la URL de un GET), y un
- * GET/JSONP aparte que hace el envío real y devuelve el resultado — así
- * el navegador sabe de verdad si salió bien o mal, y puede reintentar
+ * Cada certificado se manda con 2 pedidos al Apps Script: un POST que
+ * manda el mail de una (el PDF va directo ahí, nunca se guarda en
+ * ningún lado) y un GET/JSONP aparte que solo relee si quedó marcado
+ * como enviado — así el navegador sabe de verdad si salió bien o mal
+ * (un POST no-cors no lo puede saber por sí solo), y puede reintentar
  * solo lo que falta sin mandar de nuevo lo que ya salió.
+ *
+ * Bug real en producción (2026-09-07): la primera versión de esto
+ * guardaba el PDF en CacheService entre esos dos pasos — igual que ya
+ * hacían las campañas de mail con el texto del mensaje. Pero
+ * CacheService rechaza cualquier valor de más de 100KB, y un PDF con
+ * una imagen de fondo (lo normal en una plantilla real) supera eso
+ * fácil — el guardado fallaba en silencio (el POST es no-cors) y el
+ * segundo paso siempre encontraba "nada guardado". Nunca se llegó a
+ * mandar un solo certificado real por esto. Ver
+ * docs/GOOGLE_SHEETS_FORM_SETUP.md para el rediseño.
  */
 
 const SESSION_KEY = 'atp-admin-token';
@@ -62,18 +72,21 @@ export default function CertificateSendPanel({
     setStatuses((previous) => ({ ...previous, [id]: 'sending' }));
 
     try {
-      const requestId = crypto.randomUUID();
       const fullName = `${certificate.attendee.nombre} ${certificate.attendee.apellido}`.trim();
 
+      // El navegador espera a que este POST termine de verdad (aunque no
+      // pueda leer su respuesta, mode:'no-cors' sigue esperando la
+      // vuelta completa del pedido) — para cuando el GET de abajo se
+      // dispara, el mail ya se mandó (o falló) del todo del lado del
+      // Apps Script.
       await fetch(GOOGLE_FORMS_ENDPOINT, {
         method: 'POST',
         mode: 'no-cors',
         body: new URLSearchParams({
-          action: 'adminStageCertificate',
+          action: 'adminSendCertificateNow',
           token,
           sheetName,
           registrationId: certificate.attendee.registrationId,
-          requestId,
           pdfBase64: uint8ArrayToBase64(certificate.pdfBytes),
           filename: `certificado-${fullName.replace(/\s+/g, '-')}.pdf`,
           recipientName: fullName,
@@ -86,9 +99,10 @@ export default function CertificateSendPanel({
       const result = await jsonpRequest<{ result: string; message?: string }>(
         GOOGLE_FORMS_ENDPOINT,
         {
-          action: 'adminSendCertificate',
+          action: 'adminCheckCertificateStatus',
           token,
-          requestId,
+          sheetName,
+          registrationId: certificate.attendee.registrationId,
         },
       );
 
