@@ -1067,8 +1067,21 @@ actividad solo.
        // existente de ese DNI: mismos datos y QR más recientes, sin perder
        // asistencias ya marcadas ni el estado de "dado de baja" de esa fila.
        var existingRow = findCharlaRowByDni(sheet, params.dni);
+       var effectiveRegistrationId;
 
        if (existingRow) {
+         // El RegistrationId de la fila NUNCA se pisa acá con uno nuevo —
+         // bug real: antes cada reenvío generaba un registrationId nuevo
+         // en el navegador y lo escribía encima del que ya estaba, así
+         // que el QR de CUALQUIER mail de confirmación anterior (de la
+         // misma charla) dejaba de servir de un día para el otro, sin
+         // que la persona se entere, quedándose con un QR "roto" en la
+         // bandeja de entrada si volvía a mostrar ese mail viejo en la
+         // entrada. Ahora el ID de la PRIMERA inscripción se mantiene
+         // para siempre: todos los mails que reciba esa persona para
+         // esta charla, viejos y nuevos, señalan siempre a la misma fila.
+         effectiveRegistrationId =
+           String(sheet.getRange(existingRow, 9).getValue() || '') || params.registrationId || '';
          sheet.getRange(existingRow, 1, 1, 9).setValues([[
            new Date(),
            params.firstName || '',
@@ -1078,9 +1091,10 @@ actividad solo.
            params.email || '',
            params.career || '',
            params.year || '',
-           params.registrationId || '',
+           effectiveRegistrationId,
          ]]);
        } else {
+         effectiveRegistrationId = params.registrationId || '';
          sheet.appendRow([
            new Date(),
            params.firstName || '',
@@ -1090,7 +1104,7 @@ actividad solo.
            params.email || '',
            params.career || '',
            params.year || '',
-           params.registrationId || '',
+           effectiveRegistrationId,
            JSON.stringify([]), // Asistencias (una entrada por encuentro confirmado)
            false, // Dado de baja
            params.activityId || '',
@@ -1098,6 +1112,13 @@ actividad solo.
        }
 
        try {
+         // El mail SIEMPRE muestra el QR de effectiveRegistrationId (el
+         // que quedó guardado de verdad en la fila), nunca el que mandó
+         // el navegador en este pedido puntual — así el QR de este mail
+         // coincide exactamente con lo que hay en la planilla, sea una
+         // inscripción nueva o la enésima reinscripción de la misma
+         // persona a esta misma charla.
+         params.registrationId = effectiveRegistrationId;
          sendCharlaConfirmationEmail(params, sheetName);
        } catch (mailErr) {
          logError('mail-charla', mailErr, params);
@@ -1555,48 +1576,127 @@ actividad solo.
      return jsonpResponse(result, params.callback);
    }
 
+   // Recuerda en qué hoja vive cada actividad (por ActivityId) durante un
+   // rato — así el escaneo #2 en adelante de una misma actividad va
+   // directo a la hoja correcta, sin repetir el recorrido completo de
+   // findAndMarkAttendance de abajo. Se guarda por hasta 6hs (el máximo
+   // de CacheService), de sobra para cualquier jornada de un evento.
+   function getCachedSheetNameForActivity(activityId) {
+     return CacheService.getScriptCache().get('checkin_sheet_' + activityId);
+   }
+   function cacheSheetNameForActivity(activityId, sheetName) {
+     CacheService.getScriptCache().put('checkin_sheet_' + activityId, sheetName, 21600);
+   }
+
+   // Cuántas filas de esta hoja ya tienen `sessionLabel` marcado — se
+   // devuelve en la respuesta de un check-in exitoso para mostrar un
+   // contador de "escaneos totales" en /staff/escanear/ (de TODOS los
+   // dispositivos escaneando esta misma actividad, no solo el que hizo
+   // este escaneo puntual) sin necesitar un pedido aparte: la hoja
+   // completa ya está cargada en memoria en el momento en que se cuenta.
+   function countAttendanceForSession(data, attendanceCol, sessionLabel) {
+     var count = 0;
+     for (var i = 1; i < data.length; i++) {
+       var attendance = safeParseJson(data[i][attendanceCol]) || [];
+       if (attendance.indexOf(sessionLabel) !== -1) count++;
+     }
+     return count;
+   }
+
+   // Busca `registrationId` DENTRO de una hoja ya resuelta y marca
+   // presente si corresponde — separado de findAndMarkAttendance para
+   // poder probar tanto el camino rápido (hoja cacheada) como el
+   // recorrido completo con la misma lógica exacta, sin duplicarla.
+   // Devuelve null si esta hoja no es de charla o no tiene esa fila
+   // (nunca "not_found": eso lo decide quien llama, después de agotar
+   // todas las hojas — acá null solo significa "seguí buscando").
+   function markAttendanceInSheet(sheet, registrationId, sessionLabel, expectedActivityId) {
+     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+     var idCol = headers.indexOf('RegistrationId');
+     var attendanceCol = headers.indexOf('Asistencias');
+     var activityIdCol = headers.indexOf('ActivityId');
+     if (idCol === -1 || attendanceCol === -1) return null; // no es una hoja de charla
+
+     var data = sheet.getDataRange().getValues();
+     for (var i = 1; i < data.length; i++) {
+       if (String(data[i][idCol]) !== String(registrationId)) continue;
+
+       var name = (data[i][1] || '') + ' ' + (data[i][2] || '');
+
+       if (expectedActivityId && activityIdCol !== -1) {
+         var rowActivityId = String(data[i][activityIdCol] || '');
+         if (rowActivityId && rowActivityId !== String(expectedActivityId)) {
+           return { result: 'wrong_activity', name: name.trim() };
+         }
+       }
+
+       var attendance = safeParseJson(data[i][attendanceCol]) || [];
+
+       if (attendance.indexOf(sessionLabel) !== -1) {
+         return {
+           result: 'duplicate',
+           name: name.trim(),
+           totalForSession: countAttendanceForSession(data, attendanceCol, sessionLabel),
+         };
+       }
+
+       attendance.push(sessionLabel);
+       sheet.getRange(i + 1, attendanceCol + 1).setValue(JSON.stringify(attendance));
+       data[i][attendanceCol] = JSON.stringify(attendance); // refleja el cambio para el conteo de abajo
+       return {
+         result: 'ok',
+         name: name.trim(),
+         totalForSession: countAttendanceForSession(data, attendanceCol, sessionLabel),
+       };
+     }
+
+     return null;
+   }
+
    // `expectedActivityId` es opcional a propósito (compatibilidad hacia
    // atrás si algún día algo llama a esto sin mandarlo) — pero
    // /staff/escanear/ (Fase 1, sistema de certificados, 2026-09-06)
    // siempre lo manda desde que el staff elige la actividad de un
    // desplegable en vez de tipear el encuentro a mano. Sirve para
    // detectar que alguien escaneó el QR de OTRA actividad mientras tenía
-   // esta seleccionada — antes ese caso marcaba presente igual, en la
-   // actividad equivocada, sin ningún aviso.
+   // esta seleccionada (antes ese caso marcaba presente igual, en la
+   // actividad equivocada, sin ningún aviso) Y para ir directo a la hoja
+   // correcta (ver getCachedSheetNameForActivity) — antes esta función
+   // recorría TODAS las hojas de la planilla en CADA escaneo, una por
+   // una, cada una con su propio viaje de ida y vuelta a Google Sheets;
+   // con varios meses de actividades acumuladas eso era varios segundos
+   // reales de espera, mucho antes de que importara la velocidad de la
+   // cámara o de jsQR. Si la hoja cacheada ya no sirve (se borró, o la
+   // actividad se renombró y ahora la hoja real tiene otro nombre), cae
+   // solo al recorrido completo de siempre — nunca devuelve un resultado
+   // incorrecto por confiar en un cache viejo, en el peor caso es tan
+   // lento como antes.
    function findAndMarkAttendance(registrationId, sessionLabel, expectedActivityId) {
      if (!registrationId) return { result: 'not_found' };
+
+     if (expectedActivityId) {
+       var cachedSheetName = getCachedSheetNameForActivity(expectedActivityId);
+       if (cachedSheetName) {
+         var cachedSheet = getCharlaSheet(cachedSheetName);
+         if (cachedSheet) {
+           var cachedResult = markAttendanceInSheet(
+             cachedSheet,
+             registrationId,
+             sessionLabel,
+             expectedActivityId,
+           );
+           if (cachedResult) return cachedResult;
+         }
+       }
+     }
 
      var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
      for (var s = 0; s < sheets.length; s++) {
        var sheet = sheets[s];
-       var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-       var idCol = headers.indexOf('RegistrationId');
-       var attendanceCol = headers.indexOf('Asistencias');
-       var activityIdCol = headers.indexOf('ActivityId');
-       if (idCol === -1 || attendanceCol === -1) continue; // no es una hoja de charla
-
-       var data = sheet.getDataRange().getValues();
-       for (var i = 1; i < data.length; i++) {
-         if (String(data[i][idCol]) !== String(registrationId)) continue;
-
-         var name = (data[i][1] || '') + ' ' + (data[i][2] || '');
-
-         if (expectedActivityId && activityIdCol !== -1) {
-           var rowActivityId = String(data[i][activityIdCol] || '');
-           if (rowActivityId && rowActivityId !== String(expectedActivityId)) {
-             return { result: 'wrong_activity', name: name.trim() };
-           }
-         }
-
-         var attendance = safeParseJson(data[i][attendanceCol]) || [];
-
-         if (attendance.indexOf(sessionLabel) !== -1) {
-           return { result: 'duplicate', name: name.trim() };
-         }
-
-         attendance.push(sessionLabel);
-         sheet.getRange(i + 1, attendanceCol + 1).setValue(JSON.stringify(attendance));
-         return { result: 'ok', name: name.trim() };
+       var result = markAttendanceInSheet(sheet, registrationId, sessionLabel, expectedActivityId);
+       if (result) {
+         if (expectedActivityId) cacheSheetNameForActivity(expectedActivityId, sheet.getName());
+         return result;
        }
      }
 
