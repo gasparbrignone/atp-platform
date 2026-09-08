@@ -1576,18 +1576,6 @@ actividad solo.
      return jsonpResponse(result, params.callback);
    }
 
-   // Recuerda en qué hoja vive cada actividad (por ActivityId) durante un
-   // rato — así el escaneo #2 en adelante de una misma actividad va
-   // directo a la hoja correcta, sin repetir el recorrido completo de
-   // findAndMarkAttendance de abajo. Se guarda por hasta 6hs (el máximo
-   // de CacheService), de sobra para cualquier jornada de un evento.
-   function getCachedSheetNameForActivity(activityId) {
-     return CacheService.getScriptCache().get('checkin_sheet_' + activityId);
-   }
-   function cacheSheetNameForActivity(activityId, sheetName) {
-     CacheService.getScriptCache().put('checkin_sheet_' + activityId, sheetName, 21600);
-   }
-
    // Cuántas filas de esta hoja ya tienen `sessionLabel` marcado — se
    // devuelve en la respuesta de un check-in exitoso para mostrar un
    // contador de "escaneos totales" en /staff/escanear/ (de TODOS los
@@ -1659,45 +1647,29 @@ actividad solo.
    // siempre lo manda desde que el staff elige la actividad de un
    // desplegable en vez de tipear el encuentro a mano. Sirve para
    // detectar que alguien escaneó el QR de OTRA actividad mientras tenía
-   // esta seleccionada (antes ese caso marcaba presente igual, en la
-   // actividad equivocada, sin ningún aviso) Y para ir directo a la hoja
-   // correcta (ver getCachedSheetNameForActivity) — antes esta función
-   // recorría TODAS las hojas de la planilla en CADA escaneo, una por
-   // una, cada una con su propio viaje de ida y vuelta a Google Sheets;
-   // con varios meses de actividades acumuladas eso era varios segundos
-   // reales de espera, mucho antes de que importara la velocidad de la
-   // cámara o de jsQR. Si la hoja cacheada ya no sirve (se borró, o la
-   // actividad se renombró y ahora la hoja real tiene otro nombre), cae
-   // solo al recorrido completo de siempre — nunca devuelve un resultado
-   // incorrecto por confiar en un cache viejo, en el peor caso es tan
-   // lento como antes.
+   // esta seleccionada — antes ese caso marcaba presente igual, en la
+   // actividad equivocada, sin ningún aviso.
+   //
+   // NOTA (2026-09-08): hubo una versión de esta función que cacheaba en
+   // CacheService qué hoja corresponde a cada ActivityId, para no
+   // recorrer todas las hojas en cada escaneo. Se revirtió de inmediato
+   // al reportarse en producción que varios inscriptos VÁLIDOS empezaron
+   // a dar "no reconocido" justo después de esa implementación, más
+   // lento que antes — no se llegó a identificar la causa exacta antes
+   // de revertir (prioridad: que nadie quede mal marcado en un evento
+   // real, por encima de la velocidad). Antes de reintentar esa
+   // optimización, investigar con datos concretos de un caso fallido
+   // real (nombre/DNI de la persona, actividad, si había varios
+   // dispositivos escaneando a la vez) en vez de asumir de nuevo que el
+   // diseño de la cache era correcto.
    function findAndMarkAttendance(registrationId, sessionLabel, expectedActivityId) {
      if (!registrationId) return { result: 'not_found' };
-
-     if (expectedActivityId) {
-       var cachedSheetName = getCachedSheetNameForActivity(expectedActivityId);
-       if (cachedSheetName) {
-         var cachedSheet = getCharlaSheet(cachedSheetName);
-         if (cachedSheet) {
-           var cachedResult = markAttendanceInSheet(
-             cachedSheet,
-             registrationId,
-             sessionLabel,
-             expectedActivityId,
-           );
-           if (cachedResult) return cachedResult;
-         }
-       }
-     }
 
      var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
      for (var s = 0; s < sheets.length; s++) {
        var sheet = sheets[s];
        var result = markAttendanceInSheet(sheet, registrationId, sessionLabel, expectedActivityId);
-       if (result) {
-         if (expectedActivityId) cacheSheetNameForActivity(expectedActivityId, sheet.getName());
-         return result;
-       }
+       if (result) return result;
      }
 
      return { result: 'not_found' };
