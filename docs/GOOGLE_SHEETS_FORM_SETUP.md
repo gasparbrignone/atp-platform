@@ -1275,8 +1275,14 @@ actividad solo.
      var idCol = headers.indexOf('RegistrationId');
      if (idCol === -1) return null;
      var data = sheet.getDataRange().getValues();
+     // .trim(): un espacio invisible de más (pegado a mano en la celda
+     // alguna vez, o de más en lo que decodificó la cámara) hace que dos
+     // ids que se VEN idénticos no coincidan letra por letra — comparar
+     // recortados es gratis y nunca hace que dos ids genuinamente
+     // distintos pasen a coincidir.
+     var target = String(registrationId).trim();
      for (var i = 1; i < data.length; i++) {
-       if (String(data[i][idCol]) === String(registrationId)) return i + 1;
+       if (String(data[i][idCol]).trim() === target) return i + 1;
      }
      return null;
    }
@@ -1611,8 +1617,16 @@ actividad solo.
      var activityIdCol = headers.indexOf('ActivityId');
      if (idCol === -1 || attendanceCol === -1) return null; // no es una hoja de charla
 
+     // .trim(): bug real encontrado en producción — un QR real coincidía
+     // letra por letra con el id de la fila al leerlo con un lector
+     // aparte, pero acá seguía dando "no reconocido". Un espacio invisible
+     // de más (en la celda, o en lo que devuelve la cámara) rompe una
+     // comparación exacta sin que se note a simple vista — comparar
+     // recortados es gratis y no hace que dos ids genuinamente distintos
+     // pasen a coincidir.
+     var targetId = String(registrationId).trim();
      for (var i = 1; i < data.length; i++) {
-       if (String(data[i][idCol]) !== String(registrationId)) continue;
+       if (String(data[i][idCol]).trim() !== targetId) continue;
 
        var name = (data[i][1] || '') + ' ' + (data[i][2] || '');
 
