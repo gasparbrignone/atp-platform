@@ -108,9 +108,31 @@ import '@/styles/global.css';
           </button>
         </div>
 
+        <div
+          class="border-border bg-surface grid grid-cols-2 divide-x rounded-md border p-3 text-center"
+        >
+          <div>
+            <p data-count-device class="text-h4 text-text font-extrabold">0</p>
+            <p class="text-caption text-text-secondary">Este dispositivo</p>
+          </div>
+          <div>
+            <p data-count-total class="text-h4 text-text font-extrabold">—</p>
+            <p class="text-caption text-text-secondary">Total del encuentro</p>
+          </div>
+        </div>
+
         <div class="relative aspect-square w-full overflow-hidden rounded-md bg-black">
           <video data-camera-video class="size-full object-cover" playsinline muted></video>
           <canvas data-camera-canvas hidden></canvas>
+          <!-- Destello de confirmación: cubre toda la vista de escaneo (no
+               solo un cartel chico) para que se note aunque el staff no
+               esté mirando el texto — pedido explícito de que "la interfaz
+               se ponga toda en verde". Empieza transparente/invisible. -->
+          <div
+            data-flash-overlay
+            class="bg-success pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-150 ease-out"
+          >
+          </div>
         </div>
 
         <p data-scan-hint class="text-body-sm text-text-secondary text-center">
@@ -137,6 +159,13 @@ import '@/styles/global.css';
       const SESSION_STORAGE_ACTIVITY_ID = 'atp-staff-activity-id';
       const SESSION_STORAGE_ACTIVITY_TITLE = 'atp-staff-activity-title';
       const SESSION_STORAGE_SESSION = 'atp-staff-session-label';
+      // Contador de "este dispositivo": vive en sessionStorage (no
+      // localStorage) a propósito — se reinicia solo al elegir un
+      // encuentro nuevo con "Cambiar", igual que el resto de estos datos,
+      // así siempre refleja los escaneos de ESTA tanda, no un total
+      // acumulado de todos los eventos que este celular haya escaneado
+      // alguna vez.
+      const SESSION_STORAGE_DEVICE_COUNT = 'atp-staff-device-count';
       // Ventana durante la que se ignoran nuevas lecturas después de un
       // escaneo exitoso — si no, el mismo QR frente a la cámara dispara el
       // check-in decenas de veces por segundo mientras la persona se aleja.
@@ -164,17 +193,72 @@ import '@/styles/global.css';
       const resultBanner = document.querySelector<HTMLElement>('[data-result-banner]');
       const resultTitle = document.querySelector<HTMLElement>('[data-result-title]');
       const resultSubtitle = document.querySelector<HTMLElement>('[data-result-subtitle]');
+      const flashOverlay = document.querySelector<HTMLElement>('[data-flash-overlay]');
+      const countDeviceEl = document.querySelector<HTMLElement>('[data-count-device]');
+      const countTotalEl = document.querySelector<HTMLElement>('[data-count-total]');
 
       const context = canvas?.getContext('2d', { willReadFrequently: true });
 
       let scanning = false;
       let cooldownUntil = 0;
       let lastDecodeAttempt = 0;
-      // Decodificar en cada uno de los ~60 frames/seg de requestAnimationFrame
-      // es trabajo de más para el CPU/batería del celular del staff — el QR
-      // no se mueve tan rápido, 5 intentos por segundo alcanza de sobra.
-      const DECODE_INTERVAL_MS = 200;
+      // Bajado de 200ms: la demora real que se sentía no era esto (ver
+      // MAX_DECODE_DIMENSION más abajo y el arreglo del lado del Apps
+      // Script, docs/GOOGLE_SHEETS_FORM_SETUP.md) sino el viaje de ida y
+      // vuelta al servidor — pero igual conviene que la detección en sí
+      // sea lo más ágil posible. 90ms sigue siendo liviano para la
+      // batería (~11 intentos/seg, no los ~60 de cada frame) y ya no se
+      // nota como un paso extra de espera.
+      const DECODE_INTERVAL_MS = 90;
+      // Decodificar el frame completo de la cámara (a menudo 1080p o más
+      // en un celular actual) es el trabajo más caro de cada intento:
+      // getImageData y jsQR procesan cada píxel. Un QR se lee perfecto
+      // aunque se lo achique bastante, así que se dibuja en un canvas más
+      // chico en vez de a resolución completa — bastantes menos píxeles
+      // por intento, sin perder confiabilidad de lectura.
+      const MAX_DECODE_DIMENSION = 640;
       let cameraStream: MediaStream | null = null;
+      let audioContext: AudioContext | null = null;
+
+      function getDeviceScanCount(): number {
+        return Number(sessionStorage.getItem(SESSION_STORAGE_DEVICE_COUNT) ?? '0');
+      }
+
+      function setDeviceScanCount(count: number): void {
+        sessionStorage.setItem(SESSION_STORAGE_DEVICE_COUNT, String(count));
+        if (countDeviceEl) countDeviceEl.textContent = String(count);
+      }
+
+      // Beep corto generado con Web Audio (sin archivo de audio que
+      // cargar: nada que descargar, cero demora antes del primer
+      // sonido). El AudioContext se crea recién al arrancar a escanear
+      // (dentro de un gesto real del usuario, el submit del formulario)
+      // porque los navegadores móviles bloquean el audio programático
+      // que no arranca de una interacción directa — crearlo antes fallaría
+      // en silencio en varios celulares.
+      function playSuccessSound(): void {
+        if (!audioContext) return;
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 880;
+        gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.15);
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.15);
+      }
+
+      function flashGreen(): void {
+        if (!flashOverlay) return;
+        flashOverlay.classList.remove('opacity-0');
+        flashOverlay.classList.add('opacity-80');
+        window.setTimeout(() => {
+          flashOverlay.classList.remove('opacity-80');
+          flashOverlay.classList.add('opacity-0');
+        }, 350);
+      }
 
       function getSecret(): string {
         return sessionStorage.getItem(SESSION_STORAGE_SECRET) ?? '';
@@ -307,11 +391,23 @@ import '@/styles/global.css';
       interface CheckinResponse {
         result: 'ok' | 'duplicate' | 'not_found' | 'unauthorized' | 'wrong_activity' | 'error';
         name?: string;
+        totalForSession?: number;
       }
 
       function handleCheckinResponse(response: CheckinResponse) {
         switch (response.result) {
           case 'ok':
+            // Sonido + pantalla en verde solo acá, en el resultado
+            // CONFIRMADO por el servidor (nunca al simplemente detectar
+            // el QR): si se disparara antes de la confirmación real, un
+            // duplicado/actividad equivocada/QR ajeno se vería y sonaría
+            // exactamente igual que un ingreso válido.
+            playSuccessSound();
+            flashGreen();
+            setDeviceScanCount(getDeviceScanCount() + 1);
+            if (countTotalEl && typeof response.totalForSession === 'number') {
+              countTotalEl.textContent = String(response.totalForSession);
+            }
             showBanner('ok', `✓ ${response.name ?? 'Presente'}`, 'Asistencia registrada.');
             break;
           case 'duplicate':
@@ -349,12 +445,23 @@ import '@/styles/global.css';
           now - lastDecodeAttempt >= DECODE_INTERVAL_MS
         ) {
           lastDecodeAttempt = now;
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+          const scale = Math.min(
+            1,
+            MAX_DECODE_DIMENSION / Math.max(video.videoWidth, video.videoHeight),
+          );
+          canvas.width = Math.round(video.videoWidth * scale);
+          canvas.height = Math.round(video.videoHeight * scale);
           context.drawImage(video, 0, 0, canvas.width, canvas.height);
           const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-          const code = jsQR(imageData.data, imageData.width, imageData.height);
+          // dontInvert: el QR siempre sale oscuro-sobre-claro (tanto el
+          // que genera `qrcode` en el navegador como el de
+          // api.qrserver.com en el mail) — nunca hace falta que jsQR
+          // pruebe también la versión invertida de colores, que duplica
+          // el trabajo de decodificación en cada intento.
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'dontInvert',
+          });
           if (code?.data) {
             cooldownUntil = Date.now() + SCAN_COOLDOWN_MS;
             requestCheckin(code.data, getSessionLabel(), getSecret());
@@ -385,6 +492,8 @@ import '@/styles/global.css';
         if (scanView) scanView.hidden = false;
         if (activityLabelEl) activityLabelEl.textContent = getActivityTitle();
         if (sessionLabelEl) sessionLabelEl.textContent = getSessionLabel();
+        if (countDeviceEl) countDeviceEl.textContent = String(getDeviceScanCount());
+        if (countTotalEl) countTotalEl.textContent = '—';
         void startCamera();
       }
 
@@ -402,6 +511,16 @@ import '@/styles/global.css';
         sessionStorage.setItem(SESSION_STORAGE_ACTIVITY_ID, activityId);
         sessionStorage.setItem(SESSION_STORAGE_ACTIVITY_TITLE, activityTitle);
         sessionStorage.setItem(SESSION_STORAGE_SESSION, sessionLabel);
+        sessionStorage.setItem(SESSION_STORAGE_DEVICE_COUNT, '0');
+        // Creado acá, dentro del propio gesto de tocar "Empezar a
+        // escanear" — algunos navegadores de celular bloquean cualquier
+        // audio programático que no arranque de una interacción directa
+        // como esta.
+        try {
+          audioContext = new AudioContext();
+        } catch {
+          // Sin sonido en este navegador — no bloquea el resto del flujo.
+        }
         enterScanView();
       });
 
@@ -412,6 +531,7 @@ import '@/styles/global.css';
         sessionStorage.removeItem(SESSION_STORAGE_ACTIVITY_ID);
         sessionStorage.removeItem(SESSION_STORAGE_ACTIVITY_TITLE);
         sessionStorage.removeItem(SESSION_STORAGE_SESSION);
+        sessionStorage.removeItem(SESSION_STORAGE_DEVICE_COUNT);
         if (scanView) scanView.hidden = true;
         if (setupForm) setupForm.hidden = false;
         if (secretInput) secretInput.value = '';
@@ -421,6 +541,17 @@ import '@/styles/global.css';
       });
 
       if (getSecret() && getActivityId() && getSessionLabel()) {
+        // Retomar una sesión ya empezada (p. ej. se refrescó la página
+        // sin querer) no es un gesto directo del usuario — el
+        // AudioContext puede quedar "suspendido" hasta el próximo toque
+        // en la pantalla, así que el sonido podría no escucharse hasta
+        // entonces. No vale la pena más que esto: es un caso raro, y
+        // ni el silencio momentáneo ni el intento fallido rompen nada.
+        try {
+          audioContext = new AudioContext();
+        } catch {
+          // Sin sonido en este navegador — no bloquea el resto del flujo.
+        }
         enterScanView();
       }
     </script>
