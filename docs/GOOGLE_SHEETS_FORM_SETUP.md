@@ -1641,35 +1641,71 @@ actividad solo.
      return null;
    }
 
+   // Recuerda en qué hoja vive cada actividad (por ActivityId) durante un
+   // rato — así el escaneo #2 en adelante de una misma actividad va
+   // directo a la hoja correcta, sin repetir el recorrido completo de
+   // findAndMarkAttendance de abajo. Se guarda por hasta 6hs (el máximo
+   // de CacheService), de sobra para cualquier jornada de un evento.
+   function getCachedSheetNameForActivity(activityId) {
+     return CacheService.getScriptCache().get('checkin_sheet_' + activityId);
+   }
+   function cacheSheetNameForActivity(activityId, sheetName) {
+     CacheService.getScriptCache().put('checkin_sheet_' + activityId, sheetName, 21600);
+   }
+
    // `expectedActivityId` es opcional a propósito (compatibilidad hacia
    // atrás si algún día algo llama a esto sin mandarlo) — pero
    // /staff/escanear/ (Fase 1, sistema de certificados, 2026-09-06)
    // siempre lo manda desde que el staff elige la actividad de un
    // desplegable en vez de tipear el encuentro a mano. Sirve para
    // detectar que alguien escaneó el QR de OTRA actividad mientras tenía
-   // esta seleccionada — antes ese caso marcaba presente igual, en la
-   // actividad equivocada, sin ningún aviso.
+   // esta seleccionada (antes ese caso marcaba presente igual, en la
+   // actividad equivocada, sin ningún aviso) Y para ir directo a la hoja
+   // correcta (ver getCachedSheetNameForActivity) — sin esto, la función
+   // recorre TODAS las hojas de la planilla en CADA escaneo, cada una
+   // con su propio viaje de ida y vuelta a Google Sheets; con varios
+   // meses de actividades acumuladas eso se midió en producción en un
+   // promedio de 11 segundos por persona, inviable para hacer entrar a
+   // 300 personas.
    //
-   // NOTA (2026-09-08): hubo una versión de esta función que cacheaba en
-   // CacheService qué hoja corresponde a cada ActivityId, para no
-   // recorrer todas las hojas en cada escaneo. Se revirtió de inmediato
-   // al reportarse en producción que varios inscriptos VÁLIDOS empezaron
-   // a dar "no reconocido" justo después de esa implementación, más
-   // lento que antes — no se llegó a identificar la causa exacta antes
-   // de revertir (prioridad: que nadie quede mal marcado en un evento
-   // real, por encima de la velocidad). Antes de reintentar esa
-   // optimización, investigar con datos concretos de un caso fallido
-   // real (nombre/DNI de la persona, actividad, si había varios
-   // dispositivos escaneando a la vez) en vez de asumir de nuevo que el
-   // diseño de la cache era correcto.
+   // NOTA (2026-09-08): esta optimización se probó, se sacó por un
+   // reporte de inscriptos válidos con "no reconocido", y se vuelve a
+   // poner acá — la investigación posterior encontró que ese problema en
+   // realidad pasaba SOLO en un navegador/celular puntual (no en Chrome)
+   // y desapareció al revertir un cambio distinto del lado de la cámara
+   // (ver DECODE_INTERVAL_MS/inversionAttempts en escanear.astro), no
+   // esto. Si el problema de "no reconocido" volviera a aparecer,
+   // primero descartar de nuevo la decodificación del QR en el celular
+   // específico antes de sospechar otra vez de esta cache — nunca
+   // devuelve un resultado incorrecto por confiar en un cache viejo (ver
+   // el fallback más abajo), en el peor caso es tan lento como sin ella.
    function findAndMarkAttendance(registrationId, sessionLabel, expectedActivityId) {
      if (!registrationId) return { result: 'not_found' };
+
+     if (expectedActivityId) {
+       var cachedSheetName = getCachedSheetNameForActivity(expectedActivityId);
+       if (cachedSheetName) {
+         var cachedSheet = getCharlaSheet(cachedSheetName);
+         if (cachedSheet) {
+           var cachedResult = markAttendanceInSheet(
+             cachedSheet,
+             registrationId,
+             sessionLabel,
+             expectedActivityId,
+           );
+           if (cachedResult) return cachedResult;
+         }
+       }
+     }
 
      var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
      for (var s = 0; s < sheets.length; s++) {
        var sheet = sheets[s];
        var result = markAttendanceInSheet(sheet, registrationId, sessionLabel, expectedActivityId);
-       if (result) return result;
+       if (result) {
+         if (expectedActivityId) cacheSheetNameForActivity(expectedActivityId, sheet.getName());
+         return result;
+       }
      }
 
      return { result: 'not_found' };
