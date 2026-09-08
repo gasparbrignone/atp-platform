@@ -238,6 +238,13 @@ import '@/styles/global.css';
       // en silencio en varios celulares.
       function playSuccessSound(): void {
         if (!audioContext) return;
+        // En algunos navegadores (Safari/iOS en particular) un
+        // AudioContext creado dentro de un gesto puede seguir quedando
+        // "suspendido" hasta que algo lo reanuda explícitamente — sin
+        // esto, el contexto existe pero ningún sonido se escucha de
+        // verdad. Reanudar uno que ya está corriendo no hace nada, así
+        // que es seguro llamarlo siempre, no solo la primera vez.
+        void audioContext.resume();
         const oscillator = audioContext.createOscillator();
         const gain = audioContext.createGain();
         oscillator.type = 'sine';
