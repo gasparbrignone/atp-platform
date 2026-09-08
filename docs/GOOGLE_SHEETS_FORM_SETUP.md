@@ -1685,7 +1685,13 @@ actividad solo.
      if (expectedActivityId) {
        var cachedSheetName = getCachedSheetNameForActivity(expectedActivityId);
        if (cachedSheetName) {
-         var cachedSheet = getCharlaSheet(cachedSheetName);
+         // getSheetByName directo, no getCharlaSheet: ese además valida
+         // los encabezados con su propio viaje a Sheets, redundante acá
+         // — markAttendanceInSheet ya hace esa misma validación (y
+         // devuelve null de forma segura si no es una hoja de charla
+         // válida), así que hacerla dos veces por escaneo solo suma un
+         // pedido más sin agregar ninguna seguridad de más.
+         var cachedSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(cachedSheetName);
          if (cachedSheet) {
            var cachedResult = markAttendanceInSheet(
              cachedSheet,
