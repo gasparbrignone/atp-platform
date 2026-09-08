@@ -1599,13 +1599,18 @@ actividad solo.
    // (nunca "not_found": eso lo decide quien llama, después de agotar
    // todas las hojas — acá null solo significa "seguí buscando").
    function markAttendanceInSheet(sheet, registrationId, sessionLabel, expectedActivityId) {
-     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+     // Un solo pedido a Sheets, no dos: getDataRange() ya trae la fila de
+     // encabezados incluida como data[0] — antes había ACÁ ADEMÁS un
+     // getRange(1,1,1,N) aparte solo para leer esa misma fila, un viaje
+     // de ida y vuelta a Google que nunca hacía falta.
+     var data = sheet.getDataRange().getValues();
+     if (data.length < 1) return null;
+     var headers = data[0];
      var idCol = headers.indexOf('RegistrationId');
      var attendanceCol = headers.indexOf('Asistencias');
      var activityIdCol = headers.indexOf('ActivityId');
      if (idCol === -1 || attendanceCol === -1) return null; // no es una hoja de charla
 
-     var data = sheet.getDataRange().getValues();
      for (var i = 1; i < data.length; i++) {
        if (String(data[i][idCol]) !== String(registrationId)) continue;
 
