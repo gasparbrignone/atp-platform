@@ -461,14 +461,15 @@ import '@/styles/global.css';
           context.drawImage(video, 0, 0, canvas.width, canvas.height);
           const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-          // dontInvert: el QR siempre sale oscuro-sobre-claro (tanto el
-          // que genera `qrcode` en el navegador como el de
-          // api.qrserver.com en el mail) — nunca hace falta que jsQR
-          // pruebe también la versión invertida de colores, que duplica
-          // el trabajo de decodificación en cada intento.
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: 'dontInvert',
-          });
+          // Sin inversionAttempts explícito (jsQR prueba ambas variantes
+          // de color por default): se probó forzar 'dontInvert' para
+          // ahorrar trabajo, ya que el QR siempre sale oscuro-sobre-claro
+          // — se revierte por las dudas ante un reporte de "QR no
+          // reconocido" en un iPhone que dejó de repetirse al sacar esto
+          // (no confirmado del todo como la causa real, pero el costo de
+          // sacarlo es bajo y el de mantenerlo roto en algún celular es
+          // alto).
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
           if (code?.data) {
             cooldownUntil = Date.now() + SCAN_COOLDOWN_MS;
             requestCheckin(code.data, getSessionLabel(), getSecret());
