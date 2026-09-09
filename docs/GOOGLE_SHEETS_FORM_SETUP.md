@@ -2458,15 +2458,17 @@ actividad solo.
      sendReminders();
    }
 
-   function testAgendaReservation() {
+   function testKeychainReservation() {
      var fakeEvent = {
        parameter: {
-         formType: 'agenda',
+         formType: 'llaveros',
          name: 'Test Nombre',
          lastName: 'Test Apellido',
          email: 'test@test.com',
          phone: '123456789',
-         quantity: '2',
+         vertebraQty: '1',
+         corazonQty: '1',
+         fcmQty: '0',
        },
      };
      doPost(fakeEvent);
