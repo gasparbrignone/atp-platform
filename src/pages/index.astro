@@ -6,10 +6,11 @@
  * sources featured activities from src/content/activities.ts — same data
  * src/pages/actividades.astro uses, no hardcoded duplicate.
  *
- * Venta puntual activa: llaveros ATP (KeychainSaleSection, chica, al pie
- * del home) — reemplazó a la agenda del 2do cuatrimestre 2026, que ya no
- * se vende (AgendaSaleSection.astro queda sin usar, como referencia del
- * patrón por si hace falta armar otra venta puntual el día de mañana).
+ * Venta puntual activa: llaveros ATP (KeychainSaleSection, chica, arriba
+ * de los grupos de WhatsApp) — reemplazó a la agenda del 2do cuatrimestre
+ * 2026, que ya no se vende (AgendaSaleSection.astro queda sin usar, como
+ * referencia del patrón por si hace falta armar otra venta puntual el
+ * día de mañana).
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Hero from '@/components/Hero.astro';
@@ -84,6 +85,8 @@ const careers = [
     </div>
   </Hero>
 
+  <KeychainSaleSection />
+
   <WhatsAppGroupsSection />
 
   <Section id="actividades" spacing="md">
@@ -153,6 +156,4 @@ const careers = [
       <YouTubeVideoGrid />
     </Container>
   </Section>
-
-  <KeychainSaleSection />
 </BaseLayout>
