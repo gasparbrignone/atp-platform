@@ -189,13 +189,29 @@ actividad solo.
    var BRAND_COLOR = '#2e5699';
    var ACCENT_COLOR = '#c6299e';
 
-   // Venta puntual de la agenda ATP (2do cuatrimestre 2026) — ver
-   // src/components/AgendaSaleSection.astro. Cuando termine la venta, este
-   // bloque y esa sección se pueden borrar juntos.
-   var AGENDA_PRICE = 3500;
-   var AGENDA_ALIAS = 'ATP.FCM';
-   var AGENDA_WHATSAPP = '5493406404841';
+   // Mismo alias/WhatsApp para cualquier venta puntual de ATP (antes la
+   // agenda, ahora los llaveros — ver KEYCHAIN_SHEET_NAME más abajo) —
+   // nunca se venden dos cosas puntuales a la vez, así que un solo par de
+   // constantes alcanza en vez de una copia por producto.
+   var PAYMENT_ALIAS = 'ATP.FCM';
+   var PAYMENT_WHATSAPP = '5493406404841';
+
+   // La agenda del 2do cuatrimestre 2026 ya no se vende (el componente
+   // AgendaSaleSection.astro se sacó del home) pero la hoja con las
+   // reservas YA HECHAS sigue existiendo en la planilla para siempre —
+   // este nombre se queda acá solo para poder seguir excluyéndola de
+   // getEligibleActivitySheet/promptReschedule más abajo (sus mails son
+   // transaccionales, sin "Dado de baja" — decisión permanente, ver
+   // docs/SECURITY_DECISIONS.md). Nunca borrar esta constante mientras
+   // esa hoja exista, aunque ya no quede código que la escriba.
    var AGENDA_SHEET_NAME = 'Reserva Agenda 2C 2026';
+
+   // Venta puntual de llaveros ATP (2026-09-08) — ver
+   // src/components/KeychainSaleSection.astro. Mismo motivo que la
+   // Agenda arriba: sus mails también son transaccionales (instrucciones
+   // de pago, sin "Dado de baja"), así que esta hoja también queda
+   // permanentemente excluida de recibir campañas.
+   var KEYCHAIN_SHEET_NAME = 'Reserva Llaveros';
 
    // Charlas/capacitaciones con certificado + QR de acceso (ver
    // ActivityCertificateRegistrationForm.astro y src/pages/staff/escanear.astro).
@@ -308,18 +324,20 @@ actividad solo.
            .setMimeType(ContentService.MimeType.JSON);
        }
 
-       // La reserva de la agenda no es una inscripción a actividad — mismo
-       // Web App, mismo Sheet, pero una rama y una hoja completamente
-       // aparte (ver AgendaSaleSection.astro, que manda `formType=agenda`).
-       if (params.formType === 'agenda') {
-         return handleAgendaReservation(params);
-       }
-
        // Charla/capacitación con certificado: otra rama y otra hoja aparte
        // (columnas distintas — DNI, carrera, año, QR — ver
        // ActivityCertificateRegistrationForm.astro, que manda `formType=charla`).
        if (params.formType === 'charla') {
          return handleCharlaRegistration(params);
+       }
+
+       // Venta puntual de llaveros (2026-09-08, reemplaza a la venta de
+       // la agenda del 2do cuatrimestre 2026, que ya no se vende — mismo
+       // Web App, mismo Sheet, pero una rama y una hoja completamente
+       // aparte, ver KeychainSaleSection.astro, que manda
+       // `formType=llaveros`).
+       if (params.formType === 'llaveros') {
+         return handleKeychainReservation(params);
        }
 
        var sheetName = sanitizeSheetName(params.activityTitle || 'Sin actividad');
@@ -515,14 +533,17 @@ actividad solo.
    // Único punto que decide qué hoja puede ver o usar el panel admin —
    // ninguna acción de abajo debería llamar a getSheetByName directo con
    // un nombre que vino del cliente sin pasar por acá primero. Excluye
-   // "Errores" (no es una actividad) y la Agenda (AGENDA_SHEET_NAME: sus
-   // mails son puntuales/transaccionales, sin link de darse de baja —
-   // nunca deben poder recibir una campaña ni listarse acá, ver
+   // "Errores" (no es una actividad) y cualquier venta puntual
+   // (AGENDA_SHEET_NAME/KEYCHAIN_SHEET_NAME: sus mails son
+   // puntuales/transaccionales, sin link de darse de baja — nunca deben
+   // poder recibir una campaña ni listarse acá, ver
    // SECURITY_DECISIONS.md). Cualquier otra hoja sin columna "Email"
    // tampoco es una hoja de inscripciones (ej. la de log de campañas,
    // CAMPAIGNS_LOG_SHEET_NAME, queda afuera sola por este mismo motivo).
    function getEligibleActivitySheet(sheetName) {
-     if (!sheetName || sheetName === AGENDA_SHEET_NAME) return null;
+     if (!sheetName || sheetName === AGENDA_SHEET_NAME || sheetName === KEYCHAIN_SHEET_NAME) {
+       return null;
+     }
      var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
      if (!sheet || sheet.getName() === 'Errores') return null;
      if (sheet.getLastRow() < 1) return null;
@@ -1765,7 +1786,11 @@ actividad solo.
      var sheet = SpreadsheetApp.getActiveSheet();
      var sheetName = sheet.getName();
 
-     if (sheetName === 'Errores' || sheetName === AGENDA_SHEET_NAME) {
+     if (
+       sheetName === 'Errores' ||
+       sheetName === AGENDA_SHEET_NAME ||
+       sheetName === KEYCHAIN_SHEET_NAME
+     ) {
        ui.alert('Abrí la pestaña de la actividad que querés reprogramar (no esta) y probá de nuevo.');
        return;
      }
@@ -1846,13 +1871,50 @@ actividad solo.
      return greeting + messageHtml;
    }
 
-   // ====== RESERVA DE LA AGENDA ======
+   // ====== VENTA DE LLAVEROS ======
+   //
+   // src/components/KeychainSaleSection.astro. Reemplaza a la venta de la
+   // agenda del 2do cuatrimestre 2026 (retirada — ver la nota en
+   // AGENDA_SHEET_NAME más arriba, esa hoja sigue viva pero ya no se le
+   // escribe) — mismo patrón de siempre: una hoja propia, un mail de
+   // confirmación transaccional con el alias para transferir.
+   //
+   // A diferencia de la agenda (precio fijo por unidad), acá el precio es
+   // por combo: 1 llavero $2.500, 2 $4.000, 3 $6.000, y cada uno de más
+   // por encima de 3 suma $2.000. calculateKeychainPrice() es la única
+   // fuente de verdad de este lado — KeychainSaleSection.astro tiene su
+   // propia copia idéntica para mostrar el total en pantalla antes de
+   // mandar el formulario (los dos runtimes no tienen forma de compartir
+   // código entre sí). Si el precio cambia alguna vez, actualizar los dos.
+   function calculateKeychainPrice(quantity) {
+     if (quantity <= 0) return 0;
+     if (quantity === 1) return 2500;
+     if (quantity === 2) return 4000;
+     if (quantity === 3) return 6000;
+     return 6000 + (quantity - 3) * 2000;
+   }
 
-   function handleAgendaReservation(params) {
+   function handleKeychainReservation(params) {
      try {
-       var sheet = getOrCreateAgendaSheet();
-       var quantity = Math.max(1, Number(params.quantity) || 1);
-       var total = quantity * AGENDA_PRICE;
+       var sheet = getOrCreateKeychainSheet();
+       var quantities = {
+         vertebra: Math.max(0, Math.floor(Number(params.vertebraQty) || 0)),
+         corazon: Math.max(0, Math.floor(Number(params.corazonQty) || 0)),
+         fcm: Math.max(0, Math.floor(Number(params.fcmQty) || 0)),
+       };
+       var totalQuantity = quantities.vertebra + quantities.corazon + quantities.fcm;
+
+       // Nunca confiar solo en la validación del navegador —
+       // KeychainSaleSection.astro ya no deja mandar el formulario en 0,
+       // pero un pedido armado a mano podría saltearse eso. Sin al menos
+       // un llavero elegido no hay nada que registrar ni cobrar.
+       if (totalQuantity < 1) {
+         return ContentService
+           .createTextOutput(JSON.stringify({ result: 'error' }))
+           .setMimeType(ContentService.MimeType.JSON);
+       }
+
+       var total = calculateKeychainPrice(totalQuantity);
 
        sheet.appendRow([
          new Date(),
@@ -1860,33 +1922,39 @@ actividad solo.
          params.lastName || '',
          params.email || '',
          params.phone || '',
-         quantity,
+         quantities.vertebra,
+         quantities.corazon,
+         quantities.fcm,
+         totalQuantity,
          total,
        ]);
 
        try {
-         sendAgendaConfirmationEmail(params.email, params.name, quantity, total);
+         sendKeychainConfirmationEmail(params.email, params.name, quantities, total);
        } catch (mailErr) {
-         logError('mail-agenda', mailErr, params);
+         logError('mail-llaveros', mailErr, params);
        }
 
        return ContentService
          .createTextOutput(JSON.stringify({ result: 'success' }))
          .setMimeType(ContentService.MimeType.JSON);
      } catch (err) {
-       logError('agenda', err, params);
+       logError('llaveros', err, params);
        return ContentService
          .createTextOutput(JSON.stringify({ result: 'error' }))
          .setMimeType(ContentService.MimeType.JSON);
      }
    }
 
-   function getOrCreateAgendaSheet() {
+   function getOrCreateKeychainSheet() {
      var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-     var sheet = spreadsheet.getSheetByName(AGENDA_SHEET_NAME);
+     var sheet = spreadsheet.getSheetByName(KEYCHAIN_SHEET_NAME);
      if (!sheet) {
-       sheet = spreadsheet.insertSheet(AGENDA_SHEET_NAME);
-       sheet.appendRow(['Fecha', 'Nombre', 'Apellido', 'Email', 'Teléfono', 'Cantidad', 'Total']);
+       sheet = spreadsheet.insertSheet(KEYCHAIN_SHEET_NAME);
+       sheet.appendRow([
+         'Fecha', 'Nombre', 'Apellido', 'Email', 'Teléfono',
+         'Vértebra', 'Corazón', 'FCM', 'Total', 'Monto',
+       ]);
      }
      return sheet;
    }
@@ -2074,27 +2142,37 @@ actividad solo.
      );
    }
 
-   function sendAgendaConfirmationEmail(email, name, quantity, total) {
+   function sendKeychainConfirmationEmail(email, name, quantities, total) {
      if (!email) return;
-     var html = wrapEmailHtml(buildAgendaConfirmationBody(name, quantity, total));
+     var html = wrapEmailHtml(buildKeychainConfirmationBody(name, quantities, total));
 
-     GmailApp.sendEmail(email, 'Reservamos tu agenda ATP', '', {
+     GmailApp.sendEmail(email, 'Reservamos tus llaveros ATP', '', {
        htmlBody: html,
        name: SENDER_NAME,
      });
    }
 
-   function buildAgendaConfirmationBody(name, quantity, total) {
+   // A diferencia de la agenda (retiro fijo "por la mesita, tal día"), el
+   // retiro de los llaveros se coordina caso a caso por WhatsApp —
+   // decisión explícita del dueño del proyecto, no hay un lugar/horario
+   // fijo que prometer acá todavía.
+   function buildKeychainConfirmationBody(name, quantities, total) {
+     var designLabels = { vertebra: 'Vértebra', corazon: 'Corazón', fcm: 'FCM' };
+     var itemsList = Object.keys(designLabels)
+       .filter(function (key) { return quantities[key] > 0; })
+       .map(function (key) { return quantities[key] + ' ' + designLabels[key]; })
+       .join(', ');
+
      var greeting =
        '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + escapeHtml(name) + ',</p>' +
-       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Reservamos tu agenda ATP</h1>' +
-       '<p style="margin:0 0 24px;color:#374151;">Cantidad: ' + quantity + '. Total: $' + total + '.</p>';
+       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">Reservamos tus llaveros ATP</h1>' +
+       '<p style="margin:0 0 24px;color:#374151;">Pedido: ' + escapeHtml(itemsList) + '. Total: $' + total + '.</p>';
 
      var steps =
        '<div style="border:1px solid #e5e9f0;border-radius:10px;padding:18px 20px;">' +
-       '<p style="margin:0 0 12px;color:#111827;"><strong>1.</strong> Transferí $' + total + ' al alias <strong>' + AGENDA_ALIAS + '</strong>.</p>' +
-       '<p style="margin:0 0 12px;color:#111827;"><strong>2.</strong> Mandanos el comprobante por WhatsApp al <a href="https://wa.me/' + AGENDA_WHATSAPP + '" style="color:' + BRAND_COLOR + ';">3406 40-4841</a>.</p>' +
-       '<p style="margin:0;color:#111827;"><strong>3.</strong> La retirás por nuestra mesita a partir del lunes 10/8, de 10 a 14hs.</p>' +
+       '<p style="margin:0 0 12px;color:#111827;"><strong>1.</strong> Transferí $' + total + ' al alias <strong>' + PAYMENT_ALIAS + '</strong>.</p>' +
+       '<p style="margin:0 0 12px;color:#111827;"><strong>2.</strong> Mandanos el comprobante por WhatsApp al <a href="https://wa.me/' + PAYMENT_WHATSAPP + '" style="color:' + BRAND_COLOR + ';">3406 40-4841</a>.</p>' +
+       '<p style="margin:0;color:#111827;"><strong>3.</strong> Coordinamos por WhatsApp cuándo y dónde retirarlo.</p>' +
        '</div>';
 
      return greeting + steps;

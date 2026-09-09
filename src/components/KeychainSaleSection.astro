@@ -1,0 +1,271 @@
+---
+/**
+ * Venta puntual de llaveros ATP (vértebra / corazón / FCM) — mismo
+ * patrón que usaba AgendaSaleSection.astro (ver ese archivo, hoy sin uso
+ * en el home): un `formType` distinto en el mismo Apps Script Web App
+ * (docs/GOOGLE_SHEETS_FORM_SETUP.md, handleKeychainReservation), su
+ * propia hoja, y un mail de confirmación con el alias para transferir.
+ *
+ * A diferencia de la agenda (precio fijo por unidad), acá el precio es
+ * por combo: 1 llavero $2.500, 2 $4.000, 3 $6.000, y cada uno de más por
+ * encima de 3 suma $2.000. La tabla de precios está calculada dos veces
+ * (acá abajo y en el Apps Script) porque son dos runtimes separados sin
+ * forma de compartir código entre sí — si el precio cambia, actualizar
+ * los dos lados.
+ *
+ * A pedido explícito, esta sección es chica y discreta (no una sección
+ * grande de venta como tenía la agenda) — va al pie del home.
+ */
+import { Image } from 'astro:assets';
+import Section from '@/components/Section.astro';
+import Container from '@/components/Container.astro';
+import Input from '@/components/Input.astro';
+import Button from '@/components/Button.astro';
+import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+import { siteConfig } from '@/config/site';
+import vertebraImage from '@/assets/llaveros/vertebra.png';
+import corazonImage from '@/assets/llaveros/corazon.png';
+import fcmImage from '@/assets/llaveros/fcm.png';
+
+const DESIGNS = [
+  { key: 'vertebra', label: 'Vértebra', image: vertebraImage },
+  { key: 'corazon', label: 'Corazón', image: corazonImage },
+  { key: 'fcm', label: 'FCM', image: fcmImage },
+];
+---
+
+<Section id="llaveros" spacing="sm" background="surface-alt">
+  <Container>
+    <div
+      class="border-border bg-surface mx-auto flex max-w-2xl flex-col gap-6 rounded-md border p-6"
+    >
+      <div class="flex flex-col gap-1">
+        <h2 class="text-h4 text-text font-bold">Armá tu llavero</h2>
+        <p class="text-body-sm text-text-secondary">
+          Vértebra, corazón o de la FCM. Desde $2.500.
+        </p>
+      </div>
+
+      <form
+        data-keychain-form
+        data-endpoint={GOOGLE_FORMS_ENDPOINT}
+        novalidate
+        class="flex flex-col gap-4"
+      >
+        <input type="hidden" name="formType" value="llaveros" />
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="flex flex-col gap-2">
+            <label for="keychain-name" class="text-caption text-text-secondary font-semibold">
+              Nombre
+            </label>
+            <Input id="keychain-name" name="name" autocomplete="given-name" required />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label for="keychain-lastname" class="text-caption text-text-secondary font-semibold">
+              Apellido
+            </label>
+            <Input id="keychain-lastname" name="lastName" autocomplete="family-name" required />
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label for="keychain-email" class="text-caption text-text-secondary font-semibold">
+            Email
+          </label>
+          <Input
+            id="keychain-email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            data-clarity-mask="true"
+            required
+          />
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label for="keychain-phone" class="text-caption text-text-secondary font-semibold">
+            Teléfono
+          </label>
+          <Input
+            id="keychain-phone"
+            name="phone"
+            type="tel"
+            autocomplete="tel"
+            data-clarity-mask="true"
+            required
+          />
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <span class="text-caption text-text-secondary font-semibold">
+            Cuántos de cada diseño
+          </span>
+          <div class="grid grid-cols-3 gap-3">
+            {
+              DESIGNS.map((design) => (
+                <div class="flex flex-col items-center gap-2 text-center">
+                  <Image
+                    src={design.image}
+                    alt={`Llavero ${design.label}`}
+                    loading="lazy"
+                    width={160}
+                    height={160}
+                    class="size-16 object-contain sm:size-20"
+                  />
+                  <label
+                    for={`keychain-qty-${design.key}`}
+                    class="text-caption text-text-secondary font-semibold"
+                  >
+                    {design.label}
+                  </label>
+                  <Input
+                    id={`keychain-qty-${design.key}`}
+                    name={`${design.key}Qty`}
+                    type="number"
+                    inputmode="numeric"
+                    min="0"
+                    value="0"
+                    data-keychain-qty={design.key}
+                    class="text-center"
+                  />
+                </div>
+              ))
+            }
+          </div>
+        </div>
+
+        <p class="text-body text-text" data-keychain-total-row hidden>
+          Total a transferir: <strong data-keychain-total>$0</strong>
+        </p>
+
+        <div class="bg-surface-alt flex flex-col gap-2 rounded-sm p-4">
+          <p class="text-body-sm text-text">
+            1. Transferí el total al alias <strong>ATP.FCM</strong>.
+          </p>
+          <p class="text-body-sm text-text">
+            2. Mandanos el comprobante por WhatsApp al{' '}
+            <a
+              href="https://wa.me/5493406404841"
+              class="text-secondary-strong underline underline-offset-2"
+            >
+              3406 40-4841
+            </a>.
+          </p>
+          <p class="text-body-sm text-text">3. Coordinamos por WhatsApp cuándo y dónde retirarlo.</p>
+        </div>
+
+        <div
+          class="cf-turnstile"
+          data-sitekey={siteConfig.turnstileSiteKey}
+          data-appearance="interaction-only"
+        >
+        </div>
+
+        <Button
+          type="submit"
+          size="lg"
+          data-keychain-submit
+          class="self-start"
+          trackId="reserva:llaveros"
+        >
+          Reservar
+        </Button>
+      </form>
+    </div>
+  </Container>
+</Section>
+
+<!-- Solo se carga en páginas que tienen este formulario (no en BaseLayout,
+     a propósito: minimizar JS en el resto del sitio — ver CLAUDE.md). -->
+<script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+<script>
+  import { showToast } from '@/lib/toast';
+  import { hasTurnstileToken, resetTurnstile } from '@/lib/turnstile';
+
+  const form = document.querySelector<HTMLFormElement>('[data-keychain-form]');
+  const submitButton = form?.querySelector<HTMLButtonElement>('[data-keychain-submit]');
+  const qtyInputs = form?.querySelectorAll<HTMLInputElement>('[data-keychain-qty]');
+  const totalRow = form?.querySelector<HTMLElement>('[data-keychain-total-row]');
+  const totalEl = form?.querySelector<HTMLElement>('[data-keychain-total]');
+  const endpoint = form?.dataset.endpoint;
+
+  // Misma tabla que calculateKeychainPrice() en el Apps Script — si se
+  // cambian los precios, actualizar los dos lados (no hay forma de
+  // compartir código entre el sitio y Apps Script).
+  function calculatePrice(quantity: number): number {
+    if (quantity <= 0) return 0;
+    if (quantity === 1) return 2500;
+    if (quantity === 2) return 4000;
+    if (quantity === 3) return 6000;
+    return 6000 + (quantity - 3) * 2000;
+  }
+
+  function getTotalQuantity(): number {
+    let total = 0;
+    qtyInputs?.forEach((input) => {
+      total += Math.max(0, Math.floor(Number(input.value) || 0));
+    });
+    return total;
+  }
+
+  function updateTotal() {
+    const quantity = getTotalQuantity();
+    if (totalRow) totalRow.hidden = quantity === 0;
+    if (totalEl) totalEl.textContent = `$${calculatePrice(quantity)}`;
+  }
+
+  qtyInputs?.forEach((input) => input.addEventListener('input', updateTotal));
+  updateTotal();
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!submitButton || submitButton.disabled || !endpoint) return;
+
+    if (!form.reportValidity()) return;
+
+    if (getTotalQuantity() < 1) {
+      showToast({ message: 'Elegí al menos un llavero.', variant: 'error' });
+      return;
+    }
+
+    if (!hasTurnstileToken(form)) {
+      showToast({ message: 'Esperá un instante y volvé a intentar.', variant: 'info' });
+      return;
+    }
+
+    const originalLabel = submitButton.textContent;
+    submitButton.disabled = true;
+    submitButton.textContent = 'Enviando…';
+
+    try {
+      const params = new URLSearchParams();
+      for (const [key, value] of new FormData(form).entries()) {
+        params.append(key, String(value));
+      }
+
+      await fetch(endpoint, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: params,
+      });
+
+      showToast({
+        message: 'Listo, reservamos tus llaveros. Revisá tu mail para las instrucciones de pago.',
+        variant: 'success',
+      });
+      form.reset();
+      updateTotal();
+    } catch {
+      showToast({
+        message: 'No pudimos enviar la reserva. Probá de nuevo en un rato.',
+        variant: 'error',
+      });
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = originalLabel;
+      resetTurnstile();
+    }
+  });
+</script>

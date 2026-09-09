@@ -6,8 +6,10 @@
  * sources featured activities from src/content/activities.ts — same data
  * src/pages/actividades.astro uses, no hardcoded duplicate.
  *
- * No sale campaign running right now — see AgendaSaleSection.astro (kept,
- * unused) for the pattern to bring back a seasonal sale section here.
+ * Venta puntual activa: llaveros ATP (KeychainSaleSection, chica, al pie
+ * del home) — reemplazó a la agenda del 2do cuatrimestre 2026, que ya no
+ * se vende (AgendaSaleSection.astro queda sin usar, como referencia del
+ * patrón por si hace falta armar otra venta puntual el día de mañana).
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Hero from '@/components/Hero.astro';
@@ -20,6 +22,7 @@ import ActivityCard from '@/components/ActivityCard.astro';
 import Button from '@/components/Button.astro';
 import Carousel from '@/components/Carousel.astro';
 import WhatsAppGroupsSection from '@/components/WhatsAppGroupsSection.astro';
+import KeychainSaleSection from '@/components/KeychainSaleSection.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import YouTubeVideoGrid from '@/components/YouTubeVideoGrid.astro';
 import SocialLinks from '@/components/SocialLinks.astro';
@@ -150,4 +153,6 @@ const careers = [
       <YouTubeVideoGrid />
     </Container>
   </Section>
+
+  <KeychainSaleSection />
 </BaseLayout>
