@@ -1,0 +1,27 @@
+{
+  "title": "Grupo de Estudio Nutrición",
+  "summary": "Sumate a repasar todos los miércoles a las 14hs en la facu!",
+  "description": "",
+  "image": "/uploads/ge nutri-26.png",
+  "schedule": {
+    "recurring": true,
+    "weekday": "miercoles",
+    "date": "2026-09-16",
+    "time": "14:00",
+    "endTime": "16:00",
+    "location": "Todas las semanas avisamos el aula en el grupo de WhatsApp"
+  },
+  "sessions": [],
+  "status": "proxima",
+  "registration": {
+    "useRegistrationForm": true,
+    "registrationUrl": "",
+    "confirmationMessage": "",
+    "confirmationLinkLabel": "",
+    "confirmationLinkUrl": "",
+    "collectCertificateData": false
+  },
+  "featured": false,
+  "published": true,
+  "order": null
+}
