@@ -15,7 +15,12 @@
  *
  * A pedido explícito, esta sección es chica y discreta (no una sección
  * grande de venta como tenía la agenda) — va arriba de los grupos de
- * WhatsApp en el home (ver index.astro).
+ * WhatsApp en el home (ver index.astro). El formulario en sí va
+ * plegado dentro de un <details>/<summary> nativo (cerrado por
+ * default): solo el título y el precio se ven de entrada, sin JS
+ * propio para el desplegable (accesible por teclado/lector de pantalla
+ * gratis, a diferencia de armar esto a mano con un botón + clase
+ * hidden).
  */
 import { Image } from 'astro:assets';
 import Section from '@/components/Section.astro';
@@ -27,6 +32,7 @@ import { siteConfig } from '@/config/site';
 import vertebraImage from '@/assets/llaveros/vertebra.png';
 import corazonImage from '@/assets/llaveros/corazon.png';
 import fcmImage from '@/assets/llaveros/fcm.png';
+import ChevronDown from '@lucide/astro/icons/chevron-down';
 
 const DESIGNS = [
   { key: 'vertebra', label: 'Vértebra', image: vertebraImage },
@@ -37,21 +43,37 @@ const DESIGNS = [
 
 <Section id="llaveros" spacing="sm" background="surface-alt">
   <Container>
-    <div
-      class="border-border bg-surface mx-auto flex max-w-2xl flex-col gap-6 rounded-md border p-6"
-    >
-      <div class="flex flex-col gap-1">
-        <h2 class="text-h4 text-text font-bold">Armá tu llavero</h2>
-        <p class="text-body-sm text-text-secondary">
-          Vértebra, corazón o de la FCM. Desde $2.500.
-        </p>
-      </div>
+    <details class="group border-border bg-surface mx-auto max-w-2xl rounded-md border p-6">
+      <summary
+        class="ease-standard flex cursor-pointer list-none items-center justify-between gap-4 transition-colors duration-150 [&::-webkit-details-marker]:hidden"
+      >
+        <div class="flex flex-col gap-1">
+          <h2 class="text-h4 text-text font-bold">Armá tu llavero</h2>
+          <p class="text-body-sm text-text-secondary">
+            Vértebra, corazón o de la FCM. Desde $2.500.
+          </p>
+        </div>
+        <ChevronDown
+          class="text-text-secondary ease-standard size-5 shrink-0 transition-transform duration-200 group-open:rotate-180"
+          aria-hidden="true"
+        />
+      </summary>
 
+      {/*
+        hidden + group-open:flex, no solo dejar que <details> lo oculte
+        solo: cualquier clase de Tailwind que fije `display` en un hijo
+        de <details> (acá `flex`) es un estilo de autor, que SIEMPRE
+        pisa la regla del navegador que oculta el contenido cuando
+        está cerrado (esa regla es de user-agent, de menor prioridad
+        que cualquier estilo de autor, sin importar especificidad) —
+        sin esto el formulario quedaba visible todo el tiempo, plegado
+        o no. Encontrado con Playwright, no a simple vista.
+      */}
       <form
         data-keychain-form
         data-endpoint={GOOGLE_FORMS_ENDPOINT}
         novalidate
-        class="flex flex-col gap-4"
+        class="mt-6 hidden flex-col gap-4 group-open:flex"
       >
         <input type="hidden" name="formType" value="llaveros" />
 
@@ -105,15 +127,17 @@ const DESIGNS = [
           <div class="grid grid-cols-3 gap-3">
             {
               DESIGNS.map((design) => (
-                <div class="flex flex-col items-center gap-2 text-center">
-                  <Image
-                    src={design.image}
-                    alt={`Llavero ${design.label}`}
-                    loading="lazy"
-                    width={160}
-                    height={160}
-                    class="size-16 object-contain sm:size-20"
-                  />
+                <div class="keychain-item flex flex-col items-center gap-2 text-center">
+                  <div class="ease-standard transition-transform duration-200 hover:scale-110">
+                    <Image
+                      src={design.image}
+                      alt={`Llavero ${design.label}`}
+                      loading="lazy"
+                      width={220}
+                      height={220}
+                      class="keychain-image size-24 object-contain sm:size-28"
+                    />
+                  </div>
                   <label
                     for={`keychain-qty-${design.key}`}
                     class="text-caption text-text-secondary font-semibold"
@@ -153,7 +177,9 @@ const DESIGNS = [
               3406 40-4841
             </a>.
           </p>
-          <p class="text-body-sm text-text">3. Coordinamos por WhatsApp cuándo y dónde retirarlo.</p>
+          <p class="text-body-sm text-text">
+            3. Podés retirarlo desde el miércoles 16/9 por nuestra mesita de 10 a 14hs.
+          </p>
         </div>
 
         <div
@@ -173,9 +199,37 @@ const DESIGNS = [
           Reservar
         </Button>
       </form>
-    </div>
+    </details>
   </Container>
 </Section>
+
+<style>
+  /*
+   * Pedido explícito: los 3 llaveros "animados" — un balanceo sutil y
+   * continuo (nunca algo flashy, ver CLAUDE.md), sin JS: pausado/achicado
+   * automáticamente por la regla global de prefers-reduced-motion (ver
+   * global.css). Escalonado por diseño (nth-child) para que no se
+   * muevan los 3 exactamente igual, se ve más orgánico.
+   */
+  .keychain-image {
+    animation: keychain-float 3.2s var(--ease-standard) infinite;
+  }
+  .keychain-item:nth-child(2) .keychain-image {
+    animation-delay: 0.3s;
+  }
+  .keychain-item:nth-child(3) .keychain-image {
+    animation-delay: 0.6s;
+  }
+  @keyframes keychain-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+</style>
 
 <!-- Solo se carga en páginas que tienen este formulario (no en BaseLayout,
      a propósito: minimizar JS en el resto del sitio — ver CLAUDE.md). -->

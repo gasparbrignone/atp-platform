@@ -2152,10 +2152,12 @@ actividad solo.
      });
    }
 
-   // A diferencia de la agenda (retiro fijo "por la mesita, tal día"), el
-   // retiro de los llaveros se coordina caso a caso por WhatsApp —
-   // decisión explícita del dueño del proyecto, no hay un lugar/horario
-   // fijo que prometer acá todavía.
+   // Mismo criterio que tenía la agenda: retiro fijo "por la mesita, tal
+   // día" — fecha puesta a mano acá (16/9) porque es un dato puntual de
+   // esta tanda, no algo que vaya a cambiar solo. Si hay otra tanda con
+   // otra fecha el día de mañana, actualizar acá Y en
+   // KeychainSaleSection.astro (mismo texto, dos runtimes separados sin
+   // forma de compartir contenido entre sí).
    function buildKeychainConfirmationBody(name, quantities, total) {
      var designLabels = { vertebra: 'Vértebra', corazon: 'Corazón', fcm: 'FCM' };
      var itemsList = Object.keys(designLabels)
@@ -2172,7 +2174,7 @@ actividad solo.
        '<div style="border:1px solid #e5e9f0;border-radius:10px;padding:18px 20px;">' +
        '<p style="margin:0 0 12px;color:#111827;"><strong>1.</strong> Transferí $' + total + ' al alias <strong>' + PAYMENT_ALIAS + '</strong>.</p>' +
        '<p style="margin:0 0 12px;color:#111827;"><strong>2.</strong> Mandanos el comprobante por WhatsApp al <a href="https://wa.me/' + PAYMENT_WHATSAPP + '" style="color:' + BRAND_COLOR + ';">3406 40-4841</a>.</p>' +
-       '<p style="margin:0;color:#111827;"><strong>3.</strong> Coordinamos por WhatsApp cuándo y dónde retirarlo.</p>' +
+       '<p style="margin:0;color:#111827;"><strong>3.</strong> Podés retirarlo desde el miércoles 16/9 por nuestra mesita de 10 a 14hs.</p>' +
        '</div>';
 
      return greeting + steps;
