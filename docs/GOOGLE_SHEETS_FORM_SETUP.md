@@ -420,6 +420,17 @@ actividad solo.
      if (e.parameter.action === 'checkin') {
        return handleCheckin(e.parameter);
      }
+     // Roster de una actividad para el Worker de check-in rápido de
+     // Cloudflare (2026-09-10, ver cloudflare/checkin-worker/) — de solo
+     // lectura, gateado por la misma STAFF_CHECKIN_SECRET que `checkin`
+     // (no por sesión de admin: cualquier punto de escaneo lo pide sin
+     // loguearse). El Worker lo usa para arrancar en frío con todo el
+     // estado de asistencia de la actividad y después responder cada
+     // escaneo desde su propia memoria, sin ir a Sheets en el camino
+     // crítico — este endpoint nunca marca nada, solo lee.
+     if (e.parameter.action === 'checkinRoster') {
+       return handleCheckinRoster(e.parameter);
+     }
      // Panel admin (src/pages/staff/panel.astro) — igual que checkin, vía
      // JSONP porque hace falta leer la respuesta real (lista de
      // inscriptos, vista previa, confirmación de envío), no solo saber que
@@ -1601,6 +1612,85 @@ actividad solo.
        result = findAndMarkAttendance(params.id, params.session, params.activityId);
      }
      return jsonpResponse(result, params.callback);
+   }
+
+   // Mismo chequeo de clave que handleCheckin, mismo freno de fuerza
+   // bruta (comparten el contador rl_checkin_wrong_secret a propósito:
+   // es el mismo endpoint desde el punto de vista de seguridad, solo que
+   // este no marca nada). Devuelve TODA la hoja de la actividad —
+   // id/nombre/encuentros ya marcados de cada inscripto — para que el
+   // Worker de Cloudflare pueda reconstruir su propio estado y no
+   // necesite volver a pedir esto en cada escaneo.
+   function handleCheckinRoster(params) {
+     if (params.secret !== STAFF_CHECKIN_SECRET) {
+       var failCount = bumpCounter('rl_checkin_wrong_secret', 300);
+       if (failCount > 10) {
+         Utilities.sleep(Math.min(8000, (failCount - 10) * 500));
+       }
+       return jsonpResponse({ result: 'unauthorized' }, params.callback);
+     }
+
+     var sheet = resolveCharlaSheetForActivity(params.activityId);
+     if (!sheet) {
+       return jsonpResponse({ result: 'not_found' }, params.callback);
+     }
+
+     var data = sheet.getDataRange().getValues();
+     var headers = data[0];
+     var idCol = headers.indexOf('RegistrationId');
+     var attendanceCol = headers.indexOf('Asistencias');
+     if (idCol === -1 || attendanceCol === -1) {
+       return jsonpResponse({ result: 'not_found' }, params.callback);
+     }
+
+     var attendees = [];
+     for (var i = 1; i < data.length; i++) {
+       var registrationId = String(data[i][idCol] || '').trim();
+       if (!registrationId) continue;
+       var name = ((data[i][1] || '') + ' ' + (data[i][2] || '')).trim();
+       var sessions = safeParseJson(data[i][attendanceCol]) || [];
+       attendees.push({ id: registrationId, name: name, sessions: sessions });
+     }
+
+     return jsonpResponse({ result: 'success', attendees: attendees }, params.callback);
+   }
+
+   // Resuelve a qué hoja de charla corresponde un ActivityId, SIN marcar
+   // nada — variante de solo lectura de lo que hace findAndMarkAttendance
+   // por dentro, separada a propósito para no tocar esa función (probada
+   // en producción, escanea y marca presente de verdad). Comparte la
+   // MISMA cache (getCachedSheetNameForActivity/cacheSheetNameForActivity)
+   // así que un escaneo normal y un pedido de roster se aprovechan entre
+   // sí: cualquiera de los dos que resuelva primero deja el cache listo
+   // para el otro.
+   function resolveCharlaSheetForActivity(activityId) {
+     if (!activityId) return null;
+
+     var cachedSheetName = getCachedSheetNameForActivity(activityId);
+     if (cachedSheetName) {
+       var cachedSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(cachedSheetName);
+       if (cachedSheet) return cachedSheet;
+     }
+
+     var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+     for (var s = 0; s < sheets.length; s++) {
+       var sheet = sheets[s];
+       var data = sheet.getDataRange().getValues();
+       if (data.length < 1) continue;
+       var headers = data[0];
+       var idCol = headers.indexOf('RegistrationId');
+       var activityIdCol = headers.indexOf('ActivityId');
+       if (idCol === -1 || activityIdCol === -1) continue; // no es hoja de charla
+
+       for (var i = 1; i < data.length; i++) {
+         if (String(data[i][activityIdCol] || '') === String(activityId)) {
+           cacheSheetNameForActivity(activityId, sheet.getName());
+           return sheet;
+         }
+       }
+     }
+
+     return null;
    }
 
    // Cuántas filas de esta hoja ya tienen `sessionLabel` marcado — se

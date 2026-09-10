@@ -153,6 +153,7 @@ import '@/styles/global.css';
     <script>
       import jsQR from 'jsqr';
       import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+      import { CHECKIN_WORKER_ENDPOINT } from '@/lib/checkinWorkerEndpoint';
       import { jsonpRequest } from '@/lib/jsonp';
 
       const SESSION_STORAGE_SECRET = 'atp-staff-secret';
@@ -376,12 +377,14 @@ import '@/styles/global.css';
         }, SCAN_COOLDOWN_MS - 200);
       }
 
-      // JSONP, no fetch: un Web App de Apps Script no manda headers CORS, así
-      // que un fetch normal no puede leer la respuesta (mismo motivo por el
-      // que el resto de los formularios del sitio usa `mode: 'no-cors'` y
-      // asume éxito) — acá sí necesitamos leer el resultado (nombre, si ya
-      // había entrado) para avisarle al staff. Ver src/lib/jsonp.ts.
-      function requestCheckin(id: string, sessionLabel: string, secret: string): void {
+      // Camino de siempre: JSONP contra Apps Script (no fetch normal, porque
+      // ese Web App no manda headers CORS y un fetch no podría leer la
+      // respuesta) — más lento (varios segundos, el redirect fijo de Apps
+      // Script no se puede evitar), pero es la fuente de verdad definitiva:
+      // recorre TODAS las hojas, y es la única que puede devolver
+      // "wrong_activity" con certeza. Se usa como respaldo del camino
+      // rápido de abajo, nunca como primera opción.
+      function requestCheckinViaAppsScript(id: string, sessionLabel: string, secret: string): void {
         jsonpRequest<CheckinResponse>(GOOGLE_FORMS_ENDPOINT, {
           action: 'checkin',
           id,
@@ -393,6 +396,90 @@ import '@/styles/global.css';
           .catch(() =>
             showBanner('error', 'Sin respuesta', 'Revisá la conexión y probá de nuevo.'),
           );
+      }
+
+      // Milisegundos que se espera al Worker de Cloudflare antes de darlo
+      // por perdido y caer al camino de Apps Script — medida en
+      // producción, una respuesta real del Worker CON SU MEMORIA YA
+      // CALENTADA (ver warmUpCheckinWorker más abajo) tarda bastante
+      // menos de 1s (~500ms desde una red hogareña), así que 2.5s deja
+      // margen para una red de evento más floja sin llegar a sentirse
+      // como una espera de más en el caso (raro) de que sí haga falta
+      // caer. OJO: la PRIMERA vez que se usa una actividad+encuentro, el
+      // Worker tiene que traer el padrón completo de Apps Script (entre 3
+      // y 8 segundos, medido) — por eso se lo "calienta" apenas el staff
+      // toca "Empezar a escanear", bastante antes de que llegue a apuntar
+      // la cámara a la primera persona de verdad.
+      const WORKER_TIMEOUT_MS = 2500;
+
+      async function fetchWithTimeout(url: string, body: unknown, timeoutMs: number): Promise<Response> {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          return await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
+      }
+
+      // Dispara un pedido de calentamiento al Worker (con un id que nunca
+      // va a coincidir con ningún inscripto real) apenas se elige la
+      // actividad/encuentro — así, para cuando el staff escanea el primer
+      // QR de verdad, el Durable Object ya tiene el padrón completo
+      // cargado en memoria y responde rápido desde el primer escaneo real.
+      // Sin await ni manejo de resultado: si falla (Worker no desplegado,
+      // sin red), el primer escaneo real simplemente cae al camino de
+      // Apps Script como corresponde, sin que esto rompa nada.
+      function warmUpCheckinWorker(sessionLabel: string, secret: string): void {
+        // 15s: la primera vez que se usa una actividad/encuentro, el
+        // Worker tiene que traerse el padrón completo desde Apps Script —
+        // medido en producción entre 3 y 8 segundos según el momento, así
+        // que 15s deja margen de sobra. No afecta la percepción del
+        // staff: esto corre en segundo plano, sin ningún indicador en
+        // pantalla, mientras recién arranca la cámara.
+        fetchWithTimeout(
+          CHECKIN_WORKER_ENDPOINT,
+          { id: '__warmup__', session: sessionLabel, activityId: getActivityId(), secret },
+          15000,
+        ).catch(() => {
+          // Sin acción: el primer escaneo real cae solo al camino lento
+          // si esto no llegó a calentar nada.
+        });
+      }
+
+      // Camino rápido: el Worker de Cloudflare (cloudflare/checkin-worker/)
+      // contesta desde su propia memoria, sin ir a Sheets en el camino
+      // crítico — y persiste el escaneo en la planilla real en segundo
+      // plano. Nunca es la única vía: cualquier falla (sin red, Worker no
+      // desplegado, timeout) cae sola al camino de Apps Script de siempre,
+      // así que un problema puntual del lado de Cloudflare nunca deja el
+      // escaneo sin funcionar del todo. También cae al camino lento ante
+      // un "not_found" del Worker (no "todavía no lo tenemos en nuestra
+      // memoria rápida", sino "puede ser de otra actividad" — el Worker
+      // solo conoce la actividad elegida, así que un QR de una actividad
+      // distinta necesita el recorrido completo de Apps Script para
+      // devolver el "wrong_activity" correcto en vez de un "no reconocido"
+      // engañoso).
+      function requestCheckin(id: string, sessionLabel: string, secret: string): void {
+        fetchWithTimeout(
+          CHECKIN_WORKER_ENDPOINT,
+          { id, session: sessionLabel, activityId: getActivityId(), secret },
+          WORKER_TIMEOUT_MS,
+        )
+          .then((response) => response.json() as Promise<CheckinResponse>)
+          .then((result) => {
+            if (result.result === 'not_found') {
+              requestCheckinViaAppsScript(id, sessionLabel, secret);
+              return;
+            }
+            handleCheckinResponse(result);
+          })
+          .catch(() => requestCheckinViaAppsScript(id, sessionLabel, secret));
       }
 
       interface CheckinResponse {
@@ -502,6 +589,7 @@ import '@/styles/global.css';
         if (sessionLabelEl) sessionLabelEl.textContent = getSessionLabel();
         if (countDeviceEl) countDeviceEl.textContent = String(getDeviceScanCount());
         if (countTotalEl) countTotalEl.textContent = '—';
+        warmUpCheckinWorker(getSessionLabel(), getSecret());
         void startCamera();
       }
 

@@ -61,6 +61,12 @@ export default defineConfig({
   //    se genera en el propio navegador con la librería `qrcode` como un
   //    data URI (`QRCode.toDataURL`), no un archivo — sin esto, la imagen
   //    quedaba bloqueada aunque se generara bien.
+  //  - atp-checkin-worker.gasparbrignone1.workers.dev: Worker de
+  //    Cloudflare que hace el check-in rápido por QR en
+  //    /staff/escanear/ (ver cloudflare/checkin-worker/) — camino
+  //    RÁPIDO opcional, con Apps Script como respaldo automático si esto
+  //    no responde. Un fetch normal (no JSONP): el Worker sí manda
+  //    headers CORS propios, a diferencia de Apps Script.
   //  - challenges.cloudflare.com: widget de Turnstile (anti-bot) en los
   //    formularios que postean al Apps Script — necesita script-src (carga
   //    su propio JS), connect-src (llamadas propias del widget) y
@@ -91,7 +97,7 @@ export default defineConfig({
       directives: [
         "default-src 'self'",
         "img-src 'self' data: https://i.ytimg.com https://covers.openlibrary.org https://archive.org https://*.archive.org https://atpfcm.goatcounter.com https://*.clarity.ms",
-        "connect-src 'self' https://script.google.com https://script.googleusercontent.com https://gc.zgo.at https://atpfcm.goatcounter.com https://challenges.cloudflare.com https://*.clarity.ms",
+        "connect-src 'self' https://script.google.com https://script.googleusercontent.com https://atp-checkin-worker.gasparbrignone1.workers.dev https://gc.zgo.at https://atpfcm.goatcounter.com https://challenges.cloudflare.com https://*.clarity.ms",
         "frame-src 'self' https://www.youtube-nocookie.com https://challenges.cloudflare.com",
         "font-src 'self'",
         "form-action 'self'",

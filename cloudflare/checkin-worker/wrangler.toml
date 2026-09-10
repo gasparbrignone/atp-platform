@@ -1,0 +1,23 @@
+name = "atp-checkin-worker"
+main = "src/index.ts"
+compatibility_date = "2026-08-25"
+
+# APPS_SCRIPT_ENDPOINT y ALLOWED_ORIGIN no son secretos (el primero ya es
+# público — está en el JS del sitio, src/lib/googleFormsEndpoint.ts — y el
+# segundo es el dominio del sitio). STAFF_CHECKIN_SECRET SÍ es secreto:
+# nunca va acá, se carga aparte con `wrangler secret put` (ver README.md
+# de esta carpeta).
+[vars]
+APPS_SCRIPT_ENDPOINT = "https://script.google.com/macros/s/AKfycbzIYU4H3B94IoTyH40O4EXljqPVTNGd0Ult_yi8VzS3hhAOjScEdsCQlNZarE5Ixe6f/exec"
+ALLOWED_ORIGIN = "https://atpfcm.com.ar"
+
+[[durable_objects.bindings]]
+name = "CHECKIN_DO"
+class_name = "CheckinDurableObject"
+
+# new_sqlite_classes (no new_classes): backend de storage compatible con
+# el plan gratuito de Cloudflare — el de key-value clásico requiere el
+# plan pago.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CheckinDurableObject"]
