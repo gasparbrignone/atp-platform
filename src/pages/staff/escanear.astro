@@ -436,16 +436,18 @@ import '@/styles/global.css';
       // sin red), el primer escaneo real simplemente cae al camino de
       // Apps Script como corresponde, sin que esto rompa nada.
       function warmUpCheckinWorker(sessionLabel: string, secret: string): void {
-        // 15s: la primera vez que se usa una actividad/encuentro, el
+        // 25s: la primera vez que se usa una actividad/encuentro, el
         // Worker tiene que traerse el padrón completo desde Apps Script —
-        // medido en producción entre 3 y 8 segundos según el momento, así
-        // que 15s deja margen de sobra. No afecta la percepción del
+        // medido en producción, entre 3 y 20+ segundos según cuánto uso
+        // simultáneo real haya en ese momento (Apps Script comparte el
+        // mismo límite de ejecuciones concurrentes con las inscripciones
+        // que estén entrando en paralelo). No afecta la percepción del
         // staff: esto corre en segundo plano, sin ningún indicador en
         // pantalla, mientras recién arranca la cámara.
         fetchWithTimeout(
           CHECKIN_WORKER_ENDPOINT,
           { id: '__warmup__', session: sessionLabel, activityId: getActivityId(), secret },
-          15000,
+          25000,
         ).catch(() => {
           // Sin acción: el primer escaneo real cae solo al camino lento
           // si esto no llegó a calentar nada.

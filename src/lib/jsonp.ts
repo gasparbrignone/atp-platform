@@ -9,7 +9,14 @@
 export function jsonpRequest<T = unknown>(
   endpoint: string,
   params: Record<string, string>,
-  timeoutMs = 15000,
+  // 30s, no 15s: medido en producción durante un evento real con uso
+  // simultáneo genuino, Apps Script puede tardar 17-20s (a veces más) en
+  // responder — con 15s, una respuesta que igual iba a llegar bien se
+  // descartaba como "sin respuesta" antes de tiempo. Esperar de más nunca
+  // rompe nada (solo tarda el cartel de error en aparecer si de verdad no
+  // hay conexión); cortar de menos sí puede convertir un escaneo válido
+  // pero lento en un error falso.
+  timeoutMs = 30000,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const callbackName = `atpJsonp_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
