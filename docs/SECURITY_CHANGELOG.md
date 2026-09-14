@@ -16,11 +16,11 @@ relevante, no se agrega entrada acá — no queremos ruido.
   pegar un link de Google Drive a arrastrar el archivo directo en el
   panel — se sube del navegador a un bucket de Cloudflare R2, no al
   repositorio. Ver decisión completa en `SECURITY_DECISIONS.md`.
-- **feat:** el panel de staff suma Google Sign-In como sesión nueva de
-  solo lectura (además del login de contraseña+TOTP existente, que sigue
-  siendo el único que autoriza mandar campañas/certificados — con un
-  step-up al momento de mandar si hace falta). Ver decisión completa en
-  `SECURITY_DECISIONS.md`.
+- **feat, revertido el mismo día:** se probó Google Sign-In como sesión de
+  solo lectura para el panel de staff; se sacó por completo (fricción real
+  de mantener dos listas de usuarios) y se reemplazó por un checkbox
+  "Recordarme" en el login de contraseña+TOTP existente (misma sesión de
+  siempre, solo dura más). Ver decisión completa en `SECURITY_DECISIONS.md`.
 
 ---
 

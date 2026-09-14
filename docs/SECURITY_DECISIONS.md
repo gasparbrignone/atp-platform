@@ -916,6 +916,17 @@ rompería en silencio bajo la CSP actual.
 
 ### 2026-09-14 — Panel de staff: Google Sign-In (solo lectura) + step-up, revierte una decisión anterior
 
+**Superada el mismo día:** este diseño nunca llegó a desplegarse en el
+Apps Script real (se quedó en el paso de configurar el OAuth Client ID en
+Google Cloud Console) y se abandonó — ver la entrada "Panel de staff:
+'recordarme' en vez de Google Sign-In" más abajo para el reemplazo y el
+motivo real (no técnico: fricción operativa de mantener a cada persona del
+staff en dos listas separadas — usuarios de prueba en Google Cloud +
+pestaña "Staff" de la planilla — para una organización de este tamaño).
+Se deja el análisis de abajo igual, completo, por si en el futuro cambian
+las condiciones (más personas, necesidad real de identidad por usuario) y
+vale la pena retomarlo.
+
 **Contexto:** el panel admin (`/staff/panel/`, `/staff/certificados/`) fue
 pensado para una sola persona operándolo, con contraseña+TOTP compartida
 (ver la decisión del 2026-09-02, "Panel admin: contraseña + TOTP en vez de
@@ -996,3 +1007,80 @@ eligió 30 días a propósito. No agregar ninguna acción de ENVÍO
 `isValidAdminOrStaffSession` — esa función es exclusivamente para
 lectura; toda acción que mande algo real tiene que seguir usando
 `isValidAdminSession` sola.
+
+---
+
+### 2026-09-14 — Panel de staff: "recordarme" en vez de Google Sign-In
+
+**Contexto:** al armar el diseño de Google Sign-In de la entrada anterior,
+apenas se llegó a la configuración real en Google Cloud Console apareció
+una fricción concreta que no se había anticipado: para no publicar la app
+en producción (lo que exige página de política de privacidad + revisión
+de Google, pensado para apps públicas con usuarios desconocidos, no para
+una herramienta interna), había que dejarla en modo "Prueba" — y ese modo
+exige agregar a mano el email de cada persona del staff como "usuario de
+prueba" en la consola de Google, ADEMÁS de la pestaña "Staff" de la
+planilla. Dos listas para mantener por cada persona nueva, para una
+organización del tamaño de ATP, fue rechazado explícitamente por el dueño
+del proyecto como demasiada fricción operativa para el beneficio real.
+
+**Decisión:** sacar Google Sign-In por completo (revertido: sin botón, sin
+sesión de staff de solo lectura, sin step-up, sin pestaña "Staff", sin
+`GOOGLE_OAUTH_CLIENT_ID`/`PropertiesService` para esto) y en su lugar
+agregar un checkbox "Recordarme en este dispositivo (30 días)" al login de
+contraseña+TOTP que ya existía. Reusa la MISMA infraestructura que se
+había armado para Google (`PropertiesService`, sesión más larga que el
+tope de 6hs de `CacheService`) pero aplicada al login real de siempre, no
+a una sesión aparte:
+
+- Sin tildar "Recordarme": exactamente el comportamiento de siempre — 6hs,
+  `CacheService`, `sessionStorage`.
+- Tildado: la sesión (la real, con los mismos privilegios de siempre — no
+  hay una sesión de "solo lectura" separada) se guarda en
+  `PropertiesService` por 30 días, y el navegador la guarda en
+  `localStorage` (sobrevive a cerrar el navegador) en vez de
+  `sessionStorage`.
+- `isValidAdminSession(token)` ahora chequea los dos lugares (`CacheService`
+  primero, después `PropertiesService`) — ninguna de las funciones que ya
+  la llamaban (los handlers de listar, de mandar campañas, de certificados)
+  necesitó cambiar una sola línea: la función tiene la misma firma y el
+  mismo significado de siempre, "hay una sesión admin válida", ahora con
+  dos formas posibles de serlo.
+
+**Alternativas consideradas:** ver la entrada anterior (Google Sign-In) —
+se llegó a implementar y probar en un navegador real antes de decidir
+revertirla; no fue una decisión apurada, fue "lo probamos, encontramos el
+costo real, y no vale la pena para el tamaño de ATP hoy".
+
+**Motivo:** esta opción no agrega ninguna superficie nueva de
+configuración externa (nada en Google Cloud, ninguna lista nueva que
+mantener) y reusa exactamente el mismo mecanismo de autenticación que ya
+estaba auditado y probado (contraseña+TOTP) — solo cambia cuánto dura la
+sesión. Coherente con el patrón general de este proyecto (ver
+`STACK_DECISIONS.md`) de preferir la solución más simple que resuelve el
+problema real planteado ("no quiero loguearme todo el tiempo"), no la más
+sofisticada.
+
+**Verificación antes de producción:** `astro check`/`eslint`/`prettier`
+limpios. Probado con un navegador real (Playwright): el formulario de
+login se ve igual que siempre más el checkbox nuevo, ningún rastro de
+Google Sign-In queda en el DOM, y se simuló un token guardado en
+`localStorage` para confirmar que sobrevive a un `reload()` de la página
+(arranca mostrando el dashboard) y que, al validarse contra el Apps
+Script real, un token inválido dispara `handleSessionExpired()` como
+corresponde (limpia `sessionStorage` y `localStorage` los dos).
+
+**Riesgo residual:** igual que antes — sacar el acceso a alguien (cambiar
+`ADMIN_PASSWORD`, aunque ahora no aplica igual porque la contraseña es
+compartida entre todo el staff) no invalida una sesión "recordada" ya
+emitida hasta que expire sola (30 días) o hasta un logout explícito. Dado
+que ahora la contraseña sigue siendo compartida (no se resolvió el
+problema de "identidad por persona" que motivó intentar Google en primer
+lugar — se aceptó explícitamente no resolverlo por ahora), este riesgo es
+el mismo que ya existía antes de este cambio, no uno nuevo.
+
+**Qué NO hacer en el futuro:** no reintroducir una sesión de "solo
+lectura" separada de la admin real sin que haya un pedido concreto de
+volver a distinguir identidades por persona — la lección de esta sesión
+es que, para el tamaño actual de ATP, la complejidad de eso no se paga
+sola.

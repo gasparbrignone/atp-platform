@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { jsonpRequest } from '@/lib/jsonp';
 import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+import { showToast } from '@/lib/toast';
 import type { GeneratedCertificate } from '@/components/CertificateReviewCarousel.tsx';
 
 /*
@@ -120,19 +121,10 @@ export default function CertificateSendPanel({
   async function handleSend() {
     const token = sessionStorage.getItem(SESSION_KEY);
     if (!token) {
-      // Quien entró con Google (solo lectura) llega hasta acá sin sesión
-      // admin real — certificados.astro escucha este evento y abre el
-      // modal de step-up (contraseña+TOTP); al confirmarse, deja el token
-      // en el mismo sessionStorage de siempre y avisa con el evento de
-      // "success", que reintenta este mismo envío solo, una vez.
-      window.dispatchEvent(new CustomEvent('atp:admin-step-up-request'));
-      window.addEventListener(
-        'atp:admin-step-up-success',
-        () => {
-          void handleSend();
-        },
-        { once: true },
-      );
+      showToast({
+        message: 'Tu sesión venció — volvé a entrar desde /staff/panel/.',
+        variant: 'error',
+      });
       return;
     }
 

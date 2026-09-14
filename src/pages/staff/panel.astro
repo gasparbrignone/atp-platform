@@ -20,7 +20,6 @@ import Select from '@/components/Select.astro';
 import Checkbox from '@/components/Checkbox.astro';
 import CampaignEditor from '@/components/CampaignEditor.tsx';
 import Toast from '@/components/Toast.astro';
-import Modal from '@/components/Modal.astro';
 import ArrowLeft from '@lucide/astro/icons/arrow-left';
 import Lock from '@lucide/astro/icons/lock';
 import Users from '@lucide/astro/icons/users';
@@ -34,10 +33,6 @@ import Send from '@lucide/astro/icons/send';
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Panel admin — ATP</title>
-    <!-- Google Identity Services: botón "Iniciar sesión con Google", ver
-         script más abajo. Solo se carga acá (y en certificados.astro no
-         hace falta: reusa la sesión que se obtuvo acá). -->
-    <script is:inline src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body class="bg-background text-text min-h-screen">
     <div class="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 p-4 sm:p-6 lg:p-10">
@@ -64,94 +59,38 @@ import Send from '@lucide/astro/icons/send';
         </div>
       </div>
 
-      <div data-login-section class="mx-auto flex w-full max-w-md flex-col gap-4">
-        <form
-          data-login-form
-          class="border-border bg-surface flex w-full flex-col gap-4 rounded-md border p-6"
-        >
-          <div class="flex flex-col gap-2">
-            <label for="admin-password" class="text-caption text-text-secondary font-semibold">
-              Contraseña
-            </label>
-            <Input id="admin-password" type="password" autocomplete="off" required />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label for="admin-code" class="text-caption text-text-secondary font-semibold">
-              Código de Google Authenticator
-            </label>
-            <Input
-              id="admin-code"
-              inputmode="numeric"
-              pattern="\d{6}"
-              maxlength="6"
-              autocomplete="off"
-              placeholder="123456"
-              required
-            />
-          </div>
-          <p data-login-error hidden class="text-caption text-error"></p>
-          <Button type="submit" size="lg" data-login-submit class="self-start">Entrar</Button>
-        </form>
-
-        <div class="flex items-center gap-3">
-          <div class="border-border h-px flex-1 border-t"></div>
-          <p class="text-caption text-text-secondary">o</p>
-          <div class="border-border h-px flex-1 border-t"></div>
+      <form
+        data-login-form
+        class="border-border bg-surface mx-auto flex w-full max-w-md flex-col gap-4 rounded-md border p-6"
+      >
+        <div class="flex flex-col gap-2">
+          <label for="admin-password" class="text-caption text-text-secondary font-semibold">
+            Contraseña
+          </label>
+          <Input id="admin-password" type="password" autocomplete="off" required />
         </div>
-
-        <!--
-          Sesión de Google (solo lectura — ver "PANEL ADMIN" en
-          docs/GOOGLE_SHEETS_FORM_SETUP.md): botón real renderizado acá por
-          Google Identity Services (script en el <head>), ver
-          initGoogleSignIn() más abajo. Sin JS de Google cargado (bloqueado,
-          sin red) esta caja simplemente queda vacía — no rompe el login de
-          contraseña+TOTP de al lado, que no depende de esto para nada.
-        -->
-        <div class="flex justify-center" data-google-signin-button></div>
-      </div>
-
-      <!--
-        Trigger oculto: Modal.astro solo sabe abrirse desde un elemento con
-        data-modal-open en el DOM (ver ese componente) — el script de esta
-        página dispara un .click() acá en vez de llamar a la API interna
-        del modal directo, así se reusa exactamente el mismo mecanismo
-        (animación, bloqueo de scroll, foco) que cualquier otro modal del
-        sitio, sin duplicar esa lógica.
-      -->
-      <button type="button" data-modal-open="admin-step-up-modal" data-step-up-trigger hidden
-      ></button>
-
-      <Modal id="admin-step-up-modal">
-        <Fragment slot="title">Confirmá tu acceso</Fragment>
-        <p class="text-body-sm mb-4">
-          Mandar una campaña o certificados siempre pide la sesión admin real, incluso si entraste
-          con Google.
-        </p>
-        <form data-step-up-form class="flex flex-col gap-4">
-          <div class="flex flex-col gap-2">
-            <label for="step-up-password" class="text-caption text-text-secondary font-semibold">
-              Contraseña
-            </label>
-            <Input id="step-up-password" type="password" autocomplete="off" required />
-          </div>
-          <div class="flex flex-col gap-2">
-            <label for="step-up-code" class="text-caption text-text-secondary font-semibold">
-              Código de Google Authenticator
-            </label>
-            <Input
-              id="step-up-code"
-              inputmode="numeric"
-              pattern="\d{6}"
-              maxlength="6"
-              autocomplete="off"
-              placeholder="123456"
-              required
-            />
-          </div>
-          <p data-step-up-error hidden class="text-caption text-error"></p>
-          <Button type="submit" size="lg" data-step-up-submit class="self-start">Confirmar</Button>
-        </form>
-      </Modal>
+        <div class="flex flex-col gap-2">
+          <label for="admin-code" class="text-caption text-text-secondary font-semibold">
+            Código de Google Authenticator
+          </label>
+          <Input
+            id="admin-code"
+            inputmode="numeric"
+            pattern="\d{6}"
+            maxlength="6"
+            autocomplete="off"
+            placeholder="123456"
+            required
+          />
+        </div>
+        <Checkbox
+          id="admin-remember"
+          data-login-remember
+          label="Recordarme en este dispositivo (30 días)"
+        />
+        <p data-login-error hidden class="text-caption text-error"></p>
+        <Button type="submit" size="lg" data-login-submit class="self-start">Entrar</Button>
+      </form>
 
       <div data-dashboard hidden class="flex flex-col gap-6">
         <div
@@ -338,34 +277,8 @@ import Send from '@lucide/astro/icons/send';
       import { jsonpRequest } from '@/lib/jsonp';
       import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
       import { showToast } from '@/lib/toast';
-      import {
-        getStaffToken,
-        setStaffToken,
-        clearStaffToken,
-        getAnyToken,
-      } from '@/lib/staffSession';
-      import { attemptAdminLogin } from '@/lib/adminStepUp';
-      import { siteConfig } from '@/config/site';
 
       const SESSION_KEY = 'atp-admin-token';
-
-      // Tipos mínimos de Google Identity Services (GIS) — no hay paquete
-      // npm oficial para esto, se carga por <script> en el <head>. Sin
-      // esto cargado (bloqueado, sin red) `google` queda undefined y
-      // initGoogleSignIn() no hace nada — el resto del panel funciona igual.
-      declare const google:
-        | {
-            accounts: {
-              id: {
-                initialize: (config: {
-                  client_id: string;
-                  callback: (response: { credential: string }) => void;
-                }) => void;
-                renderButton: (parent: HTMLElement, options: Record<string, string>) => void;
-              };
-            };
-          }
-        | undefined;
 
       interface Activity {
         sheetName: string;
@@ -387,22 +300,12 @@ import Send from '@lucide/astro/icons/send';
         activeCount?: number;
       }
 
-      const loginSection = document.querySelector<HTMLElement>('[data-login-section]');
       const loginForm = document.querySelector<HTMLFormElement>('[data-login-form]');
       const loginSubmit = document.querySelector<HTMLButtonElement>('[data-login-submit]');
       const loginError = document.querySelector<HTMLElement>('[data-login-error]');
       const passwordInput = document.querySelector<HTMLInputElement>('#admin-password');
       const codeInput = document.querySelector<HTMLInputElement>('#admin-code');
-      const googleButtonContainer = document.querySelector<HTMLElement>(
-        '[data-google-signin-button]',
-      );
-
-      const stepUpModal = document.querySelector<HTMLDialogElement>('#admin-step-up-modal');
-      const stepUpForm = document.querySelector<HTMLFormElement>('[data-step-up-form]');
-      const stepUpSubmit = document.querySelector<HTMLButtonElement>('[data-step-up-submit]');
-      const stepUpError = document.querySelector<HTMLElement>('[data-step-up-error]');
-      const stepUpPasswordInput = document.querySelector<HTMLInputElement>('#step-up-password');
-      const stepUpCodeInput = document.querySelector<HTMLInputElement>('#step-up-code');
+      const rememberInput = document.querySelector<HTMLInputElement>('#admin-remember');
 
       const dashboard = document.querySelector<HTMLElement>('[data-dashboard]');
       const logoutButton = document.querySelector<HTMLButtonElement>('[data-logout-button]');
@@ -466,12 +369,12 @@ import Send from '@lucide/astro/icons/send';
       let extraRecipients: { nombre: string; email: string }[] = [];
       const excludedEmails = new Set<string>();
 
-      // Qué reintentar solo después de un step-up exitoso (ver
-      // previewButton más abajo) — null cuando no hay nada pendiente.
-      let pendingStepUpRetry: (() => void) | null = null;
-
+      // "Recordarme" guarda el token en localStorage en vez de
+      // sessionStorage (sobrevive a cerrar el navegador) — se revisan los
+      // dos: nunca sabemos de antemano si esta pestaña tiene una sesión
+      // normal o una "recordada".
       function getToken(): string | null {
-        return sessionStorage.getItem(SESSION_KEY);
+        return sessionStorage.getItem(SESSION_KEY) ?? localStorage.getItem(SESSION_KEY);
       }
 
       function renderManualRecipients() {
@@ -581,21 +484,14 @@ import Send from '@lucide/astro/icons/send';
 
       function handleSessionExpired() {
         sessionStorage.removeItem(SESSION_KEY);
-        // Limpia también la sesión de Google si había una — sin esto, una
-        // sesión de staff vencida (o sacada de la pestaña "Staff") dejaría
-        // un token muerto en localStorage que cada recarga intentaría usar
-        // de nuevo, fallando siempre en silencio.
-        clearStaffToken();
+        localStorage.removeItem(SESSION_KEY);
         if (dashboard) dashboard.hidden = true;
-        if (loginSection) loginSection.hidden = false;
+        if (loginForm) loginForm.hidden = false;
         showToast({ message: 'Tu sesión venció — iniciá sesión de nuevo.', variant: 'info' });
       }
 
       async function loadActivities() {
-        // Solo lectura: acepta sesión admin (contraseña+TOTP) O de staff
-        // (Google) — mandar la campaña sigue exigiendo la admin real, ver
-        // previewButton más abajo.
-        const token = getAnyToken(getToken());
+        const token = getToken();
         if (!token || !activitySelect) return;
 
         try {
@@ -628,7 +524,7 @@ import Send from '@lucide/astro/icons/send';
       }
 
       async function loadRegistrations(sheetName: string) {
-        const token = getAnyToken(getToken());
+        const token = getToken();
         if (!token || !registrationsBody) return;
         registrationsBody.innerHTML =
           '<tr><td class="p-3 text-text-secondary" colspan="4">Cargando…</td></tr>';
@@ -709,15 +605,12 @@ import Send from '@lucide/astro/icons/send';
       }
 
       function showDashboard() {
-        if (loginSection) loginSection.hidden = true;
+        if (loginForm) loginForm.hidden = true;
         if (dashboard) dashboard.hidden = false;
         void loadActivities();
       }
 
-      // Admin (contraseña+TOTP) O staff (Google, "recordame" vía
-      // localStorage) — cualquiera de los dos alcanza para entrar al
-      // dashboard al volver.
-      if (getToken() || getStaffToken()) showDashboard();
+      if (getToken()) showDashboard();
 
       loginForm?.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -733,6 +626,8 @@ import Send from '@lucide/astro/icons/send';
           return;
         }
 
+        const remember = rememberInput?.checked ?? false;
+
         loginSubmit.disabled = true;
         try {
           const loginId = crypto.randomUUID();
@@ -745,7 +640,13 @@ import Send from '@lucide/astro/icons/send';
           await fetch(GOOGLE_FORMS_ENDPOINT, {
             method: 'POST',
             mode: 'no-cors',
-            body: new URLSearchParams({ action: 'adminLoginAttempt', password, code, loginId }),
+            body: new URLSearchParams({
+              action: 'adminLoginAttempt',
+              password,
+              code,
+              loginId,
+              remember: String(remember),
+            }),
           });
 
           const response = await jsonpRequest<{ result: string; token?: string }>(
@@ -757,7 +658,10 @@ import Send from '@lucide/astro/icons/send';
           );
 
           if (response.result === 'success' && response.token) {
-            sessionStorage.setItem(SESSION_KEY, response.token);
+            // "Recordarme" tildado → localStorage (sobrevive a cerrar el
+            // navegador); si no, sessionStorage de siempre.
+            if (remember) localStorage.setItem(SESSION_KEY, response.token);
+            else sessionStorage.setItem(SESSION_KEY, response.token);
             if (loginError) loginError.hidden = true;
             if (codeInput) codeInput.value = '';
             if (passwordInput) passwordInput.value = '';
@@ -778,20 +682,14 @@ import Send from '@lucide/astro/icons/send';
 
       logoutButton?.addEventListener('click', () => {
         const token = getToken();
-        const staffToken = getStaffToken();
         sessionStorage.removeItem(SESSION_KEY);
-        clearStaffToken();
+        localStorage.removeItem(SESSION_KEY);
         if (token)
           void jsonpRequest(GOOGLE_FORMS_ENDPOINT, { action: 'adminLogout', token }).catch(
             () => {},
           );
-        if (staffToken)
-          void jsonpRequest(GOOGLE_FORMS_ENDPOINT, {
-            action: 'staffLogout',
-            token: staffToken,
-          }).catch(() => {});
         if (dashboard) dashboard.hidden = true;
-        if (loginSection) loginSection.hidden = false;
+        if (loginForm) loginForm.hidden = false;
       });
 
       activitySelect?.addEventListener('change', () => {
@@ -810,24 +708,11 @@ import Send from '@lucide/astro/icons/send';
 
       previewButton?.addEventListener('click', async () => {
         const token = getToken();
-
-        // Mandar (incluso solo previsualizar, primer paso del mismo
-        // candado) sigue exigiendo la sesión admin real — quien entró con
-        // Google todavía no la tiene. En vez de un error, se pide acá
-        // mismo con el modal de step-up, y al confirmar se reintenta este
-        // mismo click solo, una sola vez por pestaña (ver
-        // pendingStepUpRetry más abajo).
-        if (!token) {
-          pendingStepUpRetry = () => previewButton?.click();
-          openStepUpModal();
-          return;
-        }
-
         const sheetName = activitySelect?.value;
         const subject = campaignSubject?.value.trim();
         const body = campaignBody?.value.trim();
 
-        if (!sheetName || !subject || !body) {
+        if (!token || !sheetName || !subject || !body) {
           showToast({
             message: 'Completá actividad, asunto y mensaje antes de pedir la vista previa.',
             variant: 'info',
@@ -967,128 +852,6 @@ import Send from '@lucide/astro/icons/send';
           campaignSubmit.disabled = false;
         }
       });
-
-      // ====== Sesión de staff con Google (solo lectura) ======
-
-      function openStepUpModal() {
-        if (stepUpPasswordInput) stepUpPasswordInput.value = '';
-        if (stepUpCodeInput) stepUpCodeInput.value = '';
-        if (stepUpError) stepUpError.hidden = true;
-        // Ver el comentario del botón oculto data-step-up-trigger: así se
-        // reusa el mecanismo real de Modal.astro en vez de llamar
-        // dialog.showModal() directo (eso saltearía su animación/bloqueo
-        // de scroll, que dependen de su propio controlador interno).
-        document.querySelector<HTMLButtonElement>('[data-step-up-trigger]')?.click();
-      }
-
-      function closeStepUpModal() {
-        stepUpModal?.querySelector<HTMLButtonElement>('[data-modal-close]')?.click();
-      }
-
-      stepUpForm?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        if (!stepUpSubmit || stepUpSubmit.disabled) return;
-
-        const password = stepUpPasswordInput?.value ?? '';
-        const code = stepUpCodeInput?.value ?? '';
-        if (!password || !/^\d{6}$/.test(code)) {
-          if (stepUpError) {
-            stepUpError.textContent = 'Completá la contraseña y el código de 6 dígitos.';
-            stepUpError.hidden = false;
-          }
-          return;
-        }
-
-        stepUpSubmit.disabled = true;
-        try {
-          const result = await attemptAdminLogin(password, code);
-          if (result.success) {
-            closeStepUpModal();
-            // Reintenta la acción que pidió el step-up (ej. el click de
-            // "Ver vista previa" que quedó a mitad de camino) — ahora que
-            // ya hay un atp-admin-token real, sigue exactamente igual que
-            // si se hubiera logueado por el formulario de siempre.
-            const retry = pendingStepUpRetry;
-            pendingStepUpRetry = null;
-            retry?.();
-          } else if (stepUpError) {
-            stepUpError.textContent = 'Contraseña o código incorrectos.';
-            stepUpError.hidden = false;
-          }
-        } catch {
-          if (stepUpError) {
-            stepUpError.textContent = 'No pudimos conectar. Probá de nuevo en un rato.';
-            stepUpError.hidden = false;
-          }
-        } finally {
-          stepUpSubmit.disabled = false;
-        }
-      });
-
-      async function handleGoogleCredential(response: { credential: string }) {
-        try {
-          const loginId = crypto.randomUUID();
-          // Mismo patrón que el login de contraseña+TOTP: POST no-cors
-          // (no se puede leer la respuesta) + JSONP aparte para el
-          // resultado real.
-          await fetch(GOOGLE_FORMS_ENDPOINT, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: new URLSearchParams({
-              action: 'staffGoogleLoginAttempt',
-              idToken: response.credential,
-              loginId,
-            }),
-          });
-
-          const result = await jsonpRequest<{ result: string; token?: string }>(
-            GOOGLE_FORMS_ENDPOINT,
-            { action: 'staffGoogleLoginPoll', loginId },
-          );
-
-          if (result.result === 'success' && result.token) {
-            setStaffToken(result.token);
-            showDashboard();
-          } else {
-            showToast({
-              message: 'Tu cuenta de Google no está autorizada para el panel de staff.',
-              variant: 'error',
-              duration: 7000,
-            });
-          }
-        } catch {
-          showToast({
-            message: 'No pudimos conectar. Probá de nuevo en un rato.',
-            variant: 'error',
-          });
-        }
-      }
-
-      function initGoogleSignIn(attempt = 0) {
-        if (typeof google === 'undefined') {
-          // El script de Google (async/defer, ver <head>) puede no estar
-          // listo todavía en el primer intento — no es un error, solo una
-          // carrera de carga. Reintenta cada 200ms hasta 5s; pasado eso,
-          // se asume bloqueado/sin red y la caja del botón queda vacía —
-          // el login de contraseña+TOTP de al lado no depende de esto
-          // para nada.
-          if (attempt < 25) setTimeout(() => initGoogleSignIn(attempt + 1), 200);
-          return;
-        }
-        if (!googleButtonContainer) return;
-
-        google.accounts.id.initialize({
-          client_id: siteConfig.googleOAuthClientId,
-          callback: handleGoogleCredential,
-        });
-        google.accounts.id.renderButton(googleButtonContainer, {
-          theme: 'outline',
-          size: 'large',
-          text: 'signin_with',
-        });
-      }
-
-      initGoogleSignIn();
     </script>
     <Toast />
   </body>
