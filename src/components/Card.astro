@@ -32,7 +32,13 @@ const { as: Tag = 'div', class: className, ...rest }: Props = Astro.props;
      * bubbles up from whatever's tapped inside the card (a Button, a link),
      * so this fires even though Card itself is a plain non-interactive div.
      */
-    'border-border bg-surface ease-standard flex flex-col overflow-hidden rounded-md border transition-[transform,box-shadow] duration-200',
+    /*
+     * `relative` da un contexto de posicionamiento para el patrón
+     * "stretched link": un botón/link adentro puede extender su área de
+     * click a toda la tarjeta con un `::after` absoluto (ver biblioteca.astro,
+     * el botón "Descargar") sin tener que anidar un <a> alrededor de otro.
+     */
+    'border-border bg-surface ease-standard relative flex flex-col overflow-hidden rounded-md border transition-[transform,box-shadow] duration-200',
     'shadow-[0_1px_2px_rgba(28,25,38,0.06),0_1px_1px_rgba(28,25,38,0.04)]',
     'hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(28,25,38,0.12),0_2px_8px_rgba(28,25,38,0.06)]',
     'active:scale-[0.98] active:duration-100',
