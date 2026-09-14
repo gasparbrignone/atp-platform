@@ -229,6 +229,8 @@ La persona que carga un libro solo pega el link de "Compartir" de Drive en el ca
 
 `driveUrl` no se borra después de migrar — queda como referencia de origen. Una entrada con `driveUrl` pero sin `downloadUrl` todavía está "en proceso" (el campo es opcional justamente por esta ventana).
 
+Superada de nuevo (2026-09-14): pasar por Drive ya no es el camino principal. El campo `downloadUrl` del CMS es ahora un `widget: file` con `media_library: { name: cloudflare_r2 }` (`public/admin/config.yml`) — quien carga el libro arrastra el archivo directo en el panel, se sube del navegador a un bucket de Cloudflare R2 (`atp-biblioteca`, dominio propio `archivos.atpfcm.com.ar`) sin pasar por Drive ni por ningún bot intermedio, y el campo queda con esa URL pública. `driveUrl` y el workflow de migración (`migrate-drive-books.yml`) no se tocaron — siguen ahí como alternativa opcional y como referencia de origen de las 61 entradas ya migradas a Releases; ambos caminos conviven, no hay migración de datos existentes. Ver `docs/SECURITY_DECISIONS.md` (2026-09-14) para el detalle de por qué R2 y no commitear el archivo directo al repo (como ya hacen las portadas vía `media_folder`).
+
 ## Motivos
 
 Un link de Drive normal abre el visor web (requiere un clic extra para descargar) — el pedido explícito era que descargue directo, "como los libros que ya están".

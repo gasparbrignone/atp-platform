@@ -10,6 +10,15 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ---
 
+## 2026-09-14
+
+- **feat:** el campo "Archivo del libro" de la Biblioteca (CMS) pasa de
+  pegar un link de Google Drive a arrastrar el archivo directo en el
+  panel — se sube del navegador a un bucket de Cloudflare R2, no al
+  repositorio. Ver decisión completa en `SECURITY_DECISIONS.md`.
+
+---
+
 ## 2026-09-05 (continuación — la etiqueta de nombre no se reemplazaba)
 
 - **fix:** una campaña mandada a un inscripto real llegó con "Hola

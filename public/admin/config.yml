@@ -12,6 +12,25 @@ backend:
 media_folder: public/uploads
 public_folder: /uploads
 
+# Almacenamiento externo (Cloudflare R2) solo para el archivo descargable de
+# la Biblioteca (campo `downloadUrl` de la colección `books`, ver abajo) — el
+# resto de los campos de tipo imagen/archivo del panel sigue usando
+# `media_folder` de arriba (se commitea al repo) sin cambios. Un libro en PDF
+# puede pesar mucho más que una imagen: GitHub bloquea directamente cualquier
+# archivo de más de 100MB en el repo, y todo lo que se commitea ahí pesa en
+# el historial para siempre aunque el libro se borre después — por eso ese
+# campo puntual sube directo del navegador a R2 en vez de al repo (ver
+# docs/STACK_DECISIONS.md → Biblioteca). El Access Key ID de abajo no es
+# secreto (identifica el bucket, no autoriza nada por sí solo); el Secret
+# Access Key lo tipea cada persona en el panel la primera vez que sube un
+# archivo — nunca vive en este archivo ni en el repo.
+media_libraries:
+  cloudflare_r2:
+    access_key_id: 1d4ed66fd89e65da306d4e35200772eb
+    bucket: atp-biblioteca
+    account_id: 9aa2c2f2067d5f3ae976cfd7049c6b29
+    public_url: https://archivos.atpfcm.com.ar
+
 # Sin esto, un campo opcional vacío se guarda como `null` — y nuestros
 # schemas Zod son `.optional()` (aceptan que falte la clave), no `.nullable()`
 # (no aceptan `null` explícito). Con esto, un campo opcional vacío
@@ -258,18 +277,19 @@ collections:
           hint: '¿No está el tipo que buscás (ej. "Cuaderno del alumno")? Crealo primero en "Tipos de recurso" y después volvé acá a elegirlo.',
         }
       - {
-          label: Link de Google Drive,
+          label: Archivo del libro,
+          name: downloadUrl,
+          widget: file,
+          required: false,
+          media_library: { name: cloudflare_r2 },
+          hint: 'Arrastrá acá el PDF (o el archivo que sea) del libro. Se sube directo, sin pasar por Google Drive.',
+        }
+      - {
+          label: Link de Google Drive (alternativa, no hace falta usarlo),
           name: driveUrl,
           widget: string,
           required: false,
-          hint: 'Pegá acá el link para compartir de Google Drive (que cualquiera con el link pueda verlo, empezando con http:// o https://). En unos minutos el sitio lo migra solo a una descarga directa y completa "Link de descarga" — no lo completes vos a mano.',
-        }
-      - {
-          label: Link de descarga,
-          name: downloadUrl,
-          widget: string,
-          required: false,
-          hint: 'Se completa solo a partir del "Link de Google Drive" de arriba. No hace falta tocarlo ni completarlo a mano.',
+          hint: 'Solo por si en algún caso puntual preferís pegar un link de Drive en vez de arrastrar el archivo arriba. Si lo usás, en unos minutos el sitio lo migra solo y completa "Archivo del libro" — no hace falta tocar nada más.',
         }
       - { label: Publicado, name: published, widget: boolean, default: true }
       # Sin consumidor todavía en ninguna página — solo se prepara el campo

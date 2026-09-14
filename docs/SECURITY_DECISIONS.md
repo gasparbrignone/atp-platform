@@ -826,3 +826,88 @@ pueda llegar a escapar al serializar (`<...>` es el caso obvio, pero
 también desconfiar de comillas dentro de atributos, entidades, etc.) —
 si en algún momento se necesita otra etiqueta nueva, seguir con el
 patrón `{{palabra}}` ya establecido, nunca ángulos.
+
+---
+
+### 2026-09-14 — Biblioteca: subida de libros directo a Cloudflare R2 desde el CMS
+
+**Contexto:** pedido explícito del dueño del proyecto de poder arrastrar el
+archivo del libro directo en el panel `/admin`, sin pasar por Google Drive
+(ver `docs/STACK_DECISIONS.md` → Biblioteca, decisión original del
+2026-07-08).
+
+**Problema:** Sveltia CMS ya soporta arrastrar archivos — así se suben hoy
+las portadas de los libros — pero por default (`media_folder:
+public/uploads`) eso commitea el archivo directo al repositorio de git.
+Funciona bien para una portada de unos KB; un libro en PDF puede pesar
+decenas o cientos de MB, y ahí aparecen dos problemas reales: GitHub
+bloquea directamente cualquier archivo de más de 100MB, y todo lo que se
+commitea ahí pesa en el historial del repositorio para siempre, incluso si
+el libro se borra después. Repetir ese patrón para libros hubiera
+reintroducido exactamente el problema que la migración a GitHub Releases
+(2026-07-08) ya había resuelto.
+
+**Decisión:** agregar Cloudflare R2 como proveedor de medios de Sveltia
+CMS (`media_libraries.cloudflare_r2` en `public/admin/config.yml`),
+scopeado únicamente al campo `downloadUrl` de la colección `books`
+(`media_library: { name: cloudflare_r2 }` en ese campo puntual — el resto
+de los campos de imagen/archivo del panel sigue yendo al repo sin
+cambios). El campo pasa de dos strings (`driveUrl` + `downloadUrl`
+autocompletado por un bot) a un `widget: file` con drag & drop real: el
+navegador sube el archivo directo a R2 (firmado SigV4, sin proxy ni
+backend propio) y el campo queda con la URL pública
+(`https://archivos.atpfcm.com.ar/...`). `driveUrl` y el workflow de
+migración (`migrate-drive-books.yml`) no se tocaron: quedan como
+alternativa opcional y como referencia de origen de las 61 entradas ya
+migradas — ambos caminos conviven.
+
+**Alternativas consideradas:** (1) drag & drop directo al repo, igual que
+las portadas — descartada por el límite de 100MB de GitHub y porque cada
+libro subido infla el repositorio para siempre. (2) mantener el flujo de
+Drive tal cual — descartada, es justamente lo que se pidió eliminar. (3)
+mover también los campos de imagen (portadas, íconos de +info, fotos de
+actividades) a R2, no solo el archivo de libros — descartada por ahora:
+hubiera requerido sumar el dominio de R2 a la CSP (`img-src`) para poder
+renderizar esas imágenes inline, un cambio más amplio que lo pedido;
+queda como posible paso futuro si hace falta.
+
+**Motivo:** R2 tiene soporte nativo en Sveltia CMS (subida directa
+navegador→R2, sin backend propio que mantener), free tier de 10GB sin
+costo de salida de datos, y ATP ya usa Cloudflare para el dominio
+(`atpfcm.com.ar` delegado ahí) y el Worker del check-in — no es un
+proveedor nuevo en términos de confianza de cuenta, solo un servicio más
+dentro de la misma cuenta.
+
+**Verificación antes de producción:** `config.yml` probado con un
+navegador real (Playwright) contra el panel en local, no solo por
+lectura del código. La primera versión (`media_library: cloudflare_r2`
+como string) rompía la carga completa del panel — Sveltia tira un error
+de validación explícito y bloquea el CMS entero, no solo el campo
+afectado — corregida a la forma objeto (`media_library: { name:
+cloudflare_r2 }`, sintaxis heredada de Decap que Sveltia mantiene por
+compatibilidad) y reverificada sin errores de consola. La prueba de
+extremo a extremo (subir un objeto real a R2 con las credenciales y
+confirmar lectura vía la URL pública) la bloqueó el clasificador de
+seguridad de Claude Code por tratarse de una escritura real a un servicio
+externo con una credencial — no se intentó evitar ese bloqueo por otra
+vía; queda pendiente de confirmar subiendo un archivo real desde el panel
+ya logueado.
+
+**Riesgo residual:** el `Access Key ID` de R2 queda en texto plano en
+`config.yml`, en el repositorio público — aceptable por diseño, es un
+identificador que no autoriza nada por sí solo (mismo patrón que el Site
+Key de Turnstile, que también es público a propósito). El Secret Access
+Key correspondiente no va en el repo: se tipea en el navegador la primera
+vez que cada persona usa el panel, y Sveltia lo guarda solo localmente en
+ese navegador. El token de R2 se creó con permiso "Object Read & Write"
+(no Admin); pendiente confirmar que haya quedado además restringido solo
+al bucket `atp-biblioteca` y no a toda la cuenta — revisar en el dashboard
+de Cloudflare (R2 → Manage API Tokens) si no se hizo en el momento de
+crearlo.
+
+**Qué NO hacer en el futuro:** no ampliar el uso de R2 a campos que se
+renderizan como `<img>` (portadas, fotos) sin antes sumar
+`archivos.atpfcm.com.ar` a `img-src` en la CSP (`astro.config.mjs` /
+`security.csp`) — a diferencia del campo de descarga de libros (un link,
+no un recurso cargado por la página), una imagen servida desde ahí se
+rompería en silencio bajo la CSP actual.
