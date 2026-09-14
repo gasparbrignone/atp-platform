@@ -1404,6 +1404,41 @@ actividad solo.
    // Esa columna sigue siendo la única fuente de verdad de "a quién ya
    // se le mandó" (resumible si el navegador se cierra a mitad de un
    // lote grande, igual que antes).
+   //
+   // Bug real en producción (2026-09-14): una actividad ("Capacitación
+   // Enfermería Segura") nunca había tenido estas 2 columnas — la
+   // función asumía que ya existían (`headers.indexOf(...)` daba -1,
+   // pero el código igual seguía adelante). Los 66 certificados se
+   // mandaron y entregaron bien por Resend (confirmado en el dashboard
+   // de Resend, todos "Delivered"), pero como certSentCol/certErrorCol
+   // eran -1, tanto el guardado de "ya se mandó" como el de un eventual
+   // error se salteaban en silencio — el panel los mostró a los 66 como
+   // "error" (en verdad 'pending': ni éxito ni error anotados) para
+   // siempre. Peor todavía: sin esa columna, el chequeo de "ya se le
+   // mandó" tampoco podía funcionar nunca — "Seguir enviando" habría
+   // vuelto a mandar los 66 certificados duplicados a gente real. Ahora
+   // `ensureCertificateColumns` las crea solas la primera vez que hacen
+   // falta, en vez de asumir que ya están — cierra esto para cualquier
+   // actividad, no solo para la que falló.
+   function ensureCertificateColumns(sheet) {
+     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+     var certSentCol = headers.indexOf('CertificadoEnviado');
+     var certErrorCol = headers.indexOf('CertificadoError');
+
+     if (certSentCol === -1) {
+       var newCol = sheet.getLastColumn() + 1;
+       sheet.getRange(1, newCol).setValue('CertificadoEnviado');
+       certSentCol = newCol - 1;
+     }
+     if (certErrorCol === -1) {
+       var newCol2 = sheet.getLastColumn() + 1;
+       sheet.getRange(1, newCol2).setValue('CertificadoError');
+       certErrorCol = newCol2 - 1;
+     }
+
+     return { certSentCol: certSentCol, certErrorCol: certErrorCol };
+   }
+
    function handleAdminSendCertificateNow(params) {
      // No-cors: el navegador nunca lee este ContentService, pero se
      // arma igual (mismo criterio que el resto de doPost) para que
@@ -1437,11 +1472,15 @@ actividad solo.
            .setMimeType(ContentService.MimeType.JSON);
        }
 
-       var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-       var certSentCol = headers.indexOf('CertificadoEnviado');
-       var certErrorCol = headers.indexOf('CertificadoError');
+       // Antes de leer/escribir nada de seguimiento: garantiza que las
+       // columnas existan (las crea si faltan) — ver el porqué en el
+       // comentario de ensureCertificateColumns, arriba. A partir de acá
+       // certSentCol/certErrorCol nunca son -1.
+       var certColumns = ensureCertificateColumns(sheet);
+       var certSentCol = certColumns.certSentCol;
+       var certErrorCol = certColumns.certErrorCol;
 
-       if (certSentCol !== -1 && sheet.getRange(row, certSentCol + 1).getValue()) {
+       if (sheet.getRange(row, certSentCol + 1).getValue()) {
          return ContentService
            .createTextOutput(JSON.stringify({ result: 'already_sent' }))
            .setMimeType(ContentService.MimeType.JSON);
@@ -1450,7 +1489,7 @@ actividad solo.
        var testMode = params.testMode === 'true';
        var recipientEmail = testMode ? getTestModeRecipient() : params.recipientEmail;
        if (!recipientEmail) {
-         if (certErrorCol !== -1) sheet.getRange(row, certErrorCol + 1).setValue('Sin email');
+         sheet.getRange(row, certErrorCol + 1).setValue('Sin email');
          return ContentService
            .createTextOutput(JSON.stringify({ result: 'no_email' }))
            .setMimeType(ContentService.MimeType.JSON);
@@ -1479,15 +1518,15 @@ actividad solo.
            params.filename || 'certificado.pdf',
          );
 
-         if (certSentCol !== -1) sheet.getRange(row, certSentCol + 1).setValue(new Date());
-         if (certErrorCol !== -1) sheet.getRange(row, certErrorCol + 1).setValue('');
+         sheet.getRange(row, certSentCol + 1).setValue(new Date());
+         sheet.getRange(row, certErrorCol + 1).setValue('');
 
          return ContentService
            .createTextOutput(JSON.stringify({ result: 'success' }))
            .setMimeType(ContentService.MimeType.JSON);
        } catch (mailErr) {
          var message = 'Error: ' + mailErr.message;
-         if (certErrorCol !== -1) sheet.getRange(row, certErrorCol + 1).setValue(message);
+         sheet.getRange(row, certErrorCol + 1).setValue(message);
          logError('certificate', mailErr, { sheetName: params.sheetName, registrationId: params.registrationId });
          return ContentService
            .createTextOutput(JSON.stringify({ result: 'error', message: message }))
