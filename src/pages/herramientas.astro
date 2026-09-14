@@ -8,6 +8,15 @@
  * via "Ver más" — same pattern as Actividades — since an entry can now carry
  * a longer body, photos and extra resource links, not just a name and an
  * external link. "Acceder" (the external `url`) only renders when set.
+ *
+ * Auditoría UX 2026-09-14: este listado solo mostraba la colección suelta
+ * `tools` (hoy 1 sola entrada, "Ingresantes") mientras que las herramientas
+ * de estudio de verdad (atlas, microscopios virtuales) viven embebidas en
+ * `careers[].tools[]` — el ítem "Herramientas" del menú, que es el camino
+ * más obvio para buscar un atlas, terminaba en un callejón sin salida. Se
+ * agregan acá también, con un Badge de qué carrera son, en vez de mover el
+ * modelo de datos entero (cambio grande e innecesario) — cada una linkea a
+ * la sección real dentro de su carrera (#herramientas-utiles).
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Section from '@/components/Section.astro';
@@ -16,6 +25,7 @@ import SectionHeader from '@/components/SectionHeader.astro';
 import Grid from '@/components/Grid.astro';
 import Card from '@/components/Card.astro';
 import Button from '@/components/Button.astro';
+import Badge from '@/components/Badge.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import ToolIconBadge from '@/components/ToolIconBadge.astro';
 import BookOpen from '@lucide/astro/icons/book-open';
@@ -23,8 +33,9 @@ import Microscope from '@lucide/astro/icons/microscope';
 import Calculator from '@lucide/astro/icons/calculator';
 import Activity from '@lucide/astro/icons/activity';
 import Link from '@lucide/astro/icons/link';
+import CalendarCheck from '@lucide/astro/icons/calendar-check';
 import { getCollection } from 'astro:content';
-import type { ToolIconKey } from '@/lib/labels';
+import type { ToolIconKey, CareerToolIconKey } from '@/lib/labels';
 import { renderInlineMarkdown } from '@/lib/markdown';
 
 const toolIcons: Record<ToolIconKey, typeof BookOpen> = {
@@ -35,7 +46,23 @@ const toolIcons: Record<ToolIconKey, typeof BookOpen> = {
   link: Link,
 };
 
+// Las herramientas embebidas en carreras usan un enum de íconos propio y
+// más chico (ver src/pages/carreras/[career].astro) — no el mismo que la
+// colección suelta `tools` de arriba.
+const careerToolIcons: Record<CareerToolIconKey, typeof BookOpen> = {
+  'book-open': BookOpen,
+  microscope: Microscope,
+  'calendar-check': CalendarCheck,
+};
+
 const publishedTools = await getCollection('tools', ({ data }) => data.published);
+
+const careers = await getCollection('careers');
+const careerTools = careers.flatMap((career) =>
+  career.data.tools.map((tool) => ({ ...tool, careerId: career.id, careerName: career.data.name })),
+);
+
+const hasAnyTool = publishedTools.length > 0 || careerTools.length > 0;
 ---
 
 <BaseLayout
@@ -48,7 +75,7 @@ const publishedTools = await getCollection('tools', ({ data }) => data.published
       <SectionHeader as="h1" title="Herramientas" />
 
       {
-        publishedTools.length > 0 ? (
+        hasAnyTool ? (
           <Grid cols={3} gap="md">
             {publishedTools.map((tool) => {
               const Icon = toolIcons[tool.data.icon];
@@ -71,6 +98,42 @@ const publishedTools = await getCollection('tools', ({ data }) => data.published
                         target="_blank"
                         size="sm"
                         trackId={`herramienta:${tool.id}`}
+                      >
+                        Acceder
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+            {careerTools.map((tool) => {
+              const Icon = careerToolIcons[tool.icon];
+              return (
+                <Card data-reveal>
+                  <div slot="badge">
+                    <Badge variant="secondary">{tool.careerName}</Badge>
+                  </div>
+                  <div slot="image" class="p-6 pb-0">
+                    <ToolIconBadge icon={Icon} customIcon={tool.customIcon} />
+                  </div>
+                  <h3 slot="title" class="text-h4 text-text font-bold">
+                    {tool.name}
+                  </h3>
+                  <p set:html={renderInlineMarkdown(tool.description)} />
+                  <div slot="actions" class="flex flex-wrap items-center gap-2">
+                    <Button
+                      href={`/carreras/${tool.careerId}/#herramientas-utiles`}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Ver en {tool.careerName}
+                    </Button>
+                    {tool.href && (
+                      <Button
+                        href={tool.href}
+                        target="_blank"
+                        size="sm"
+                        trackId={`herramienta:${tool.careerId}:${tool.name}`}
                       >
                         Acceder
                       </Button>

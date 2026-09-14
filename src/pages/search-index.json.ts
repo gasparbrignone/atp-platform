@@ -59,6 +59,23 @@ export const GET: APIRoute = async () => {
     url: `/carreras/${career.id}/`,
   }));
 
+  // Auditoría UX 2026-09-14: las herramientas de estudio de verdad (atlas,
+  // microscopios virtuales) viven embebidas en careers[].tools[], no en la
+  // colección suelta `tools` de arriba — sin esto, buscar "microscopio" o
+  // "atlas" no encontraba nada aunque la herramienta existiera en el sitio.
+  const careerToolItems: SearchItem[] = careers.flatMap((career) =>
+    career.data.tools.map((tool) => {
+      const plainDescription = markdownToPlainText(tool.description);
+      return {
+        type: 'herramienta',
+        title: tool.name,
+        subtitle: `${career.data.name}: ${plainDescription}`,
+        text: `${tool.name} ${plainDescription} ${career.data.name}`,
+        url: `/carreras/${career.id}/#herramientas-utiles`,
+      };
+    }),
+  );
+
   const books = await getCollection('books', ({ data }) => data.published);
   const bookItems: SearchItem[] = books.map((book) => ({
     type: 'libro',
@@ -68,7 +85,13 @@ export const GET: APIRoute = async () => {
     url: `/biblioteca/?q=${encodeURIComponent(book.data.title)}`,
   }));
 
-  const items = [...activityItems, ...toolItems, ...careerItems, ...bookItems];
+  const items = [
+    ...activityItems,
+    ...toolItems,
+    ...careerToolItems,
+    ...careerItems,
+    ...bookItems,
+  ];
 
   return new Response(JSON.stringify({ items }), {
     headers: { 'Content-Type': 'application/json' },
