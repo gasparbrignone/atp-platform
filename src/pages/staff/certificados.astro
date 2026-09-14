@@ -156,12 +156,18 @@ import LogIn from '@lucide/astro/icons/log-in';
       const summarySent = document.querySelector<HTMLElement>('[data-summary-sent]');
       const attendeesBody = document.querySelector<HTMLElement>('[data-attendees-body]');
 
+      // "Recordarme" (panel.astro) guarda el token en localStorage en vez
+      // de sessionStorage — hay que revisar los dos acá también, esta
+      // página comparte la sesión pero tiene su propia copia de esta
+      // función (no hay forma de compartir código entre dos <script> de
+      // páginas Astro distintas sin un módulo aparte).
       function getToken(): string | null {
-        return sessionStorage.getItem(SESSION_KEY);
+        return sessionStorage.getItem(SESSION_KEY) ?? localStorage.getItem(SESSION_KEY);
       }
 
       function handleSessionExpired() {
         sessionStorage.removeItem(SESSION_KEY);
+        localStorage.removeItem(SESSION_KEY);
         if (dashboard) dashboard.hidden = true;
         if (needsLogin) needsLogin.hidden = false;
       }

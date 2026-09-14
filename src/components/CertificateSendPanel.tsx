@@ -119,7 +119,9 @@ export default function CertificateSendPanel({
   }
 
   async function handleSend() {
-    const token = sessionStorage.getItem(SESSION_KEY);
+    // "Recordarme" (panel.astro) guarda el token en localStorage en vez
+    // de sessionStorage — hay que revisar los dos.
+    const token = sessionStorage.getItem(SESSION_KEY) ?? localStorage.getItem(SESSION_KEY);
     if (!token) {
       showToast({
         message: 'Tu sesión venció — volvé a entrar desde /staff/panel/.',
