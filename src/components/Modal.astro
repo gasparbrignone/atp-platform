@@ -23,7 +23,11 @@ const titleId = `${id}-title`;
   data-modal
   aria-labelledby={titleId}
   class:list={[
-    'max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg border-0 bg-transparent p-0 backdrop:bg-gray-900/60 backdrop:backdrop-blur-sm',
+    // `fixed` + `inset-0` + `m-auto`: el reset global de Tailwind pone
+    // `margin: 0` en todo, lo que rompe el auto-centrado nativo de
+    // <dialog> (que depende de `margin: auto`) — sin esto, el modal queda
+    // pegado arriba de la pantalla en vez de centrado.
+    'fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg border-0 bg-transparent p-0 backdrop:bg-gray-900/60 backdrop:backdrop-blur-sm',
     className,
   ]}
   {...rest}
