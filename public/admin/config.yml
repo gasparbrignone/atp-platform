@@ -281,7 +281,16 @@ collections:
           name: downloadUrl,
           widget: file,
           required: false,
-          media_library: { name: cloudflare_r2 },
+          # `default: false` apaga la pestaña "Repositorio" (subida al
+          # propio repo de git) del selector de archivos para este campo
+          # puntual — sin esto, esa pestaña queda disponible igual (y
+          # elegida por default) junto a la de Cloudflare R2, así que
+          # quien cargue un libro podría terminar subiéndolo al repo sin
+          # querer con solo no cambiar de pestaña. `cloudflare_r2` (el
+          # proveedor externo, configurado arriba en `media_libraries` a
+          # nivel de archivo) no hace falta repetirlo acá: al quedar como
+          # la única pestaña habilitada, el selector la elige solo.
+          media_libraries: { default: false },
           hint: 'Arrastrá acá el PDF (o el archivo que sea) del libro. Se sube directo, sin pasar por Google Drive.',
         }
       - {
