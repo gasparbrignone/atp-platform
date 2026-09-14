@@ -7,7 +7,9 @@ import Navbar from '@/components/Navbar.astro';
 import Footer from '@/components/Footer.astro';
 import Toast from '@/components/Toast.astro';
 import GlobalSearch from '@/components/GlobalSearch.astro';
-import X from '@lucide/astro/icons/x';
+import Modal from '@/components/Modal.astro';
+import Button from '@/components/Button.astro';
+import TriangleAlert from '@lucide/astro/icons/triangle-alert';
 
 type Props = SeoProps;
 
@@ -203,59 +205,69 @@ const websiteJsonLd = {
       Saltar al contenido principal
     </a>
     <Navbar />
-    <!--
-      Auditoría UX 2026-09-14 (Clarity): ~64% de las sesiones reales llegan
-      desde el navegador embebido de Instagram, que confirmado en vivo por
-      el dueño no logra descargar los libros de la Biblioteca (ni en pestaña
-      nueva ni en la misma) — es una limitación del navegador de Instagram
-      en sí, no del sitio. La única salida confiable es que la persona abra
-      el link en su navegador de verdad; Instagram ya tiene esa opción en su
-      propio menú (⋮ → "Abrir en el navegador"), así que solo hace falta
-      avisar que existe. Oculto por default, un script lo muestra solo si
-      detecta ese navegador — nunca se le miente a nadie más.
-    -->
-    <div
-      id="in-app-browser-banner"
-      hidden
-      class="border-warning-strong bg-warning/15 text-text text-body-sm flex items-center justify-center gap-3 border-b px-4 py-2 text-center"
-    >
-      <p>
-        Estás entrando desde Instagram — para descargar libros o completar formularios sin
-        problemas, tocá los <strong>⋮</strong> (arriba a la derecha) y elegí <strong
-          >"Abrir en el navegador"</strong
-        >.
-      </p>
-      <button
-        type="button"
-        id="in-app-browser-banner-close"
-        aria-label="Cerrar aviso"
-        class="text-text-secondary hover:bg-warning/25 ease-standard inline-flex size-6 shrink-0 items-center justify-center rounded-full transition-colors"
-      >
-        <X class="size-4" aria-hidden="true" />
-      </button>
-    </div>
     <main id="main-content">
       <slot />
     </main>
     <Footer />
     <Toast />
     <GlobalSearch />
+
+    <!--
+      Auditoría UX 2026-09-14 (Clarity): ~64% de las sesiones reales llegan
+      desde el navegador embebido de Instagram, que confirmado en vivo por
+      el dueño no logra descargar los libros de la Biblioteca (ni en pestaña
+      nueva ni en la misma) — es una limitación de ese navegador, no del
+      sitio. La única salida confiable es que la persona abra el link en su
+      navegador de verdad; Instagram ya tiene esa opción en su propio menú,
+      así que alcanza con avisar que existe. Modal (no una barrita) a
+      propósito: tiene que ser imposible de no ver. Se abre solo clickeando
+      el trigger oculto de abajo, nunca llamando showModal() directo (ver
+      docs/UI_COMPONENTS.md, patrón de Modal.astro) — el texto exacto de
+      cada paso lo completa el script según sea iOS o Android, porque el
+      menú de Instagram no está en el mismo lugar ni se llama igual en los
+      dos.
+    -->
+    <button type="button" data-modal-open="instagram-browser-warning" hidden>
+      Abrir aviso de navegador
+    </button>
+    <Modal id="instagram-browser-warning">
+      <Fragment slot="title">
+        <span class="flex items-center gap-2">
+          <TriangleAlert class="text-warning-strong size-6 shrink-0" aria-hidden="true" />
+          Estás usando el navegador de Instagram
+        </span>
+      </Fragment>
+      <p class="text-body text-text">
+        Este navegador no deja descargar libros ni completar algunos formularios bien. Para que
+        todo funcione, abrí este link en tu navegador de siempre.
+      </p>
+      <p id="instagram-browser-warning-steps" class="text-body text-text mt-3 font-semibold"></p>
+      <Button slot="actions" data-modal-close variant="primary">Entendido</Button>
+    </Modal>
+
     <script>
       import { initScrollReveal } from '@/lib/scrollReveal';
 
       initScrollReveal();
 
-      // Ver comentario arriba del banner: solo se muestra si el navegador
-      // real es el embebido de Instagram/Facebook (WebView), nunca en un
-      // navegador de verdad.
-      if (/Instagram|FBAN|FBAV/i.test(navigator.userAgent)) {
-        const banner = document.getElementById('in-app-browser-banner');
-        if (banner) banner.hidden = false;
+      // Ver comentario arriba del modal: solo se abre si el navegador real
+      // es el embebido de Instagram/Facebook (WebView), nunca en uno de
+      // verdad. El texto de los pasos cambia según iOS o Android porque el
+      // menú para "abrir en el navegador" no está en el mismo lugar en los
+      // dos sistemas.
+      const ua = navigator.userAgent;
+      if (/Instagram|FBAN|FBAV/i.test(ua)) {
+        const isIOS = /iPhone|iPad|iPod/i.test(ua);
+        const steps = document.getElementById('instagram-browser-warning-steps');
+        if (steps) {
+          steps.textContent = isIOS
+            ? 'Buscá el botón de los tres puntitos (generalmente abajo a la derecha) y elegí "Abrir en Safari".'
+            : 'Tocá los tres puntitos de arriba a la derecha y elegí "Abrir en Chrome" (o "Abrir en el navegador").';
+        }
+        document
+          .querySelector<HTMLElement>('[data-modal-open="instagram-browser-warning"]')
+          ?.click();
       }
-      document.getElementById('in-app-browser-banner-close')?.addEventListener('click', () => {
-        const banner = document.getElementById('in-app-browser-banner');
-        if (banner) banner.hidden = true;
-      });
     </script>
   </body>
 </html>
