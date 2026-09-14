@@ -257,8 +257,8 @@ const websiteJsonLd = {
         const steps = document.getElementById('instagram-browser-warning-steps');
         if (steps) {
           steps.textContent = isIOS
-            ? 'Tocá los tres puntitos y elegí "Abrir en Safari".'
-            : 'Tocá los tres puntitos y elegí "Abrir en Chrome".';
+            ? 'Tocá los tres puntitos y elegí "Abrir en navegador externo". Podés seguir sin hacerlo, pero puede que la página falle.'
+            : 'Tocá los tres puntitos y elegí "Abrir en Chrome". Podés seguir sin hacerlo, pero puede que la página falle.';
         }
         document
           .querySelector<HTMLElement>('[data-modal-open="instagram-browser-warning"]')
