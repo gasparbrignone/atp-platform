@@ -21,4 +21,12 @@ export const siteConfig = {
   // cada página con un formulario. La Secret Key correspondiente NUNCA va
   // acá: vive solo en el Apps Script (ver docs/GOOGLE_SHEETS_FORM_SETUP.md).
   turnstileSiteKey: '0x4AAAAAAElHJ7cNiPDYozuw',
+  // Client ID de Google Sign-In (Google Identity Services) para el login de
+  // staff del panel admin (src/pages/staff/panel.astro) — público a
+  // propósito, igual que turnstileSiteKey: solo identifica la app ante
+  // Google, no autoriza nada por sí solo. El Apps Script tiene el mismo
+  // valor (constante GOOGLE_OAUTH_CLIENT_ID) para validar el campo `aud`
+  // del token — deben coincidir exactamente. No hay Client Secret: este
+  // flujo (botón "Sign In with Google") es de cliente público, sin uno.
+  googleOAuthClientId: 'CAMBIAR-ESTE-CLIENT-ID.apps.googleusercontent.com',
 } as const;

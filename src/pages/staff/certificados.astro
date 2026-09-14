@@ -13,8 +13,10 @@
  */
 import '@/styles/global.css';
 import Button from '@/components/Button.astro';
+import Input from '@/components/Input.astro';
 import Select from '@/components/Select.astro';
 import Toast from '@/components/Toast.astro';
+import Modal from '@/components/Modal.astro';
 import CertificateFieldEditor from '@/components/CertificateFieldEditor.tsx';
 import ArrowLeft from '@lucide/astro/icons/arrow-left';
 import Award from '@lucide/astro/icons/award';
@@ -60,14 +62,55 @@ import LogIn from '@lucide/astro/icons/log-in';
         class="border-border bg-surface flex flex-col items-start gap-3 rounded-md border p-6"
       >
         <p class="text-body text-text-secondary">
-          Necesitás iniciar sesión en el panel admin antes de entrar acá — es la misma sesión para
-          los dos.
+          Necesitás iniciar sesión en el panel admin (con contraseña+TOTP, o con Google) antes de
+          entrar acá — es la misma sesión para los dos.
         </p>
         <Button href="/staff/panel/">
           <LogIn slot="icon-start" class="size-4" />
           Ir a iniciar sesión
         </Button>
       </div>
+
+      <!--
+        Step-up: quien entró con Google (solo lectura) igual necesita la
+        sesión admin real para mandar certificados — ver
+        CertificateSendPanel.tsx, que dispara "atp:admin-step-up-request"
+        cuando le falta esa sesión. Mismo patrón que panel.astro (trigger
+        oculto + Modal.astro), documentado ahí en detalle.
+      -->
+      <button type="button" data-modal-open="admin-step-up-modal" data-step-up-trigger hidden
+      ></button>
+
+      <Modal id="admin-step-up-modal">
+        <Fragment slot="title">Confirmá tu acceso</Fragment>
+        <p class="text-body-sm mb-4">
+          Mandar certificados siempre pide la sesión admin real, incluso si entraste con Google.
+        </p>
+        <form data-step-up-form class="flex flex-col gap-4">
+          <div class="flex flex-col gap-2">
+            <label for="step-up-password" class="text-caption text-text-secondary font-semibold">
+              Contraseña
+            </label>
+            <Input id="step-up-password" type="password" autocomplete="off" required />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label for="step-up-code" class="text-caption text-text-secondary font-semibold">
+              Código de Google Authenticator
+            </label>
+            <Input
+              id="step-up-code"
+              inputmode="numeric"
+              pattern="\d{6}"
+              maxlength="6"
+              autocomplete="off"
+              placeholder="123456"
+              required
+            />
+          </div>
+          <p data-step-up-error hidden class="text-caption text-error"></p>
+          <Button type="submit" size="lg" data-step-up-submit class="self-start">Confirmar</Button>
+        </form>
+      </Modal>
 
       <div data-dashboard hidden class="flex flex-col gap-6">
         <div class="border-border bg-surface flex flex-col gap-4 rounded-md border p-6">
@@ -126,6 +169,8 @@ import LogIn from '@lucide/astro/icons/log-in';
     <script>
       import { jsonpRequest } from '@/lib/jsonp';
       import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+      import { getStaffToken, clearStaffToken, getAnyToken } from '@/lib/staffSession';
+      import { attemptAdminLogin } from '@/lib/adminStepUp';
 
       const SESSION_KEY = 'atp-admin-token';
 
@@ -156,20 +201,82 @@ import LogIn from '@lucide/astro/icons/log-in';
       const summarySent = document.querySelector<HTMLElement>('[data-summary-sent]');
       const attendeesBody = document.querySelector<HTMLElement>('[data-attendees-body]');
 
+      const stepUpModal = document.querySelector<HTMLDialogElement>('#admin-step-up-modal');
+      const stepUpForm = document.querySelector<HTMLFormElement>('[data-step-up-form]');
+      const stepUpSubmit = document.querySelector<HTMLButtonElement>('[data-step-up-submit]');
+      const stepUpError = document.querySelector<HTMLElement>('[data-step-up-error]');
+      const stepUpPasswordInput = document.querySelector<HTMLInputElement>('#step-up-password');
+      const stepUpCodeInput = document.querySelector<HTMLInputElement>('#step-up-code');
+
       function getToken(): string | null {
         return sessionStorage.getItem(SESSION_KEY);
       }
 
       function handleSessionExpired() {
         sessionStorage.removeItem(SESSION_KEY);
+        // Ver el mismo comentario en panel.astro: sin esto, una sesión de
+        // staff vencida dejaría un token muerto reintentando en silencio.
+        clearStaffToken();
         if (dashboard) dashboard.hidden = true;
         if (needsLogin) needsLogin.hidden = false;
       }
 
+      // ====== Step-up: CertificateSendPanel.tsx pide esto cuando falta la
+      // sesión admin real (ver ese componente) ======
+
+      function openStepUpModal() {
+        if (stepUpPasswordInput) stepUpPasswordInput.value = '';
+        if (stepUpCodeInput) stepUpCodeInput.value = '';
+        if (stepUpError) stepUpError.hidden = true;
+        document.querySelector<HTMLButtonElement>('[data-step-up-trigger]')?.click();
+      }
+
+      function closeStepUpModal() {
+        stepUpModal?.querySelector<HTMLButtonElement>('[data-modal-close]')?.click();
+      }
+
+      window.addEventListener('atp:admin-step-up-request', () => openStepUpModal());
+
+      stepUpForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!stepUpSubmit || stepUpSubmit.disabled) return;
+
+        const password = stepUpPasswordInput?.value ?? '';
+        const code = stepUpCodeInput?.value ?? '';
+        if (!password || !/^\d{6}$/.test(code)) {
+          if (stepUpError) {
+            stepUpError.textContent = 'Completá la contraseña y el código de 6 dígitos.';
+            stepUpError.hidden = false;
+          }
+          return;
+        }
+
+        stepUpSubmit.disabled = true;
+        try {
+          const result = await attemptAdminLogin(password, code);
+          if (result.success) {
+            closeStepUpModal();
+            // CertificateSendPanel.tsx escucha esto para reintentar el
+            // envío que había quedado esperando la sesión admin.
+            window.dispatchEvent(new CustomEvent('atp:admin-step-up-success'));
+          } else if (stepUpError) {
+            stepUpError.textContent = 'Contraseña o código incorrectos.';
+            stepUpError.hidden = false;
+          }
+        } catch {
+          if (stepUpError) {
+            stepUpError.textContent = 'No pudimos conectar. Probá de nuevo en un rato.';
+            stepUpError.hidden = false;
+          }
+        } finally {
+          stepUpSubmit.disabled = false;
+        }
+      });
+
       let activitiesCache: CertificateActivitySummary[] = [];
 
       async function loadActivities() {
-        const token = getToken();
+        const token = getAnyToken(getToken());
         if (!token || !activitySelect) return;
 
         try {
@@ -214,7 +321,7 @@ import LogIn from '@lucide/astro/icons/log-in';
       }
 
       async function loadAttendees(sheetName: string) {
-        const token = getToken();
+        const token = getAnyToken(getToken());
         if (!token || !attendeesBody) return;
         attendeesBody.innerHTML =
           '<tr><td class="p-3 text-text-secondary" colspan="5">Cargando…</td></tr>';
@@ -307,7 +414,7 @@ import LogIn from '@lucide/astro/icons/log-in';
         void loadAttendees(sheetName);
       });
 
-      if (getToken()) {
+      if (getToken() || getStaffToken()) {
         if (dashboard) dashboard.hidden = false;
         void loadActivities();
       } else {

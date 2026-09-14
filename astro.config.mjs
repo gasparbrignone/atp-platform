@@ -92,13 +92,22 @@ export default defineConfig({
   //    Google Analytics en docs/STACK_DECISIONS.md). Si Clarity deja de
   //    funcionar bien en el futuro, revisar si agregó una dependencia
   //    nueva de este pixel antes de habilitarlo sin pensarlo.
+  //  - accounts.google.com: Google Identity Services (botón "Iniciar
+  //    sesión con Google" del panel de staff, src/pages/staff/panel.astro)
+  //    — carga su propio script (script-src), hace sus propios llamados
+  //    (connect-src), renderiza el botón/One Tap en un iframe (frame-src)
+  //    y trae su propia hoja de estilos (style-src, primera vez que este
+  //    sitio necesita una externa). La CSP no es por página, así que este
+  //    origen queda permitido en todo el sitio aunque el script solo se
+  //    cargue en /staff/panel/ — mismo criterio que script.google.com,
+  //    que tampoco se acota a las páginas que realmente lo usan.
   security: {
     csp: {
       directives: [
         "default-src 'self'",
         "img-src 'self' data: https://i.ytimg.com https://covers.openlibrary.org https://archive.org https://*.archive.org https://atpfcm.goatcounter.com https://*.clarity.ms",
-        "connect-src 'self' https://script.google.com https://script.googleusercontent.com https://atp-checkin-worker.gasparbrignone1.workers.dev https://gc.zgo.at https://atpfcm.goatcounter.com https://challenges.cloudflare.com https://*.clarity.ms",
-        "frame-src 'self' https://www.youtube-nocookie.com https://challenges.cloudflare.com",
+        "connect-src 'self' https://script.google.com https://script.googleusercontent.com https://atp-checkin-worker.gasparbrignone1.workers.dev https://gc.zgo.at https://atpfcm.goatcounter.com https://challenges.cloudflare.com https://*.clarity.ms https://accounts.google.com",
+        "frame-src 'self' https://www.youtube-nocookie.com https://challenges.cloudflare.com https://accounts.google.com",
         "font-src 'self'",
         "form-action 'self'",
         "base-uri 'self'",
@@ -113,7 +122,11 @@ export default defineConfig({
           'https://challenges.cloudflare.com',
           'https://static.cloudflareinsights.com',
           'https://*.clarity.ms',
+          'https://accounts.google.com',
         ],
+      },
+      styleDirective: {
+        resources: ["'self'", 'https://accounts.google.com'],
       },
     },
   },

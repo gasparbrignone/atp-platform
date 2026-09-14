@@ -911,3 +911,88 @@ renderizan como `<img>` (portadas, fotos) sin antes sumar
 `security.csp`) — a diferencia del campo de descarga de libros (un link,
 no un recurso cargado por la página), una imagen servida desde ahí se
 rompería en silencio bajo la CSP actual.
+
+---
+
+### 2026-09-14 — Panel de staff: Google Sign-In (solo lectura) + step-up, revierte una decisión anterior
+
+**Contexto:** el panel admin (`/staff/panel/`, `/staff/certificados/`) fue
+pensado para una sola persona operándolo, con contraseña+TOTP compartida
+(ver la decisión del 2026-09-02, "Panel admin: contraseña + TOTP en vez de
+Sign In with Google" — en ese momento se descartó Google explícitamente
+para no configurar un OAuth Client ID). Ahora que más personas del staff
+van a usarlo, ese motivo original ya no aplica: una clave compartida no da
+identidad por persona ni permite sacarle el acceso a una sola sin
+resetearla para todos.
+
+**Decisión:** agregar Google Sign-In como una sesión nueva, separada y de
+**solo lectura** — nunca reemplaza ni debilita el login de contraseña+TOTP
+existente, que sigue intacto y es el único que autoriza mandar campañas o
+certificados. Diseño de dos sesiones:
+
+- **Admin** (contraseña+TOTP, sin cambios): sigue siendo la única que
+  puede mandar algo. Vive en `sessionStorage['atp-admin-token']`, como
+  siempre.
+- **Staff** (Google, nueva): solo puede listar/leer (actividades,
+  inscriptos, estado de certificados). El ID token de Google se valida del
+  lado del servidor contra `https://oauth2.googleapis.com/tokeninfo`
+  (mismo patrón que `verifyTurnstile`: UrlFetchApp + `muteHttpExceptions`,
+  falla cerrado ante cualquier error de red), chequeando `aud` (coincide
+  con el Client ID configurado) y `email_verified`. El email resultante se
+  compara contra una pestaña nueva en la planilla, "Staff" (una fila por
+  email autorizado, editable a mano sin tocar código) — sin esa pestaña,
+  se rechaza a todo el mundo (falla cerrado, mismo criterio que un
+  `ADMIN_PASSWORD` sin cambiar). La sesión resultante vive en
+  `PropertiesService` (no `CacheService`, que tope a 6hs — acá dura 30
+  días para el "recordame" pedido) y se guarda en el navegador en
+  `localStorage['atp-staff-token']` (no `sessionStorage`, para que
+  sobreviva a cerrar el navegador).
+- **Step-up:** si alguien con sesión de staff intenta mandar una campaña o
+  certificados, se le pide ahí mismo (modal) la contraseña+TOTP real —
+  mismo protocolo de red exacto que el login admin de siempre
+  (`adminLoginAttempt`/`adminLoginPoll`), solo que disparado en el momento
+  en vez de al entrar. Una vez confirmado, esa pestaña ya tiene sesión
+  admin real para el resto de la visita, igual que si hubiera entrado por
+  el formulario de siempre.
+
+**Alternativas consideradas:** (1) reemplazar contraseña+TOTP por Google
+Sign-In directamente — descartada, perdería la única gate real para
+enviar mails/certificados sin ganar nada a cambio. (2) verificar la firma
+del ID token a mano (JWKS + RSA) en vez de `tokeninfo` — descartada por
+complejidad/riesgo de implementación sin precedente en este script (el
+único código cripto hoy es HMAC para TOTP, que ya costó un bug real de
+producción por una función que no existe en Apps Script) para un volumen
+de logins que no lo justifica. (3) lista de emails autorizados como
+constante del script en vez de una pestaña de la planilla — descartada
+justamente por el incidente de esta misma sesión: una constante en el
+código se pierde si alguien reemplaza el archivo entero; una pestaña de
+la planilla no.
+
+**Verificación antes de producción:** `astro check`/`eslint`/`prettier`
+limpios en los 5 archivos tocados. Probado con un navegador real
+(Playwright): el formulario de contraseña+TOTP se ve y sigue intacto, el
+botón de Google renderiza al lado (falla con "Client ID no encontrado" de
+forma esperada, ya que todavía usa el placeholder), y el modal de step-up
+abre/cierra correctamente usando el mecanismo real de `Modal.astro` (se
+verificó explícitamente que NO se usa `dialog.showModal()` directo, que
+hubiera salteado su animación/bloqueo de scroll). Pendiente: probar un
+login de Google real end-to-end una vez que el dueño del proyecto cree el
+Client ID real y la pestaña "Staff".
+
+**Riesgo residual:** sacar a alguien de la pestaña "Staff" corta logins
+NUEVOS al instante, pero una sesión ya emitida sigue siendo válida hasta
+30 días (aceptado explícitamente por el dueño del proyecto, que prefirió
+esto a pedir re-login seguido — ver también la nota de "Qué NO hacer" de
+abajo). El Client ID de Google no es secreto (va en `src/config/site.ts`,
+público a propósito) — igual que el Site Key de Turnstile, la protección
+real está del lado del servidor (verificación contra `tokeninfo` + la
+pestaña "Staff"), no en que el botón "se vea".
+
+**Qué NO hacer en el futuro:** no bajar `STAFF_SESSION_TTL_MS` a algo muy
+corto sin que el dueño del proyecto lo pida explícitamente — ya se
+evaluó el trade-off (revocación rápida vs. re-login frecuente) y se
+eligió 30 días a propósito. No agregar ninguna acción de ENVÍO
+(campañas, certificados, o lo que sea que llegue después) gateada por
+`isValidAdminOrStaffSession` — esa función es exclusivamente para
+lectura; toda acción que mande algo real tiene que seguir usando
+`isValidAdminSession` sola.

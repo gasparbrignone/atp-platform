@@ -262,6 +262,23 @@ actividad solo.
    // ya la excluye sola (no tiene columna "Email").
    var CAMPAIGNS_LOG_SHEET_NAME = 'Campañas enviadas';
 
+   // Google Sign-In para el panel de staff (src/pages/staff/panel.astro) —
+   // sesión de SOLO LECTURA (ver isValidAdminOrStaffSession más abajo):
+   // mandar una campaña o certificados sigue exigiendo la sesión admin real
+   // de arriba, nunca esta. GOOGLE_OAUTH_CLIENT_ID NO es secreto — mismo
+   // valor exacto que googleOAuthClientId en src/config/site.ts (si no
+   // coinciden letra por letra, todo login con Google falla en silencio).
+   // STAFF_SHEET_NAME es la pestaña (creada a mano en la planilla, columna
+   // "Email", una fila por persona autorizada) que decide quién puede
+   // entrar — sin esa pestaña, isStaffEmailAllowed rechaza a todo el mundo
+   // (falla cerrado). STAFF_SESSION_TTL_MS es cuánto dura una sesión de
+   // Google antes de tener que volver a tocar el botón — sacar a alguien de
+   // la pestaña "Staff" corta logins NUEVOS al instante, pero una sesión ya
+   // abierta en su dispositivo puede seguir funcionando hasta este tiempo.
+   var GOOGLE_OAUTH_CLIENT_ID = 'CAMBIAR-ESTE-CLIENT-ID.apps.googleusercontent.com';
+   var STAFF_SHEET_NAME = 'Staff';
+   var STAFF_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
+
    // ====== PUNTOS DE ENTRADA ======
 
    function doPost(e) {
@@ -280,6 +297,15 @@ actividad solo.
        // legible del lado del navegador.
        if (params.action === 'adminLoginAttempt') {
          return handleAdminLoginAttempt(params);
+       }
+
+       // Login de staff con Google Sign-In — mismo patrón de 2 pasos que
+       // adminLoginAttempt de arriba (POST opaco acá + adminLoginPoll GET/
+       // JSONP para el resultado real), con su propio freno de spam
+       // (dentro de handleStaffGoogleLoginAttempt) — no pasa por el de los
+       // formularios públicos de más abajo.
+       if (params.action === 'staffGoogleLoginAttempt') {
+         return handleStaffGoogleLoginAttempt(params);
        }
 
        // Panel admin: solo prepara el mail de campaña en el cache (un
@@ -441,6 +467,14 @@ actividad solo.
      if (e.parameter.action === 'adminLogout') {
        return handleAdminLogout(e.parameter);
      }
+     // Mismo patrón que adminLoginPoll/adminLogout, para la sesión de
+     // Google Sign-In (ver GOOGLE_OAUTH_CLIENT_ID más arriba).
+     if (e.parameter.action === 'staffGoogleLoginPoll') {
+       return handleStaffGoogleLoginPoll(e.parameter);
+     }
+     if (e.parameter.action === 'staffLogout') {
+       return handleStaffLogout(e.parameter);
+     }
      if (e.parameter.action === 'adminListActivities') {
        return handleAdminListActivities(e.parameter);
      }
@@ -541,10 +575,168 @@ actividad solo.
      return CacheService.getScriptCache().get('admin_session_' + token) === 'valid';
    }
 
+   // ====== SESIÓN DE STAFF CON GOOGLE SIGN-IN (solo lectura) ======
+   //
+   // src/pages/staff/panel.astro. Mandar una campaña o certificados sigue
+   // exigiendo isValidAdminSession (contraseña+TOTP) — esta sesión nunca
+   // alcanza para eso, ver isValidAdminOrStaffSession más abajo, usada solo
+   // en las acciones de listar/leer.
+
+   // Google Sign-In entrega un ID token (JWT) ya firmado por Google — en
+   // vez de verificar esa firma a mano (RSA, sin librería en Apps Script),
+   // se usa el endpoint tokeninfo de Google, que ya hace esa verificación y
+   // devuelve el contenido solo si es válido y no venció. Mismo patrón que
+   // verifyTurnstile más abajo: UrlFetchApp + muteHttpExceptions, se trata
+   // cualquier fallo de red como token inválido (falla cerrado).
+   function verifyGoogleIdToken(idToken) {
+     if (!idToken) return { ok: false };
+     try {
+       var response = UrlFetchApp.fetch(
+         'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken),
+         { muteHttpExceptions: true },
+       );
+       if (response.getResponseCode() !== 200) return { ok: false };
+       var payload = JSON.parse(response.getContentText());
+       // aud: el token tiene que ser para ESTA app, no cualquier otra que
+       // use Google Sign-In — sin este chequeo, un token válido de
+       // cualquier otro sitio pasaría igual. email_verified: Google separa
+       // "tiene una cuenta" de "confirmó ese email" — exigir el segundo.
+       if (payload.aud !== GOOGLE_OAUTH_CLIENT_ID || payload.email_verified !== 'true') {
+         return { ok: false };
+       }
+       return { ok: true, email: String(payload.email || '').toLowerCase() };
+     } catch (err) {
+       return { ok: false };
+     }
+   }
+
+   // Lee la pestaña "Staff" (creada a mano, columna "Email") y compara —
+   // sin esa pestaña, o sin el email en ella, se rechaza (falla cerrado,
+   // igual que un ADMIN_PASSWORD sin cambiar rechazaría cualquier intento).
+   function isStaffEmailAllowed(email) {
+     if (!email) return false;
+     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(STAFF_SHEET_NAME);
+     if (!sheet || sheet.getLastRow() < 2) return false;
+
+     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+     var emailCol = headers.indexOf('Email');
+     if (emailCol === -1) return false;
+
+     var data = sheet.getDataRange().getValues();
+     var target = String(email).trim().toLowerCase();
+     for (var i = 1; i < data.length; i++) {
+       if (String(data[i][emailCol]).trim().toLowerCase() === target) return true;
+     }
+     return false;
+   }
+
+   // Sesiones de staff activas — Script Properties, no CacheService (tope
+   // de 6hs, no alcanza para STAFF_SESSION_TTL_MS de 30 días) ni la
+   // planilla (un scan por click sería mucho más lento que esto, que es
+   // una lectura directa por clave). A diferencia de los 6 secretos de
+   // arriba, Script Properties vive aparte del código: un reemplazo
+   // completo del script (como el que causó el incidente de secretos
+   // borrados) no la toca para nada.
+   function isValidStaffSession(token) {
+     if (!token) return false;
+     var raw = PropertiesService.getScriptProperties().getProperty('staff_session_' + token);
+     if (!raw) return false;
+     try {
+       var session = JSON.parse(raw);
+       if (!session.exp || session.exp < Date.now()) {
+         PropertiesService.getScriptProperties().deleteProperty('staff_session_' + token);
+         return false;
+       }
+       return true;
+     } catch (err) {
+       return false;
+     }
+   }
+
+   // Corre solo al crear una sesión nueva (nunca en el camino de lectura
+   // de isValidStaffSession, que tiene que seguir siendo una sola lectura
+   // directa) — Script Properties tiene un tope de 500 propiedades en
+   // total; sin esto, cada login nuevo sumaría una fila para siempre.
+   function pruneExpiredStaffSessions() {
+     var properties = PropertiesService.getScriptProperties();
+     var all = properties.getProperties();
+     var now = Date.now();
+     Object.keys(all).forEach(function (key) {
+       if (key.indexOf('staff_session_') !== 0) return;
+       try {
+         var session = JSON.parse(all[key]);
+         if (!session.exp || session.exp < now) properties.deleteProperty(key);
+       } catch (err) {
+         properties.deleteProperty(key); // valor corrupto, mejor borrarlo
+       }
+     });
+   }
+
+   // Único punto usado por las acciones de solo LECTURA del panel — admin
+   // o staff, cualquiera de los dos alcanza. Las acciones de ENVÍO
+   // (campañas, certificados) siguen usando isValidAdminSession sola, sin
+   // pasar por acá.
+   function isValidAdminOrStaffSession(token) {
+     return isValidAdminSession(token) || isValidStaffSession(token);
+   }
+
+   function handleStaffGoogleLoginAttempt(params) {
+     if (!params.loginId) {
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'error' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     }
+
+     pruneExpiredStaffSessions();
+
+     var verification = verifyGoogleIdToken(params.idToken);
+     var result;
+
+     if (!verification.ok || !isStaffEmailAllowed(verification.email)) {
+       // Mismo freno progresivo que el login admin — mismo motivo: sin
+       // esto, alguien podría probar tokens/cuentas en loop.
+       var failCount = bumpCounter('rl_staff_login_fail', 300);
+       if (failCount > 5) {
+         Utilities.sleep(Math.min(8000, (failCount - 5) * 1000));
+       }
+       result = { result: 'unauthorized' };
+     } else {
+       var token = Utilities.getUuid();
+       PropertiesService.getScriptProperties().setProperty(
+         'staff_session_' + token,
+         JSON.stringify({ email: verification.email, exp: Date.now() + STAFF_SESSION_TTL_MS }),
+       );
+       result = { result: 'success', token: token, email: verification.email };
+     }
+
+     CacheService.getScriptCache().put('staff_login_result_' + params.loginId, JSON.stringify(result), 60);
+
+     return ContentService
+       .createTextOutput(JSON.stringify({ result: 'queued' }))
+       .setMimeType(ContentService.MimeType.JSON);
+   }
+
+   // Mismo patrón exacto que handleAdminLoginPoll.
+   function handleStaffGoogleLoginPoll(params) {
+     var cache = CacheService.getScriptCache();
+     var key = 'staff_login_result_' + (params.loginId || '');
+     var stored = cache.get(key);
+     if (!stored) return jsonpResponse({ result: 'pending' }, params.callback);
+     cache.remove(key);
+     return jsonpResponse(JSON.parse(stored), params.callback);
+   }
+
+   function handleStaffLogout(params) {
+     if (params.token) PropertiesService.getScriptProperties().deleteProperty('staff_session_' + params.token);
+     return jsonpResponse({ result: 'success' }, params.callback);
+   }
+
    // Único punto que decide qué hoja puede ver o usar el panel admin —
    // ninguna acción de abajo debería llamar a getSheetByName directo con
    // un nombre que vino del cliente sin pasar por acá primero. Excluye
-   // "Errores" (no es una actividad) y cualquier venta puntual
+   // "Errores" (no es una actividad), la pestaña "Staff" (lista de
+   // emails autorizados, no inscriptos — sin esto aparecería como una
+   // actividad falsa en los desplegables) y cualquier venta puntual
    // (AGENDA_SHEET_NAME/KEYCHAIN_SHEET_NAME: sus mails son
    // puntuales/transaccionales, sin link de darse de baja — nunca deben
    // poder recibir una campaña ni listarse acá, ver
@@ -552,7 +744,12 @@ actividad solo.
    // tampoco es una hoja de inscripciones (ej. la de log de campañas,
    // CAMPAIGNS_LOG_SHEET_NAME, queda afuera sola por este mismo motivo).
    function getEligibleActivitySheet(sheetName) {
-     if (!sheetName || sheetName === AGENDA_SHEET_NAME || sheetName === KEYCHAIN_SHEET_NAME) {
+     if (
+       !sheetName ||
+       sheetName === AGENDA_SHEET_NAME ||
+       sheetName === KEYCHAIN_SHEET_NAME ||
+       sheetName === STAFF_SHEET_NAME
+     ) {
        return null;
      }
      var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
@@ -571,7 +768,8 @@ actividad solo.
    // fija que podría no coincidir (una actividad sin ninguna inscripción
    // todavía no tiene ni hoja propia).
    function handleAdminListActivities(params) {
-     if (!isValidAdminSession(params.token)) {
+     // Solo lectura: admin o staff (Google), cualquiera de los dos.
+     if (!isValidAdminOrStaffSession(params.token)) {
        return jsonpResponse({ result: 'unauthorized' }, params.callback);
      }
 
@@ -597,7 +795,7 @@ actividad solo.
    }
 
    function handleAdminListRegistrations(params) {
-     if (!isValidAdminSession(params.token)) {
+     if (!isValidAdminOrStaffSession(params.token)) {
        return jsonpResponse({ result: 'unauthorized' }, params.callback);
      }
 
@@ -1202,7 +1400,14 @@ actividad solo.
    function getCharlaSheet(sheetName) {
      if (!sheetName) return null;
      var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-     if (!sheet || sheet.getName() === 'Errores' || sheet.getName() === AGENDA_SHEET_NAME) return null;
+     if (
+       !sheet ||
+       sheet.getName() === 'Errores' ||
+       sheet.getName() === AGENDA_SHEET_NAME ||
+       sheet.getName() === STAFF_SHEET_NAME
+     ) {
+       return null;
+     }
      if (sheet.getLastRow() < 1) return null;
 
      var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
@@ -1219,7 +1424,7 @@ actividad solo.
    // solo muestran el estado real de cada actividad con certificado.
 
    function handleAdminListCertificateActivities(params) {
-     if (!isValidAdminSession(params.token)) {
+     if (!isValidAdminOrStaffSession(params.token)) {
        return jsonpResponse({ result: 'unauthorized' }, params.callback);
      }
 
@@ -1255,7 +1460,7 @@ actividad solo.
    }
 
    function handleAdminListAttendees(params) {
-     if (!isValidAdminSession(params.token)) {
+     if (!isValidAdminOrStaffSession(params.token)) {
        return jsonpResponse({ result: 'unauthorized' }, params.callback);
      }
 
@@ -1918,7 +2123,8 @@ actividad solo.
      if (
        sheetName === 'Errores' ||
        sheetName === AGENDA_SHEET_NAME ||
-       sheetName === KEYCHAIN_SHEET_NAME
+       sheetName === KEYCHAIN_SHEET_NAME ||
+       sheetName === STAFF_SHEET_NAME
      ) {
        ui.alert('Abrí la pestaña de la actividad que querés reprogramar (no esta) y probá de nuevo.');
        return;
