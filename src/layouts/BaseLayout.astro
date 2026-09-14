@@ -234,7 +234,7 @@ const websiteJsonLd = {
       <Fragment slot="title">
         <span class="flex items-center gap-2">
           <TriangleAlert class="text-warning-strong size-6 shrink-0" aria-hidden="true" />
-          Instagram no deja descargar bien
+          En el navegador de Instagram la página puede fallar
         </span>
       </Fragment>
       <p id="instagram-browser-warning-steps" class="text-body text-text text-center"></p>
@@ -257,8 +257,8 @@ const websiteJsonLd = {
         const steps = document.getElementById('instagram-browser-warning-steps');
         if (steps) {
           steps.textContent = isIOS
-            ? 'No es un error nuestro: es el navegador de Instagram. Tocá los tres puntitos y elegí "Abrir en navegador externo", o cerrá este aviso y seguí igual.'
-            : 'No es un error nuestro: es el navegador de Instagram. Buscá la opción de abrir en tu navegador (arriba a la derecha), o cerrá este aviso y seguí igual.';
+            ? 'Te recomendamos tocar los tres puntitos y elegir "Abrir en navegador externo".'
+            : 'Te recomendamos tocar los tres puntitos y abrir tu navegador.';
         }
         document
           .querySelector<HTMLElement>('[data-modal-open="instagram-browser-warning"]')
