@@ -32,6 +32,7 @@ import EmptyState from '@/components/EmptyState.astro';
 import { getCollection } from 'astro:content';
 import { careerLabels, type CareerSlug } from '@/lib/labels';
 import { uploadThumb } from '@/lib/uploadThumb';
+import BookOpen from '@lucide/astro/icons/book-open';
 
 const publishedBooks = await getCollection('books', ({ data }) => data.published);
 const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
@@ -143,14 +144,30 @@ const filterChips = [
                 </Badge>
                 <div slot="title" class="flex items-start gap-3">
                   {book.data.cover && (
-                    <img
-                      src={uploadThumb(book.data.cover, 'cover')}
-                      alt=""
-                      loading="lazy"
-                      width="40"
-                      height="56"
-                      class="border-border h-14 w-10 flex-shrink-0 rounded-sm border object-cover"
-                    />
+                    // Auditoría UX 2026-09-14: una portada externa rota (ver
+                    // anatomia-humana-netter.json) quedaba como un recuadro
+                    // en blanco, sin nada para agarrarse — sobre todo grave
+                    // para alguien que se guía más por íconos que por texto.
+                    // `onerror` esconde la <img> rota y muestra un ícono de
+                    // libro genérico en su lugar, para cualquier portada que
+                    // falle, no solo esta.
+                    <div class="relative h-14 w-10 flex-shrink-0">
+                      <img
+                        src={uploadThumb(book.data.cover, 'cover')}
+                        alt=""
+                        loading="lazy"
+                        width="40"
+                        height="56"
+                        class="border-border h-14 w-10 rounded-sm border object-cover"
+                        onerror="this.style.display='none';this.nextElementSibling.hidden=false"
+                      />
+                      <div
+                        hidden
+                        class="border-border bg-surface-alt text-text-secondary absolute inset-0 flex items-center justify-center rounded-sm border"
+                      >
+                        <BookOpen class="size-5" aria-hidden="true" />
+                      </div>
+                    </div>
                   )}
                   <div class="flex flex-col gap-0.5">
                     <h3 class="text-h4 text-text font-bold">{book.data.title}</h3>

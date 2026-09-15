@@ -297,8 +297,10 @@ const reasons = [
 
 <script>
   import { showToast } from '@/lib/toast';
+  import { applySpanishValidationMessages } from '@/lib/formSpanishValidation';
 
   const form = document.querySelector<HTMLFormElement>('[data-sumate-form]');
+  if (form) applySpanishValidationMessages(form);
   const submitButton = form?.querySelector<HTMLButtonElement>('[data-sumate-submit]');
 
   form?.addEventListener('submit', async (event) => {

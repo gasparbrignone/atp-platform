@@ -180,6 +180,7 @@ const hasConfirmationLink = Boolean(confirmationLinkLabel && confirmationLinkUrl
 <script>
   import { showToast } from '@/lib/toast';
   import { hasTurnstileToken, resetTurnstile } from '@/lib/turnstile';
+  import { applySpanishValidationMessages } from '@/lib/formSpanishValidation';
 
   const form = document.querySelector<HTMLFormElement>('[data-activity-registration-form]');
   const submitButton = form?.querySelector<HTMLButtonElement>(
@@ -187,6 +188,8 @@ const hasConfirmationLink = Boolean(confirmationLinkLabel && confirmationLinkUrl
   );
   const successPanel = document.querySelector<HTMLElement>('[data-activity-registration-success]');
   const endpoint = form?.dataset.endpoint;
+
+  if (form) applySpanishValidationMessages(form);
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();

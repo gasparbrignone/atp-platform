@@ -200,8 +200,10 @@ const features = [
 <script>
   import { showToast } from '@/lib/toast';
   import { hasTurnstileToken, resetTurnstile } from '@/lib/turnstile';
+  import { applySpanishValidationMessages } from '@/lib/formSpanishValidation';
 
   const form = document.querySelector<HTMLFormElement>('[data-agenda-form]');
+  if (form) applySpanishValidationMessages(form);
   const submitButton = form?.querySelector<HTMLButtonElement>('[data-agenda-submit]');
   const quantityInput = form?.querySelector<HTMLInputElement>('[data-agenda-quantity]');
   const totalEl = form?.querySelector<HTMLElement>('[data-agenda-total]');

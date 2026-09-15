@@ -226,8 +226,10 @@ const yearOptions = ['1°', '2°', '3°', '4°', '5°', '6°', 'Egresado/a', 'Do
   import QRCode from 'qrcode';
   import { showToast } from '@/lib/toast';
   import { hasTurnstileToken, resetTurnstile } from '@/lib/turnstile';
+  import { applySpanishValidationMessages } from '@/lib/formSpanishValidation';
 
   const form = document.querySelector<HTMLFormElement>('[data-certificate-form]');
+  if (form) applySpanishValidationMessages(form);
   const endpoint = form?.dataset.endpoint;
   const dniInput = form?.querySelector<HTMLInputElement>('[data-certificate-dni]');
   const registrationIdInput = form?.querySelector<HTMLInputElement>(

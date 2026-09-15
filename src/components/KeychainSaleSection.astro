@@ -238,8 +238,10 @@ const DESIGNS = [
 <script>
   import { showToast } from '@/lib/toast';
   import { hasTurnstileToken, resetTurnstile } from '@/lib/turnstile';
+  import { applySpanishValidationMessages } from '@/lib/formSpanishValidation';
 
   const form = document.querySelector<HTMLFormElement>('[data-keychain-form]');
+  if (form) applySpanishValidationMessages(form);
   const submitButton = form?.querySelector<HTMLButtonElement>('[data-keychain-submit]');
   const qtyInputs = form?.querySelectorAll<HTMLInputElement>('[data-keychain-qty]');
   const totalRow = form?.querySelector<HTMLElement>('[data-keychain-total-row]');
