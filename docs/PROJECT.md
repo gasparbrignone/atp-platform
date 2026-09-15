@@ -192,12 +192,13 @@ The homepage should include:
 
 * Hero section.
 * Upcoming activities.
-* News.
 * Featured resources.
 * Academic tools.
 * Degree shortcuts.
 * Join ATP call to action.
 * Footer.
+
+(A dedicated "News" section was scoped early but cut by an explicit product decision — see `docs/ROADMAP.md`, Fase 6/10. The homepage does not have one today. If this resurfaces, treat it as a new feature request, not a gap to silently fill.)
 
 The homepage should remain visually clean despite containing multiple sections.
 
@@ -239,23 +240,9 @@ Expired activities should no longer appear as active.
 
 ---
 
-## News
+## News (cut — see note above)
 
-The platform should support visual announcements.
-
-News may include:
-
-Images.
-
-Short text.
-
-Important notices.
-
-Institutional reminders.
-
-Academic information.
-
-The presentation should prioritize quick reading.
+This section was part of the original plan but was explicitly cut by product decision before launch (`docs/ROADMAP.md`, Fase 6/10). No "News" content type, page, or component exists today. Left here only as a record of what was scoped and dropped, in case the decision is revisited.
 
 ---
 
@@ -285,7 +272,7 @@ Edition.
 
 Every resource should provide a direct download or access link.
 
-Current resources are primarily hosted on Google Drive.
+Book files are uploaded directly from the CMS to Cloudflare R2 (drag-and-drop, no Google Drive step) — see `docs/STACK_DECISIONS.md`. Older entries may still resolve through a GitHub Releases asset from an earlier migration; Google Drive is only a manual fallback field (`driveUrl`) for content not yet uploaded, auto-migrated in the background.
 
 ---
 
@@ -343,7 +330,7 @@ The invitation to participate in ATP should be visible across multiple sections.
 
 Possible contact methods include:
 
-Google Forms.
+A native form (Formspree, no Google Forms).
 
 Instagram.
 
@@ -505,3 +492,15 @@ Every future decision should reinforce four principles:
 2. Strengthen community.
 3. Simplify access to information.
 4. Build a platform that remains useful for many years.
+
+---
+
+# Update trigger
+
+Update this file when:
+
+* the mission, vision, or target audience actually changes;
+* a top-level site section is added or removed (like News was);
+* a Non-Goal is reconsidered.
+
+Do NOT update this file for every new feature — that belongs in `FEATURES.md`/`TODO.md`. This file is vision, not a feature list.

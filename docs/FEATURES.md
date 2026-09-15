@@ -68,18 +68,9 @@ Las actividades vencidas deberán dejar de aparecer en la sección principal.
 
 ---
 
-## Carrusel de novedades
+## Carrusel de novedades — 🚫 fuera de alcance
 
-Debe existir un espacio para comunicar novedades importantes.
-
-Cada elemento podrá contener:
-
-* Imagen.
-* Texto.
-* Enlace.
-* Fecha.
-
-El sistema deberá permitir cambiar fácilmente el orden de aparición.
+Depende de la sección "Noticias", que se sacó por decisión de producto (ver `docs/ROADMAP.md`, Fase 6/10, y `docs/TODO.md`). No existe hoy.
 
 ---
 
@@ -141,7 +132,7 @@ Los filtros deben actualizar los resultados inmediatamente.
 
 Cada recurso deberá poder abrirse o descargarse con la menor cantidad posible de clics.
 
-Siempre que sea posible, se priorizará la descarga directa desde Google Drive.
+Implementado: subida directa desde el CMS a Cloudflare R2 (arrastrar el archivo, sin pasar por Google Drive) — ver `docs/STACK_DECISIONS.md`. Google Drive quedó solo como un campo alternativo (`driveUrl`) para cargar rápido y migrar después automáticamente.
 
 ---
 
@@ -183,9 +174,9 @@ Cada herramienta podrá clasificarse por carrera y materia.
 
 ---
 
-# Calendario Académico
+# Calendario Académico — ⬜ no implementado
 
-El sistema deberá mostrar información académica organizada.
+El sistema deberá mostrar información académica organizada. Sigue siendo una funcionalidad deseada (Prioridad 3), pero no existe ningún componente ni colección para esto hoy — no confundir con el campo "Materias" (que sí existe y es otra cosa).
 
 Podrá filtrarse por:
 
@@ -203,36 +194,19 @@ Cada evento podrá incluir:
 
 ---
 
-# Noticias
+# Noticias — 🚫 fuera de alcance (decisión de producto)
 
-El sistema permitirá publicar novedades.
-
-Cada noticia podrá incluir:
-
-* imagen;
-* título;
-* resumen;
-* contenido;
-* enlaces relacionados.
+Se sacó por decisión de producto en la Fase 6 (ver `docs/ROADMAP.md`, `docs/TODO.md`). Queda documentado acá solo por si se revisita más adelante; no es un gap a llenar sin que alguien lo pida explícitamente.
 
 ---
 
-# Enlaces importantes
+# Enlaces importantes — 🟨 parcialmente cubierto
 
-Debe existir un espacio para enlaces de interés.
-
-Ejemplos:
-
-* Página oficial de la Facultad.
-* Transparente Virtual.
-* Sistemas académicos.
-* Plataformas institucionales.
-
-La administración deberá ser sencilla.
+No existe una sección sitewide de "enlaces importantes" como se imaginó originalmente. Cada carrera sí tiene su propia lista de enlaces (campo `resources` en `src/content.config.ts`), editable desde el CMS — cubre la necesidad a nivel carrera, no a nivel sitio completo.
 
 ---
 
-# Quiénes Somos
+# Quiénes Somos — 🚫 fuera de alcance (decisión de producto)
 
 Debe existir una sección institucional.
 
@@ -270,19 +244,17 @@ El usuario nunca debe preguntarse cómo comunicarse.
 
 ---
 
-# CMS
+# CMS — ✅ implementado (Sveltia CMS)
 
 Los administradores deberán poder gestionar:
 
 * actividades;
-* biblioteca;
-* noticias;
+* biblioteca (incluida la subida de archivos, directo a Cloudflare R2);
 * carreras;
 * herramientas;
-* enlaces;
-* páginas institucionales.
+* materias y tipos de recurso (colecciones editables, no listas fijas en código).
 
-No deberán modificar código.
+No deberán modificar código. "Noticias" y "páginas institucionales" no aplican — fuera de alcance (ver arriba).
 
 ---
 
@@ -409,3 +381,14 @@ La plataforma no debe limitarse a publicar información.
 Debe convertirse en el principal punto de encuentro digital de ATP.
 
 El objetivo final es que cualquier estudiante piense primero en la plataforma de ATP cuando necesite una actividad, un recurso académico, una herramienta o información relevante sobre su carrera.
+
+---
+
+# Gatillo de actualización
+
+Actualizar este documento cuando:
+
+* se decida sacar o agregar una funcionalidad de alcance (marcar 🚫/✅ en el lugar, no dejarlo implícito);
+* el mecanismo real detrás de una funcionalidad cambie de forma que invalide lo escrito acá (como pasó con Drive → Cloudflare R2).
+
+No es necesario detallar acá el estado tarea por tarea — para eso está `docs/TODO.md`. Este documento es el "qué debería poder hacer el sistema", no un checklist de progreso.

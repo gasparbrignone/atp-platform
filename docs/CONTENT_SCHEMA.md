@@ -4,517 +4,109 @@
 
 ## Objetivo
 
-Este documento define los modelos de contenido oficiales de la plataforma ATP.
+Este documento explica, en criollo, qué representa cada colección de contenido real y por qué está armada así.
 
-Todos los datos que consume la aplicación deben ajustarse a estos esquemas.
-
-No deben existir estructuras diferentes para representar el mismo tipo de información.
-
-La consistencia del contenido es tan importante como la consistencia del código.
+**Este documento NO es la fuente de verdad del esquema exacto.** La fuente de verdad de campos/tipos/obligatoriedad es siempre `src/content.config.ts` — ese archivo además tiene comentarios inline explicando el "por qué" de cada decisión de forma (por ejemplo, por qué un campo es `.nullish()` en vez de `.optional()`, o por qué una URL usa un preprocesador especial). Este documento se desincronizó gravemente una vez (auditoría de 2026-09-14: 10 de 14 modelos documentados acá no existían en código, y hasta los que sí existían tenían campos distintos) precisamente por copiar el esquema campo por campo — no repetir ese error.
 
 ---
 
-# Principios generales
+# Principios generales reales
 
-Todos los modelos deberán cumplir estas reglas:
-
-* Tener un identificador único (`id`).
-* Tener un estado de publicación.
-* Registrar fechas de creación y actualización.
-* Ser compatibles con futuras traducciones.
-* Ser independientes de la interfaz gráfica.
+* Cada colección se carga desde `src/content/<colección>/*.json` — un archivo por entrada.
+* El identificador (`entry.id`) es el nombre del archivo, no un campo `id` separado dentro del JSON.
+* No hay campos `createdAt`/`updatedAt` — el historial de cambios vive en git (cada commit del repo), no en el contenido en sí.
+* No existe un estado de publicación de 3 valores (Draft/Published/Archived). Lo real es más simple: `activities`, `books` y `tools` tienen un campo `published: boolean`; `careers`, `subjects` y `resourceTypes` no tienen ningún campo de publicación — siempre están visibles si existen.
+* Nunca eliminar contenido histórico salvo decisión explícita del administrador — esto sigue siendo cierto y aplicable.
 
 ---
 
-# Estados de publicación
+# Colecciones reales (`src/content.config.ts`)
 
-Todo contenido puede encontrarse en uno de los siguientes estados:
+## activities
 
-* Draft
-* Published
-* Archived
+Representa cualquier actividad organizada o difundida por ATP — desde un evento puntual hasta una capacitación con certificado.
 
-Nunca eliminar contenido histórico salvo decisión explícita del administrador.
+Conceptos clave (ver `content.config.ts` para los campos exactos):
 
----
+* `schedule` agrupa fecha/hora/lugar en un sub-objeto — puede ser una actividad **recurrente** (`recurring: true`, se describe por día de la semana, no por fecha fija) o puntual.
+* `sessions[]` reemplaza a `schedule` en actividades **compuestas** (varias clases sueltas, cada una con su propia fecha) — ej. una semana de repasos con una clase distinta por día.
+* `registration` agrupa cómo se inscribe la gente: un link externo simple, un formulario propio del sitio (`useRegistrationForm`), o — para capacitaciones con certificado — `collectCertificateData`, que activa un formulario que pide los datos que van a figurar en el certificado y entrega un QR de acceso (ver `docs/GOOGLE_SHEETS_FORM_SETUP.md`).
+* `status` (`proxima`/`activa`/`finalizada`) controla si se muestra como vigente, no una fecha de fin calculada.
+* `featured` la destaca en el home.
 
-# Modelo: Activity
+**No existe**: `coverImage` con ese nombre (es `image`), `startDate`/`endDate` como campos sueltos, `registrationUrl` a nivel raíz (vive dentro de `registration`), ni `category`.
 
-Representa cualquier actividad organizada o difundida por ATP.
+## books
 
-## Campos obligatorios
+Representa un recurso académico descargable (la Biblioteca).
 
-* id
-* slug
-* title
-* summary
-* description
-* coverImage
-* startDate
-* endDate
-* registrationUrl
-* category
-* published
+Conceptos clave:
 
-## Campos opcionales
+* `subject` y `resourceType` son **slugs que apuntan a otras colecciones** (`subjects`/`resourceTypes`), no texto libre ni un enum fijo — así se puede crear una materia o un tipo de recurso nuevo desde el CMS sin tocar código.
+* `career` es un array — un libro puede pertenecer a más de una carrera.
+* `downloadUrl` es el link real de descarga (hoy: Cloudflare R2, subido directo desde el CMS). `driveUrl` es un campo alternativo — un link de Google Drive que un workflow migra solo a `downloadUrl` en segundo plano (ver `docs/STACK_DECISIONS.md`, sección Biblioteca). Nunca se usa `driveUrl` como link de descarga directamente.
+* `cover` existe en el esquema pero **todavía no tiene consumidor en ninguna página** — se preparó el campo y el CMS para cuando haya portadas reales cargadas de forma consistente.
 
-* location
-* speakers
-* capacity
-* tags
-* gallery
-* attachments
+**No existe**: `academicYear`, `edition`, `publisher`, `language`, `fileSize`, `pages`, `tags`.
 
-## Reglas
+## careers
 
-* Si la fecha de finalización ya pasó, la actividad deja de mostrarse como vigente.
-* Debe poder destacarse en la página principal.
-* Puede pertenecer a más de una carrera.
+Representa una carrera de la Facultad (Medicina, Enfermería, Fonoaudiología, Terapia Ocupacional).
 
----
+Conceptos clave:
 
-# Modelo: Book
+* `tools[]` y `resources[]` son listas embebidas propias de cada carrera (no relacionan contra la colección `tools` suelta) — herramientas/recursos específicos de esa carrera.
+* `whatsappGroups[]` es una lista aparte de `resources[]` porque tanto el home como la página de la carrera necesitan mostrarla destacada, no mezclada con links genéricos.
+* `instagram` es opcional porque Medicina usa la cuenta general (`@atp.fcm`), no una propia.
 
-Representa un recurso académico descargable.
+**No existe**: `heroImage`, `published`, `color`, `icon` a nivel carrera.
 
-## Campos obligatorios
+## tools
 
-* id
-* slug
-* title
-* author
-* subject
-* career
-* academicYear
-* resourceType
-* downloadUrl
-* published
+Representa una herramienta digital suelta (no ligada a una carrera en particular) — atlas, calculadoras, simuladores, plataformas externas.
 
-## Campos opcionales
+Conceptos clave:
 
-* edition
-* publisher
-* language
-* coverImage
-* description
-* tags
-* fileSize
-* pages
+* `description` admite Markdown en línea (negrita/cursiva/links).
+* `content` (opcional) es Markdown completo — cuando está presente, la herramienta tiene su propia página de detalle en vez de ser solo una tarjeta.
+* `icon` es un ícono Lucide de un enum fijo; `customIcon` (opcional) lo reemplaza por una imagen propia cuando existe.
 
-## Reglas
+## subjects / resourceTypes
 
-* Todo libro debe pertenecer al menos a una materia.
-* Debe poder encontrarse mediante el buscador.
-* Debe admitir múltiples etiquetas.
+Colecciones chicas y editables desde el CMS (solo `name` + `order` opcional) que reemplazan lo que antes eran listas fijas en código — permiten crear una materia o un tipo de recurso nuevo (ej. "Inmunología", o "Cuaderno del alumno") sin pedir un cambio de código.
 
 ---
 
-# Modelo: News
+# Modelos que se llegaron a documentar pero nunca se implementaron
 
-Representa una novedad o comunicado.
+La versión anterior de este documento describía 8 modelos más que **no tienen ninguna colección real hoy**: News (Noticias — se sacó explícitamente por decisión de producto, ver `docs/ROADMAP.md`/`docs/TODO.md`), Link, Announcement, TeamMember, SocialNetwork, FAQ, Download, Page, Category, Tag.
 
-## Campos obligatorios
-
-* id
-* slug
-* title
-* summary
-* content
-* publishDate
-* published
-
-## Campos opcionales
-
-* coverImage
-* gallery
-* relatedLinks
-* tags
+No están confirmados como necesarios ni descartados (salvo News, que sí está confirmado fuera de alcance) — si alguno de estos vuelve a ser necesario, tratarlo como una colección nueva a diseñar desde cero contra las necesidades reales del momento, no como "completar" esta lista vieja.
 
 ---
 
-# Modelo: Career
+# Relaciones reales
 
-Representa una carrera de la Facultad.
-
-## Campos obligatorios
-
-* id
-* slug
-* name
-* description
-* heroImage
-* published
-
-## Campos opcionales
-
-* color
-* icon
-* featuredResources
-* usefulLinks
-
-## Reglas
-
-Cada carrera actúa como contenedor lógico de recursos y herramientas.
+* Un **book** pertenece a una `subject` (una sola) y a una o más `career`.
+* Una **activity** no se relaciona formalmente con ninguna otra colección hoy (no hay campo que la ligue a `careers`, por ejemplo).
+* Una **career** contiene sus propias `tools[]`/`resources[]`/`whatsappGroups[]` embebidas — no referencia la colección `tools` suelta.
 
 ---
 
-# Modelo: Tool
+# Convenciones que siguen aplicando
 
-Representa una herramienta digital.
-
-Ejemplos:
-
-* Atlas
-* Microscopio virtual
-* Calculadora
-* Simulador
-* Plataforma externa
-
-## Campos obligatorios
-
-* id
-* slug
-* name
-* description
-* url
-* category
-* published
-
-## Campos opcionales
-
-* icon
-* content (texto extendido para la sub-página de detalle)
-* images (lista de { src, alt })
-* resources (lista de { label, href, external })
-* coverImage
-* tags
-* career
-* subject
+* Los slugs (nombre de archivo) deben ser únicos y permanentes — nunca reusar el nombre de archivo de una entrada borrada para otra cosa distinta.
+* Fechas en formato ISO 8601, nunca texto libre.
+* Todo enlace externo debe usar HTTPS.
+* Toda imagen de contenido debe tener texto alternativo real (no `alt=""` salvo que sea puramente decorativa).
 
 ---
 
-# Modelo: Link
+# Gatillo de actualización
 
-Representa enlaces importantes.
+Actualizar este documento cuando:
 
-## Campos obligatorios
+* se agregue o borre una colección en `src/content.config.ts`;
+* cambie el propósito conceptual de una colección existente (no hace falta por cada campo nuevo — para eso ya está `content.config.ts` con sus comentarios).
 
-* id
-* title
-* url
-* category
-* published
-
-## Campos opcionales
-
-* icon
-* description
-* featured
-
-Ejemplos:
-
-* Transparente Virtual
-* Página oficial de la Facultad
-* SIU Guaraní
-* Biblioteca UNR
-
----
-
-# Modelo: Announcement
-
-Representa anuncios breves para el carrusel de novedades.
-
-## Campos obligatorios
-
-* id
-* title
-* description
-* published
-
-## Campos opcionales
-
-* image
-* actionLabel
-* actionUrl
-* expiresAt
-
----
-
-# Modelo: TeamMember
-
-Representa integrantes visibles de ATP.
-
-## Campos obligatorios
-
-* id
-* name
-* role
-* photo
-* published
-
-## Campos opcionales
-
-* instagram
-* biography
-* email
-
----
-
-# Modelo: SocialNetwork
-
-Representa redes oficiales.
-
-## Campos obligatorios
-
-* id
-* platform
-* url
-* published
-
-## Plataformas iniciales
-
-* Instagram
-* YouTube
-* WhatsApp
-
-La arquitectura debe permitir agregar nuevas plataformas.
-
----
-
-# Modelo: FAQ
-
-Representa preguntas frecuentes.
-
-## Campos obligatorios
-
-* id
-* question
-* answer
-* category
-* published
-
----
-
-# Modelo: Download
-
-Representa un archivo descargable.
-
-## Campos obligatorios
-
-* id
-* title
-* url
-* fileType
-* published
-
-## Campos opcionales
-
-* size
-* version
-* description
-
----
-
-# Modelo: Page
-
-Representa páginas institucionales.
-
-Ejemplos:
-
-* Quiénes Somos
-* Sumate
-* Contacto
-* Historia
-
-## Campos obligatorios
-
-* id
-* slug
-* title
-* content
-* published
-
-## Campos opcionales
-
-* heroImage
-* seoTitle
-* seoDescription
-
----
-
-# Modelo: Category
-
-Representa categorías reutilizables.
-
-Ejemplos
-
-* Anatomía
-* Histología
-* Fisiología
-* Farmacología
-
-Evitar escribir categorías libres en cada contenido.
-
----
-
-# Modelo: Tag
-
-Representa etiquetas.
-
-Ejemplos
-
-* Final
-* Resumen
-* Libro
-* Guía
-* PDF
-* Destacado
-
-Las etiquetas mejoran la búsqueda.
-
----
-
-# Relaciones
-
-## Un libro
-
-Puede pertenecer a:
-
-* una o varias materias;
-* una o varias carreras;
-* múltiples etiquetas.
-
----
-
-## Una actividad
-
-Puede relacionarse con:
-
-* carreras;
-* noticias;
-* recursos;
-* herramientas.
-
----
-
-## Una carrera
-
-Puede contener:
-
-* libros;
-* herramientas;
-* actividades;
-* enlaces;
-* noticias.
-
----
-
-## Una noticia
-
-Puede enlazar:
-
-* actividades;
-* libros;
-* herramientas.
-
----
-
-# Convenciones
-
-Todos los identificadores deben ser permanentes.
-
-Todos los slugs deben ser únicos.
-
-Nunca utilizar el título como identificador.
-
----
-
-# Imágenes
-
-Todo contenido que utilice imágenes deberá definir:
-
-* imagen principal;
-* texto alternativo;
-* relación de aspecto consistente.
-
----
-
-# Fechas
-
-Todas las fechas deberán almacenarse utilizando formato ISO 8601.
-
-No almacenar fechas como texto libre.
-
----
-
-# Enlaces
-
-Todo enlace externo deberá:
-
-* utilizar HTTPS;
-* validarse periódicamente;
-* permitir apertura segura.
-
----
-
-# Archivos
-
-Los archivos descargables deberán identificar:
-
-* tipo;
-* tamaño;
-* origen.
-
-Cuando sea posible, ofrecer descarga directa.
-
----
-
-# SEO
-
-Todo contenido público deberá admitir:
-
-* título SEO;
-* descripción SEO;
-* Open Graph;
-* imagen para compartir.
-
----
-
-# Internacionalización
-
-Todo contenido debe estar preparado para futuras traducciones.
-
-La estructura nunca debe asumir un único idioma.
-
----
-
-# Validaciones
-
-Antes de publicar cualquier contenido verificar:
-
-* campos obligatorios completos;
-* enlaces válidos;
-* imágenes disponibles;
-* slug único;
-* categoría existente;
-* etiquetas válidas.
-
----
-
-# Evolución
-
-Nuevos modelos podrán incorporarse en el futuro.
-
-Sin embargo, deberán seguir estas reglas:
-
-* reutilizar estructuras existentes cuando sea posible;
-* mantener consistencia de nombres;
-* documentarse en este archivo antes de implementarse.
-
----
-
-# Regla fundamental
-
-El contenido es el activo más importante de la plataforma.
-
-Una buena arquitectura de datos permitirá que ATP siga creciendo durante años sin necesidad de reorganizar toda la información.
+Si se necesita el detalle exacto de campos/tipos, leer `src/content.config.ts` directamente en vez de copiarlo acá — es lo que causó la desincronización original.

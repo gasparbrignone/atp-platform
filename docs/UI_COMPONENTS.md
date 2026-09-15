@@ -4,13 +4,9 @@
 
 ## Objetivo
 
-Este documento define el sistema oficial de componentes reutilizables de la plataforma ATP.
+Este documento describe el inventario real de componentes reutilizables de la plataforma ATP (`src/components/`), para que una tarea nueva reutilice antes de crear.
 
-Todos los componentes de la aplicación deberán construirse respetando estas especificaciones.
-
-No se deberán crear componentes duplicados.
-
-Siempre que una funcionalidad nueva necesite una interfaz, primero deberá evaluarse si puede reutilizar un componente existente.
+**Fuente de verdad para la lista exacta**: `src/components/*.astro` y `src/components/*.tsx`. Este documento se desincronizó una vez (auditoría 2026-09-14: ~13 componentes reales sin documentar, ~14 documentados que nunca se construyeron) — ante cualquier duda, mirar la carpeta real antes de asumir que algo existe o no.
 
 ---
 
@@ -53,39 +49,21 @@ Todo componente interactivo deberá contemplar:
 
 # Layout
 
-## AppLayout
+## BaseLayout (`src/layouts/BaseLayout.astro` — no es `AppLayout`, y no vive en `src/components/`)
 
-Responsabilidad:
-
-Estructura principal de todas las páginas.
-
-Debe incluir:
-
-* Navbar
-* Contenido principal
-* Footer
-
-Debe encargarse únicamente de la composición.
-
----
+Estructura principal de todas las páginas públicas: Navbar + contenido + Footer + metadata SEO/Open Graph/PWA. Las páginas de `/staff/` NO usan este layout (tienen su propio HTML mínimo) — por diseño, para que Microsoft Clarity y el resto del tracking público nunca corran en el panel de staff.
 
 ## Container
 
-Responsabilidad:
-
-Controlar el ancho máximo del contenido.
-
-Nunca debe contener lógica.
-
----
+Controla el ancho máximo del contenido. Sin lógica.
 
 ## Section
 
-Responsabilidad:
+Agrupa bloques de contenido, espaciado vertical consistente.
 
-Agrupar bloques de contenido.
+## Grid
 
-Debe aplicar automáticamente espaciado vertical consistente.
+Grilla responsive reutilizable (usada, por ejemplo, para las tarjetas de la Biblioteca).
 
 ---
 
@@ -93,53 +71,19 @@ Debe aplicar automáticamente espaciado vertical consistente.
 
 ## Navbar
 
-Debe ser el componente de navegación principal.
+Navegación principal: acceso a secciones, "Sumate a ATP", menú móvil. Sticky, fondo con blur sutil. El modo oscuro no tiene toggle manual — sigue únicamente `prefers-color-scheme`.
 
-Funciones:
+## MobileMenu
 
-* navegación entre secciones;
-* acceso rápido;
-* acceso a "Sumate a ATP";
-* menú móvil.
+Versión móvil del menú. Implementado con `<dialog>` nativo (foco atrapado y bloqueo de scroll gratis) — comparte el controlador de apertura/cierre con `Modal` (`src/lib/dialogController.ts`), ver más abajo. Se cierra tocando fuera, con el botón, o con Escape.
 
-El modo oscuro no tiene toggle manual: sigue únicamente la preferencia del sistema (`prefers-color-scheme`).
+## Breadcrumbs
 
-Características:
-
-* sticky;
-* fondo con blur sutil;
-* transición suave al hacer scroll;
-* altura constante.
-
----
-
-## Mobile Menu
-
-Versión móvil del menú.
-
-Debe abrirse mediante animación.
-
-Debe bloquear el scroll del fondo.
-
-Debe poder cerrarse:
-
-* tocando fuera;
-* botón cerrar;
-* tecla Escape.
-
-Implementado con `<dialog>` nativo (foco atrapado y semántica modal gratis — ver `docs/STACK_DECISIONS.md` → "Soporte de navegadores" para el piso de compatibilidad y las limitaciones conocidas de iOS Safari).
-
----
+Migas de pan — no estaba documentado antes.
 
 ## Footer
 
-Debe contener:
-
-* logo;
-* descripción breve;
-* enlaces rápidos;
-* redes sociales;
-* información institucional.
+Logo, enlaces rápidos, redes sociales, información institucional.
 
 ---
 
@@ -147,24 +91,11 @@ Debe contener:
 
 ## Button
 
-Único componente oficial para botones.
+Único componente oficial para botones y para links que se ven como botón (renderiza `<a>` cuando recibe `href`, `<button>` si no — nunca crear un "LinkButton" separado).
 
-Variantes:
+Variantes reales: **Primary, Secondary, Outline, Ghost, Danger, Glass** (`glass` se agregó después del sistema de diseño inicial — pensada para UI sobre una foto, ej. el Hero de "Sumate a ATP").
 
-* Primary
-* Secondary
-* Outline
-* Ghost
-* Danger
-
-Debe soportar:
-
-* iconos;
-* loading;
-* disabled;
-* tamaño pequeño;
-* tamaño normal;
-* tamaño grande.
+Soporta iconos (`icon-start`/`icon-end`), loading, disabled, 3 tamaños.
 
 ---
 
@@ -172,115 +103,25 @@ Debe soportar:
 
 ## Card
 
-Componente base.
+Componente base. Admite título, contenido, acciones, imagen opcional, badge opcional (slots nombrados). Nunca crear una tarjeta a medida si se puede extender `Card`.
 
-Nunca utilizar una tarjeta personalizada si puede extender Card.
-
-Debe admitir:
-
-* título;
-* contenido;
-* acciones;
-* imagen opcional;
-* badge opcional.
-
----
+**No existen `BookCard`/`ToolCard`/`CareerCard`/`NewsCard` como componentes separados** — se documentaron en algún momento pero nunca se construyeron. Biblioteca, Herramientas y Carreras arman su tarjeta componiendo `Card` directamente en la página (ver `src/pages/biblioteca.astro`), no con un componente propio por tipo de contenido.
 
 ## ActivityCard
 
-Especialización de Card.
-
-Información:
-
-* imagen;
-* fecha;
-* hora;
-* título;
-* descripción;
-* botón de inscripción.
-
-Debe permitir destacar actividades importantes.
+La única especialización real de `Card` que existe hoy.
 
 ---
 
-## BookCard
+# Patrón "tarjeta completa clickeable" (stretched link)
 
-Especialización de Card.
-
-Información:
-
-* portada;
-* título;
-* autor;
-* materia;
-* año;
-* tipo;
-* botón descargar.
-
-Debe ser fácilmente escaneable.
-
----
-
-## ToolCard
-
-Representa herramientas digitales.
-
-Debe incluir:
-
-* icono;
-* nombre;
-* descripción;
-* botón acceder.
-
----
-
-## CareerCard
-
-Representa una carrera.
-
-Debe mostrar:
-
-* nombre;
-* imagen o ilustración;
-* breve descripción;
-* botón explorar.
-
----
-
-## NewsCard
-
-Representa una noticia.
-
-Debe incluir:
-
-* imagen;
-* fecha;
-* título;
-* resumen.
+Cuando una tarjeta tiene una sola acción principal (ej. "Descargar" en Biblioteca), el botón de esa acción extiende su área de click a toda la tarjeta con un `::after` absoluto (`after:absolute after:inset-0 after:content-['']`), en vez de envolver la tarjeta entera en un `<a>` — evita anidar un link dentro de otro link. Requiere que el contenedor (`Card`) tenga `position: relative`, que ya lo tiene por este mismo motivo. Ver `src/pages/biblioteca.astro` para el ejemplo real (agregado 2026-09-14).
 
 ---
 
 # Hero
 
-Debe ser el componente principal del inicio.
-
-Debe comunicar inmediatamente:
-
-* quién es ATP;
-* qué ofrece;
-* qué acción realizar.
-
-Debe incluir:
-
-* título;
-* descripción;
-* CTA principal;
-* CTA secundaria;
-* imagen opcional.
-
-No debe ocupar excesiva altura en dispositivos móviles.
-
-Implementado como un componente 100% genérico, configurable por props (`title`, `subtitle`, `description`, `primaryAction`, `secondaryAction`, `image`, `alignment`, `backgroundVariant`) — no contiene ningún texto de ATP. Cada página que use Hero pasa su propio contenido.
+Componente 100% genérico por props (`title`, `subtitle`, `description`, `primaryAction`, `secondaryAction`, `image`, `alignment`, `backgroundVariant`) — no contiene texto propio de ATP, cada página que lo usa pasa su contenido.
 
 ---
 
@@ -288,106 +129,39 @@ Implementado como un componente 100% genérico, configurable por props (`title`,
 
 ## Carousel
 
-Componente reutilizable.
-
-Debe utilizarse para:
-
-* actividades;
-* novedades;
-* destacados.
-
-Características:
-
-* navegación táctil;
-* soporte para teclado;
-* indicadores;
-* autoplay opcional;
-* pausa al interactuar.
-
-Nunca ocultar información esencial exclusivamente dentro de un carrusel.
-
-La navegación táctil usa CSS scroll-snap nativo (el navegador maneja el gesto), no JS a mano. JS solo mueve el track (botones/indicadores/autoplay). Cada slide pasado al slot por defecto debe declarar su propio ancho y las clases `shrink-0 snap-center` — el Carousel es agnóstico al contenido (actividades, novedades, etc.) y por eso no impone un ancho de slide.
-
-Sigue el patrón WAI-ARIA Carousel (APG): la región etiquetada incluye los controles (no solo el track); cada slide recibe `role="group"` + `aria-roledescription="slide"` + posición ("X de N") inyectados en runtime; un live region oculto anuncia el slide activo (silenciado mientras el autoplay rota, para no interrumpir cada pocos segundos); y el autoplay tiene un botón de pausa/reproducción persistente además de pausar con hover/foco — necesario porque en touch no existe "hover" (WCAG 2.2.2).
+Scroll-snap nativo para el gesto táctil (el navegador lo maneja, no JS a mano); JS solo mueve el track. Sigue el patrón WAI-ARIA APG (role=group por slide, posición anunciada, live region silenciado durante autoplay, botón de pausa persistente por WCAG 2.2.2 — en touch no existe "hover"). Cada slide declara su propio ancho — el Carousel es agnóstico al contenido.
 
 ---
 
 # Formularios
 
-## Input
+## Input / Textarea / Checkbox
 
-Debe soportar:
-
-* texto;
-* email;
-* búsqueda;
-* contraseña;
-* número.
-
----
-
-## Textarea
-
-Versión extendida para texto largo.
-
----
+Estándar, estilo consistente.
 
 ## Select
 
-Selector reutilizable.
-
-Debe soportar búsqueda cuando existan muchas opciones.
-
-Estado actual: la versión base es un `<select>` nativo estilizado (sin buscador), para mantener el soporte de teclado y lectores de pantalla sin construir un widget custom. La búsqueda se agrega más adelante, cuando algún selector concreto lo necesite — no antes.
-
----
-
-## Checkbox
-
-Estilo consistente.
-
----
-
-## Switch
-
-Para activar o desactivar opciones.
-
----
+`<select>` nativo estilizado, sin buscador — decisión consciente para no perder soporte de teclado/lectores de pantalla construyendo un widget custom; se agrega búsqueda el día que un selector concreto lo necesite.
 
 ## SearchBar
 
-Uno de los componentes más importantes.
+Búsqueda inmediata, botón limpiar, accesible, navegable por teclado.
 
-Debe ofrecer:
+## Formularios de dominio específico (no genéricos, viven en `src/components/`)
 
-* búsqueda inmediata;
-* botón limpiar;
-* accesibilidad;
-* navegación por teclado.
+* `ActivityRegistrationForm` — inscripción simple a una actividad.
+* `ActivityCertificateRegistrationForm` — inscripción a una capacitación con certificado (pide los datos del certificado, entrega QR de acceso).
+* `AgendaSaleSection` / `KeychainSaleSection` — venta de merchandising (agenda retirada, llaveros la reemplazaron — ver `docs/GOOGLE_SHEETS_FORM_SETUP.md`).
+
+**No existe un `Switch` como componente separado** — estaba documentado, nunca se construyó.
 
 ---
 
 # Filtros
 
-## FilterPanel
+## FilterPanel / FilterChip
 
-Agrupa todos los filtros.
-
-Debe ser reutilizable para:
-
-* biblioteca;
-* actividades;
-* herramientas.
-
-Debe permitir combinar múltiples criterios.
-
----
-
-## FilterChip
-
-Representa un filtro activo.
-
-Debe poder eliminarse con un clic.
+`FilterPanel` agrupa filtros combinables (usado en Biblioteca); `FilterChip` representa un filtro activo, eliminable con un clic.
 
 ---
 
@@ -395,64 +169,17 @@ Debe poder eliminarse con un clic.
 
 ## Badge
 
-Mostrar estados.
-
-Ejemplos:
-
-Nuevo.
-
-Destacado.
-
-Actualizado.
-
-Importante.
-
----
+Mostrar estados (Nuevo, Destacado, etc.).
 
 ## Toast
 
-Mostrar mensajes temporales.
+`Toast.astro` solo renderiza el contenedor vacío (una vez, en `BaseLayout`). Para mostrar un mensaje: `showToast({ message, variant })` desde `src/lib/toast.ts` — no hay forma declarativa de renderizar un toast individual. **Nota:** las páginas de `/staff/` no usan `BaseLayout`, así que cada una necesita su propio `<Toast />` — un bug real (toasts silenciosamente no-op en `panel.astro`) salió de olvidar esto.
 
-Tipos:
+## EmptyState / Skeleton / Loader
 
-* éxito;
-* error;
-* información;
-* advertencia.
+Estándar — nunca dejar una pantalla vacía sin explicación+acción; preferir Skeleton sobre spinners largos.
 
-`Toast.astro` solo renderiza el contenedor vacío (una vez, en `BaseLayout`). Para mostrar un mensaje, llamar a `showToast({ message, variant })` desde `src/lib/toast.ts` en cualquier script — no hay una forma declarativa de renderizar un toast individual, porque no existen al momento de build.
-
----
-
-## Alert
-
-Mensajes persistentes.
-
----
-
-## EmptyState
-
-Mostrar cuando no existen resultados.
-
-Debe incluir:
-
-* ilustración opcional;
-* mensaje;
-* acción sugerida.
-
----
-
-## Skeleton
-
-Utilizado durante la carga.
-
-Nunca utilizar spinners largos cuando sea posible.
-
----
-
-## Loader
-
-Indicador general de carga.
+**No existe `Alert`** (mensajes persistentes) ni **`ConfirmDialog`** como componentes separados — estaban documentados, nunca se construyeron (las confirmaciones reales usan `Modal` directamente cuando hacen falta).
 
 ---
 
@@ -460,122 +187,54 @@ Indicador general de carga.
 
 ## Modal
 
-Debe utilizarse para:
-
-* confirmaciones;
-* información ampliada;
-* acciones rápidas.
-
-Características:
-
-* accesible;
-* animado;
-* cierre con Escape;
-* cierre al hacer clic fuera;
-* bloqueo del scroll.
-
-Implementado con `<dialog>` nativo, igual que Mobile Menu — de hecho comparte la misma lógica de apertura/cierre (`src/lib/dialogController.ts`) en vez de duplicarla. Se abre desde cualquier botón en la página con `data-modal-open="<id>"`, sin necesidad de pasarle un handler por props: útil porque el disparador suele vivir en un componente distinto al modal (ej. una card).
+`<dialog>` nativo, misma lógica de apertura/cierre que `MobileMenu` (`src/lib/dialogController.ts`). Se abre con `data-modal-open="<id>"` en cualquier botón de la página — nunca llamando `dialog.showModal()` directo, porque se salta la animación/bloqueo de scroll del controlador.
 
 ---
 
-# Diálogos
+# Componentes sin equivalente hoy (documentados antes, nunca construidos)
 
-## ConfirmDialog
-
-Utilizar únicamente para acciones importantes.
-
-Ejemplos:
-
-Eliminar.
-
-Salir.
-
-Cancelar.
-
----
-
-# Calendario
-
-## Calendar
-
-Componente reutilizable.
-
-Debe permitir mostrar:
-
-* fechas;
-* eventos;
-* actividades;
-* mesas.
-
----
-
-# Biblioteca
-
-## BookGrid
-
-Muestra resultados.
-
-Debe adaptarse automáticamente al ancho disponible.
-
----
-
-## BookDetail
-
-Información completa de un recurso.
-
----
-
-# Actividades
-
-## ActivityGrid
-
-Listado de actividades.
-
----
-
-## ActivityDetail
-
-Vista completa.
-
----
-
-# Noticias
-
-## NewsGrid
-
-Listado.
-
----
-
-## NewsDetail
-
-Contenido completo.
+`Calendar`, `BookGrid`, `BookDetail`, `ActivityGrid`, `ActivityDetail`, `NewsGrid`, `NewsDetail`, `JoinCTA` — ninguno existe. Biblioteca y Actividades resuelven grilla+detalle componiendo `Grid`+`Card` directo en la página, sin un componente de listado dedicado. `NewsGrid`/`NewsDetail` no aplican: Noticias está fuera de alcance (ver `docs/TODO.md`).
 
 ---
 
 # Componentes institucionales
 
-## JoinCTA
+## SocialLinks
 
-Componente reutilizable para invitar a participar en ATP.
+Redes oficiales — reutilizado en Navbar, Footer, "Sumate a ATP".
 
-Debe aparecer en distintas secciones.
+## PhotoMarquee / PhotoGallery
 
-Nunca resultar invasivo.
+Galerías de fotos (usadas en "Sumate a ATP") — no estaban documentadas antes.
+
+## ToolIconBadge
+
+Ícono de herramienta con estilo consistente — no estaba documentado antes.
+
+## WhatsAppGroupsSection
+
+Lista destacada de grupos de WhatsApp (home + página de carrera) — no estaba documentado antes.
+
+## YouTubeVideoGrid
+
+Grilla de últimos videos del canal de YouTube (ver `docs/YOUTUBE_SETUP.md`) — no estaba documentado antes.
+
+## GlobalSearch
+
+Búsqueda global del sitio — no estaba documentado antes.
 
 ---
 
-## SocialLinks
+# Componentes de staff (React, hidratados — `client:load`)
 
-Mostrar redes oficiales.
+Viven en `src/components/*.tsx`, solo se usan dentro de `/staff/` (nunca en páginas públicas):
 
-Debe reutilizarse en:
+* `CampaignEditor` — editor de texto enriquecido (Tiptap) para campañas de email.
+* `CertificateFieldEditor` — editor visual de posición de campos sobre el PDF de un certificado.
+* `CertificateReviewCarousel` — revisión en lote de certificados generados antes de aprobar el envío.
+* `CertificateSendPanel` — panel de envío real de certificados.
 
-Navbar.
-
-Footer.
-
-Contacto.
+No estaban documentados antes; son la única parte del sitio con hidratación React — el resto de la plataforma es Astro estático + `<script>` nativo.
 
 ---
 
@@ -592,39 +251,19 @@ Todos los componentes deben:
 
 # Responsive
 
-Todos los componentes deben adaptarse automáticamente.
-
-No crear variantes independientes para móvil.
-
-El mismo componente debe responder mediante el sistema de diseño.
+Todos los componentes deben adaptarse automáticamente. No crear variantes independientes para móvil.
 
 ---
 
 # Rendimiento
 
-Los componentes deben minimizar JavaScript.
-
-Cuando sea posible utilizar renderizado estático.
-
-La hidratación debe limitarse únicamente a componentes interactivos.
+Minimizar JavaScript. Renderizado estático cuando sea posible. Hidratación limitada a los componentes de staff listados arriba — nada en el sitio público se hidrata.
 
 ---
 
 # Animaciones
 
-Todos los componentes deben utilizar la misma filosofía de movimiento.
-
-Duraciones:
-
-150 ms
-
-200 ms
-
-250 ms
-
-300 ms
-
-Evitar rebotes exagerados.
+Duraciones reales (ver `docs/DESIGN_TOKENS.md`): **150ms / 250ms / 350ms** (`fast`/`normal`/`slow`). No 200ms/300ms — esos valores estaban en una versión vieja de este documento y no corresponden a ningún token real. Evitar rebotes exagerados.
 
 ---
 
@@ -636,4 +275,15 @@ Antes de crear un componente nuevo, responder esta pregunta:
 
 Si la respuesta es sí, reutilizar.
 
-Si la respuesta es no, crear un nuevo componente respetando el sistema de diseño y documentarlo para futuras implementaciones.
+Si la respuesta es no, crear un nuevo componente respetando el sistema de diseño y documentarlo acá **en el mismo cambio**, no después — así no se repite la desincronización que motivó reescribir este documento.
+
+---
+
+# Gatillo de actualización
+
+Actualizar este documento en el mismo commit/cambio que:
+
+* se cree, borre o renombre un archivo en `src/components/`;
+* se agregue o quite una variante real de un componente ya documentado (como pasó con `glass` en `Button`).
+
+No hace falta una revisión periódica — el gatillo es el cambio en sí, no el calendario.
