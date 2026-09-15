@@ -6,7 +6,8 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/diamante-otorrinolaringologia-y-afecciones-conexas.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/diamante-otorrinolaringologia-y-afecciones-conexas.pdf",
   "published": true,
-  "cover": "https://covers.openlibrary.org/b/id/12331643-M.jpg"
+  "cover": "https://covers.openlibrary.org/b/id/12331643-M.jpg",
+  "fileSize": 25389640
 }

@@ -7,8 +7,9 @@
   ],
   "resourceType": "libro",
   "driveUrl": "https://drive.google.com/file/d/1arEUbgw1rmnksVVHA0eFeivCTX-EceNV/view?usp=drive_link",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/silverthorn-silverthorn-fisiologia.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/silverthorn-silverthorn-fisiologia.pdf",
   "published": true,
   "cover": "/uploads/pasted-image-1784325070708.png",
-  "order": null
+  "order": null,
+  "fileSize": 295772939
 }

@@ -7,8 +7,9 @@
   ],
   "resourceType": "libro",
   "driveUrl": "https://drive.google.com/file/d/1785NoktZ4Kflf4fwaiJbG2VZeGjvjpaU/view?usp=drive_link",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/muniagurria-muniagurria-tomo-1-motivos-de-consulta.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/muniagurria-muniagurria-tomo-1-motivos-de-consulta.pdf",
   "published": true,
   "cover": "/uploads/pasted-image-1783520112537.png",
-  "order": null
+  "order": null,
+  "fileSize": 25825744
 }

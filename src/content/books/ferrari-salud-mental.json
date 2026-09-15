@@ -7,8 +7,9 @@
   ],
   "resourceType": "libro",
   "driveUrl": "https://drive.google.com/file/d/1efeI9YRepZjuthtTuN9GQtHA3BCELB5H/view?usp=drive_link",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/ferrari-ferrari-salud-mental.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/ferrari-ferrari-salud-mental.pdf",
   "published": true,
   "cover": "/uploads/pasted-image-1783519746017.png",
-  "order": null
+  "order": null,
+  "fileSize": 1697826
 }

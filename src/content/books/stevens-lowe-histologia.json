@@ -7,8 +7,9 @@
   ],
   "resourceType": "libro",
   "driveUrl": "https://drive.google.com/file/d/1AahCeN8aVSHqbH1VAQwaGFK_nQ2AFAPL/view?usp=drive_link",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/stevens-lowe-stevens-lowe-histologia.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/stevens-lowe-stevens-lowe-histologia.pdf",
   "published": true,
   "cover": "/uploads/pasted-image-1783518938100.png",
-  "order": null
+  "order": null,
+  "fileSize": 61194581
 }

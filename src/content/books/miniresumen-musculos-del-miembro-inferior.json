@@ -7,8 +7,9 @@
   ],
   "resourceType": "resumen",
   "driveUrl": "https://drive.google.com/file/d/1y5KEGOTDDkBDorrnSx2LaX_YeIe60fYF/view?usp=drive_link",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/atp-miniresumen-musculos-del-miembro-inferior.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/atp-miniresumen-musculos-del-miembro-inferior.pdf",
   "published": true,
   "cover": "/uploads/pasted-image-1785159550979.png",
-  "order": null
+  "order": null,
+  "fileSize": 733234
 }

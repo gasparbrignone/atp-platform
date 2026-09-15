@@ -6,7 +6,8 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/atlas-de-histologia-gartner.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/atlas-de-histologia-gartner.pdf",
   "published": true,
-  "cover": "https://covers.openlibrary.org/b/id/7900790-M.jpg"
+  "cover": "https://covers.openlibrary.org/b/id/7900790-M.jpg",
+  "fileSize": 352787006
 }

@@ -7,8 +7,9 @@
   ],
   "resourceType": "libro",
   "driveUrl": "https://drive.google.com/file/d/1KwuJ9BNI1ke5KkYwNnPFccslaqb1_Xus/view?usp=drive_link",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/testut-testut-anatomia.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/testut-testut-anatomia.pdf",
   "published": true,
   "cover": "/uploads/pasted-image-1783518454251.png",
-  "order": null
+  "order": null,
+  "fileSize": 122292356
 }

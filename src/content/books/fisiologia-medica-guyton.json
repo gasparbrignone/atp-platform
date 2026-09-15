@@ -6,7 +6,8 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/guyton-fisiologia-medica.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/guyton-fisiologia-medica.pdf",
   "published": true,
-  "cover": "https://covers.openlibrary.org/b/id/7903981-M.jpg"
+  "cover": "https://covers.openlibrary.org/b/id/7903981-M.jpg",
+  "fileSize": 132688801
 }

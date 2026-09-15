@@ -180,6 +180,12 @@ const books = defineCollection({
     // requerido: un libro recién cargado no debe romper el build entero
     // mientras la migración corre.
     downloadUrl: optionalUrl,
+    // En bytes. Se completa solo al migrar/subir el archivo (2026-09-14:
+    // migración completa de GitHub Releases a Cloudflare R2) — nunca se
+    // pide a mano en el CMS, por eso nullish. Ver biblioteca.astro, que lo
+    // muestra al lado del botón "Descargar" (importa sobre todo en datos
+    // móviles, algunos libros pesan varios cientos de MB).
+    fileSize: z.number().nullish(),
     // Link de "Compartir" de Google Drive tal cual lo pega la persona que
     // carga el libro. El workflow de migración lo lee, descarga el archivo,
     // lo sube como asset de GitHub Releases y completa `downloadUrl` solo —

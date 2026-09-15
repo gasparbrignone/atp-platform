@@ -6,8 +6,9 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/pro-anatomia-clinica.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/pro-anatomia-clinica.pdf",
   "published": true,
   "cover": "/uploads/images (1).jpg",
-  "order": null
+  "order": null,
+  "fileSize": 76880422
 }

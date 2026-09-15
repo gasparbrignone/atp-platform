@@ -6,8 +6,9 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/rouviere-anatomia-tomo-4.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/rouviere-anatomia-tomo-4.pdf",
   "published": true,
   "cover": "/uploads/images.jpg",
-  "order": null
+  "order": null,
+  "fileSize": 35764739
 }

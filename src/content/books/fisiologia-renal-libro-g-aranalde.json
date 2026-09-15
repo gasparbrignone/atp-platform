@@ -6,8 +6,9 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/libro-g-aranalde-fisiologia-renal.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/libro-g-aranalde-fisiologia-renal.pdf",
   "published": true,
   "cover": "/uploads/images (2).jpg",
-  "order": null
+  "order": null,
+  "fileSize": 8450669
 }

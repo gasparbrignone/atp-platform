@@ -6,8 +6,9 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/hib-embriologia.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/hib-embriologia.pdf",
   "published": true,
   "cover": "/uploads/D_NQ_NP_714972-MLA109991657083_042026-O.webp",
-  "order": null
+  "order": null,
+  "fileSize": 24872026
 }

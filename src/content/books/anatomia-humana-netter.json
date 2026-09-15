@@ -6,7 +6,8 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/netter-atlas-de-anatomia.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/netter-atlas-de-anatomia.pdf",
   "published": true,
-  "cover": "https://covers.openlibrary.org/b/id/12501247-M.jpg"
+  "cover": "https://covers.openlibrary.org/b/id/12501247-M.jpg",
+  "fileSize": 293093234
 }

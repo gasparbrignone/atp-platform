@@ -7,8 +7,9 @@
   ],
   "resourceType": "libro",
   "driveUrl": "https://drive.google.com/file/d/1QiNo9C5fzDfs3zVfOmdZHbWepsCr7oFY/view?usp=drive_link",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/bouchet-bouchet-abdomen.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/bouchet-bouchet-abdomen.pdf",
   "published": true,
   "cover": "/uploads/pasted-image-1783518401753.png",
-  "order": null
+  "order": null,
+  "fileSize": 117407082
 }

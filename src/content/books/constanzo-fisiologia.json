@@ -7,8 +7,9 @@
   ],
   "resourceType": "libro",
   "driveUrl": "https://drive.google.com/file/d/18BmakRlIk_gOh1xoNTudCO9ng7KVJEbO/view?usp=drive_link",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/constanzo-constanzo-fisiologia.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/constanzo-constanzo-fisiologia.pdf",
   "published": true,
   "cover": "/uploads/pasted-image-1783519468313.png",
-  "order": null
+  "order": null,
+  "fileSize": 16240381
 }

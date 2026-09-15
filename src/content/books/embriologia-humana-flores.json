@@ -6,8 +6,9 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/flores-embriologia-humana.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/flores-embriologia-humana.pdf",
   "published": true,
   "cover": "/uploads/Embriologia-Humana.jpg",
-  "order": null
+  "order": null,
+  "fileSize": 142554226
 }

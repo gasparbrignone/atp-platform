@@ -6,8 +6,9 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/berne-y-levy-fisiologia-medica.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/berne-y-levy-fisiologia-medica.pdf",
   "published": true,
   "cover": "/uploads/pasted-image-1783389182267.png",
-  "order": null
+  "order": null,
+  "fileSize": 220582501
 }

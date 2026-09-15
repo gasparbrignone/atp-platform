@@ -35,6 +35,15 @@ import { uploadThumb } from '@/lib/uploadThumb';
 import BookOpen from '@lucide/astro/icons/book-open';
 
 const publishedBooks = await getCollection('books', ({ data }) => data.published);
+
+// Auditoría UX 2026-09-14: nada avisaba el peso del archivo antes de
+// descargar (algunos libros pesan varios cientos de MB) — importa sobre
+// todo con datos móviles. Redondea a MB salvo que sea más chico que 1MB.
+function formatFileSize(bytes: number): string {
+  const mb = bytes / 1024 / 1024;
+  if (mb < 1) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${Math.round(mb)} MB`;
+}
 const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
 
 const subjects = await getCollection('subjects');
@@ -189,6 +198,7 @@ const filterChips = [
                       class="after:absolute after:inset-0 after:content-['']"
                     >
                       Descargar
+                      {book.data.fileSize && ` (${formatFileSize(book.data.fileSize)})`}
                     </Button>
                   ) : (
                     <Badge variant="info">Disponible pronto</Badge>

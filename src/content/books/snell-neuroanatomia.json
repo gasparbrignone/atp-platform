@@ -7,8 +7,9 @@
   ],
   "resourceType": "libro",
   "driveUrl": "https://drive.google.com/file/d/1I91Q-V4YtRuHxWdgxJQ7yEYfaGK5939m/view?usp=drive_link",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/snell-snell-neuroanatomia.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/snell-snell-neuroanatomia.pdf",
   "published": true,
   "cover": "/uploads/pasted-image-1783518657319.png",
-  "order": null
+  "order": null,
+  "fileSize": 129187551
 }

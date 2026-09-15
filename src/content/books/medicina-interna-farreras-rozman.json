@@ -6,8 +6,9 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/farreras-rozman-medicina-interna.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/farreras-rozman-medicina-interna.pdf",
   "published": true,
   "cover": "/uploads/pasted-image-1783389155537.png",
-  "order": null
+  "order": null,
+  "fileSize": 63407254
 }

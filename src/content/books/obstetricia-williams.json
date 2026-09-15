@@ -6,8 +6,9 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/williams-obstetricia.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/williams-obstetricia.pdf",
   "published": true,
   "cover": "/uploads/pasted-image-1783389372472.png",
-  "order": null
+  "order": null,
+  "fileSize": 47652452
 }

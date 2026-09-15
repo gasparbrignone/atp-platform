@@ -6,8 +6,9 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/netter-atlas-de-embriologia.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/netter-atlas-de-embriologia.pdf",
   "published": true,
   "cover": "/uploads/d061a688cbdc721198b7b3644fcb99b1.webp",
-  "order": null
+  "order": null,
+  "fileSize": 326754867
 }

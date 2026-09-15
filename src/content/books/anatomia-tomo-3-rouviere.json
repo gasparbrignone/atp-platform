@@ -6,8 +6,9 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/rouviere-anatomia-tomo-3.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/rouviere-anatomia-tomo-3.pdf",
   "published": true,
   "cover": "/uploads/AnatomiaHumana-rouviereT3.jpg",
-  "order": null
+  "order": null,
+  "fileSize": 44849764
 }

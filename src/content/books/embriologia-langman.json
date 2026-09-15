@@ -6,8 +6,9 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/langman-embriologia.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/langman-embriologia.pdf",
   "published": true,
   "cover": "/uploads/f5c7eb1f556dfe7807f9e59968f78e2a.webp",
-  "order": null
+  "order": null,
+  "fileSize": 94866528
 }

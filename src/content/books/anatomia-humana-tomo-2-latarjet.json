@@ -6,8 +6,9 @@
     "medicina"
   ],
   "resourceType": "libro",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/latarjet-anatomia-humana-tomo-2.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/latarjet-anatomia-humana-tomo-2.pdf",
   "published": true,
   "cover": "/uploads/external-content.duckduckgo.com_.png2_.png",
-  "order": null
+  "order": null,
+  "fileSize": 88377897
 }

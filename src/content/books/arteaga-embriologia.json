@@ -7,8 +7,9 @@
   ],
   "resourceType": "libro",
   "driveUrl": "https://drive.google.com/file/d/1FMmb25wZuAnnKRN8nc_JIroZAgorf9gG/view?usp=drive_link",
-  "downloadUrl": "https://github.com/gasparbrignone/atp-platform/releases/download/biblioteca-medicina-v1/arteaga-arteaga-embriologia.pdf",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/arteaga-arteaga-embriologia.pdf",
   "published": true,
   "cover": "/uploads/pasted-image-1783389240128.png",
-  "order": null
+  "order": null,
+  "fileSize": 347336459
 }
