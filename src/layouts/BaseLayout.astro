@@ -251,8 +251,22 @@ const websiteJsonLd = {
       // verdad. El texto de los pasos cambia según iOS o Android porque el
       // menú para "abrir en el navegador" no está en el mismo lugar en los
       // dos sistemas.
+      //
+      // El sitio no es una SPA: cada click adentro de Instagram recarga la
+      // página entera, así que sin esto el aviso volvía a aparecer después
+      // de cada click (bug real reportado 2026-09-15) — localStorage
+      // recuerda que ya se mostró, sin importar en qué página.
+      const INSTAGRAM_WARNING_KEY = 'instagram-warning-dismissed';
       const ua = navigator.userAgent;
-      if (/Instagram|FBAN|FBAV/i.test(ua)) {
+      let dismissedBefore = false;
+      try {
+        dismissedBefore = localStorage.getItem(INSTAGRAM_WARNING_KEY) === 'true';
+      } catch {
+        // localStorage puede tirar en navegadores muy restrictivos — si
+        // pasa, simplemente no recordamos nada (se comporta como antes).
+      }
+
+      if (/Instagram|FBAN|FBAV/i.test(ua) && !dismissedBefore) {
         const isIOS = /iPhone|iPad|iPod/i.test(ua);
         const steps = document.getElementById('instagram-browser-warning-steps');
         if (steps) {
@@ -260,6 +274,19 @@ const websiteJsonLd = {
             ? 'Te recomendamos tocar los tres puntitos y elegir "Abrir en navegador externo".'
             : 'Te recomendamos tocar los tres puntitos y abrir tu navegador.';
         }
+        const dialog = document.getElementById('instagram-browser-warning') as HTMLDialogElement | null;
+        dialog?.addEventListener(
+          'close',
+          () => {
+            try {
+              localStorage.setItem(INSTAGRAM_WARNING_KEY, 'true');
+            } catch {
+              // Si no se puede guardar, el aviso simplemente vuelve a
+              // aparecer la próxima — no rompe nada más.
+            }
+          },
+          { once: true },
+        );
         document
           .querySelector<HTMLElement>('[data-modal-open="instagram-browser-warning"]')
           ?.click();
