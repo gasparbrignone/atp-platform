@@ -74,12 +74,12 @@ import SearchBar from './SearchBar.astro';
       // resto del sitio por un fetch fallido.
     });
 
-  function renderResults(query: string) {
-    if (!resultsRoot) return;
+  function renderResults(query: string): number | null {
+    if (!resultsRoot) return null;
     resultsRoot.innerHTML = '';
 
     const trimmed = query.trim();
-    if (!trimmed) return;
+    if (!trimmed) return null;
 
     const matches = items.filter((item) => matchesQuery(trimmed, item.words));
     if (matches.length === 0) {
@@ -87,7 +87,7 @@ import SearchBar from './SearchBar.astro';
       empty.className = 'text-body-sm text-text-secondary text-center py-4';
       empty.textContent = 'No encontramos nada con esa búsqueda.';
       resultsRoot.appendChild(empty);
-      return;
+      return 0;
     }
 
     SECTION_ORDER.forEach((type) => {
@@ -131,9 +131,33 @@ import SearchBar from './SearchBar.astro';
       section.appendChild(list);
       resultsRoot.appendChild(section);
     });
+
+    return matches.length;
   }
 
+  declare global {
+    interface Window {
+      goatcounter?: { count: (options: { path: string; event?: boolean }) => void };
+    }
+  }
+
+  // Para saber qué está buscando la gente en todo el sitio (no solo
+  // libros) y no aparece — mismo criterio que biblioteca.astro, con un
+  // evento aparte para las búsquedas que dieron cero resultados.
+  let searchTrackTimeout: ReturnType<typeof setTimeout> | undefined;
   input.addEventListener('input', () => {
-    void indexReady.then(() => renderResults(input.value));
+    void indexReady.then(() => {
+      const matchCount = renderResults(input.value);
+
+      clearTimeout(searchTrackTimeout);
+      searchTrackTimeout = setTimeout(() => {
+        const query = input.value.trim().toLowerCase();
+        if (!query || matchCount === null) return;
+        window.goatcounter?.count({ path: `busqueda-global:${query}`, event: true });
+        if (matchCount === 0) {
+          window.goatcounter?.count({ path: `busqueda-global-sin-resultado:${query}`, event: true });
+        }
+      }, 600);
+    });
   });
 </script>

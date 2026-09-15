@@ -286,7 +286,17 @@ const filterChips = [
     clearTimeout(searchTrackTimeout);
     searchTrackTimeout = setTimeout(() => {
       const query = searchInput.value.trim().toLowerCase();
-      if (query) window.goatcounter?.count({ path: `busqueda:${query}`, event: true });
+      if (!query) return;
+      window.goatcounter?.count({ path: `busqueda:${query}`, event: true });
+      // Para saber qué libros piden que todavía no tenemos: además del
+      // evento de arriba (todas las búsquedas), este solo se dispara
+      // cuando la búsqueda no encontró ningún resultado — filtrable en
+      // GoatCounter por separado, sin tener que revisar búsqueda por
+      // búsqueda cuáles dieron vacío.
+      const noResults = !emptyState?.classList.contains('hidden');
+      if (noResults) {
+        window.goatcounter?.count({ path: `busqueda-sin-resultado:${query}`, event: true });
+      }
     }, 600);
   });
 
