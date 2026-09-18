@@ -174,6 +174,23 @@ Cada herramienta podrá clasificarse por carrera y materia.
 
 ---
 
+# Ingresantes — ✅ implementado
+
+La plataforma debe reunir en un solo lugar la información oficial de inscripción a las 4 carreras de la FCM (Medicina, Enfermería, Fonoaudiología, Terapia Ocupacional), reorganizada para que se pueda escanear y entender rápido — no un texto corrido largo como el de la fuente oficial (`fcm.unr.edu.ar/ingresantes/`).
+
+`/ingresantes/` (`src/pages/ingresantes.astro`) cubre:
+
+* las 2 etapas del proceso (preinscripción online, entrega de documentación) como pasos numerados con sus fechas;
+* checklist tildable de documentación requerida, separado por "terminé el secundario en Argentina" / "en otro país" (persiste en `localStorage` del navegador, no hay backend);
+* cómo legalizar fotocopias;
+* requisitos extra según la carrera (Fonoaudiología, Enfermería 2.º ciclo);
+* preguntas frecuentes;
+* un botón flotante de WhatsApp — solo en esta página, no sitewide (acá es donde más dudas puntuales/urgentes surgen).
+
+Reemplaza a la entrada que antes vivía enterrada en la colección `tools` ("Ingresantes" dentro de `/herramientas/`, como texto plano sin estructura).
+
+---
+
 # Calendario Académico — ⬜ no implementado
 
 El sistema deberá mostrar información académica organizada. Sigue siendo una funcionalidad deseada (Prioridad 3), pero no existe ningún componente ni colección para esto hoy — no confundir con el campo "Materias" (que sí existe y es otra cosa).

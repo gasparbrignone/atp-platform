@@ -1,0 +1,65 @@
+---
+/**
+ * Un ítem tildable de una lista de documentación requerida (ver
+ * src/pages/ingresantes.astro). El checkbox es puramente decorativo del
+ * lado del servidor — el comportamiento real (tildar, recordar entre
+ * visitas vía localStorage) lo agrega el <script> de la página que lo usa,
+ * vía el atributo `data-doc-check`.
+ */
+import Badge from './Badge.astro';
+
+interface DocLink {
+  label: string;
+  href: string;
+}
+
+interface Props {
+  id: string;
+  titulo: string;
+  detalle?: string;
+  plazo?: string;
+  links?: DocLink[];
+}
+
+const { id, titulo, detalle, plazo, links }: Props = Astro.props;
+---
+
+<label
+  data-doc-row
+  for={`doc-${id}`}
+  class="border-border bg-surface ease-standard flex cursor-pointer items-start gap-3 rounded-md border p-3.5 transition-opacity duration-150"
+>
+  <input
+    type="checkbox"
+    id={`doc-${id}`}
+    data-doc-check={id}
+    class="border-border-strong text-primary-fill mt-0.5 size-5 shrink-0 rounded"
+  />
+  <div class="text-body-sm text-text flex flex-col gap-1">
+    <span data-doc-title class="font-bold">{titulo}</span>
+    {detalle && <span class="text-text-secondary">{detalle}</span>}
+    {
+      links && links.length > 0 && (
+        <span class="flex flex-wrap gap-3">
+          {links.map((link) => (
+            <a
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-secondary-strong font-semibold underline underline-offset-2"
+            >
+              {link.label} →
+            </a>
+          ))}
+        </span>
+      )
+    }
+    {
+      plazo && (
+        <span class="mt-1">
+          <Badge variant="warning">{plazo}</Badge>
+        </span>
+      )
+    }
+  </div>
+</label>

@@ -152,6 +152,7 @@ Búsqueda inmediata, botón limpiar, accesible, navegable por teclado.
 * `ActivityRegistrationForm` — inscripción simple a una actividad.
 * `ActivityCertificateRegistrationForm` — inscripción a una capacitación con certificado (pide los datos del certificado, entrega QR de acceso).
 * `AgendaSaleSection` / `KeychainSaleSection` — venta de merchandising (agenda retirada, llaveros la reemplazaron — ver `docs/GOOGLE_SHEETS_FORM_SETUP.md`).
+* `DocChecklistItem` — ítem tildable de una checklist de documentación (checkbox + título + detalle + badge de plazo opcional + links opcionales). Usado en `/ingresantes/` (dos veces, documentación Argentina/Extranjero) — la persistencia del tilde entre visitas (`localStorage`) vive en el `<script>` de la página que lo usa, no en el componente.
 
 **No existe un `Switch` como componente separado** — estaba documentado, nunca se construyó.
 

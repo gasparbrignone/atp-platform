@@ -1,0 +1,772 @@
+---
+/**
+ * Guía de ATP para el Ingreso 2027 a la FCM (Medicina, Enfermería,
+ * Fonoaudiología, Terapia Ocupacional). Consolida en una sola página lo que
+ * antes vivía enterrado como una entrada más de la colección `tools`
+ * (src/content/tools/ingresar-a-la-fcm.json, ahora eliminada — ver el
+ * redirect en astro.config.mjs de /herramientas/ingresar-a-la-fcm/ hacia
+ * acá) reorganizado en pasos/tabs/acordeones en vez de un texto corrido
+ * larguísimo (auditoría UX 2026-09, feedback directo del dueño del
+ * proyecto: "me shockeó mucho... era DEMASIADA INFO").
+ *
+ * Contenido verificado a mano contra el HTML real de
+ * https://fcm.unr.edu.ar/ingresantes/ el 2026-09-18 (no solo el texto
+ * visible: hubo que revisar clases `elementor-hidden-*` porque la página
+ * oficial mezcla, en el mismo HTML, turnos vigentes con turnos de 2024 y
+ * hasta una tabla rotulada "INGRESO 2023" — todos esos bloques de turnos
+ * por carrera están ocultos en TODOS los breakpoints (nadie los ve en la
+ * página real). Por eso acá NO se listan fechas de turno por carrera —
+ * decisión explícita del dueño del proyecto: el turno se elige/asigna al
+ * completar el SUR 1 en la Etapa 1, no hace falta aclarar nada más.
+ *
+ * GATILLO DE ACTUALIZACIÓN: esta es información de una convocatoria
+ * puntual (Ingreso 2027), no contenido evergreen — mismo criterio que
+ * KeychainSaleSection.astro. Antes de la convocatoria de Ingreso 2028,
+ * volver a comparar esta página contra fcm.unr.edu.ar/ingresantes/
+ * completo (fechas de preinscripción, plazos de documentación, protocolo
+ * de legalización, requisitos por carrera) y actualizar lo que haya
+ * cambiado — probablemente solo las 2 fechas del Paso 1 y los 3 plazos
+ * límite (30/04, 31/10).
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Section from '@/components/Section.astro';
+import Container from '@/components/Container.astro';
+import Button from '@/components/Button.astro';
+import Badge from '@/components/Badge.astro';
+import Card from '@/components/Card.astro';
+import DocChecklistItem from '@/components/DocChecklistItem.astro';
+import TriangleAlert from '@lucide/astro/icons/triangle-alert';
+import CircleAlert from '@lucide/astro/icons/circle-alert';
+import CircleCheck from '@lucide/astro/icons/circle-check';
+import ChevronDown from '@lucide/astro/icons/chevron-down';
+
+const WHATSAPP_URL =
+  'https://wa.me/5493406404841?text=' +
+  encodeURIComponent('Hola ATP! Tengo una duda sobre la inscripción 2027 a la FCM.');
+
+const instagramAccounts = [
+  { handle: '@csmed.unr', href: 'https://www.instagram.com/csmed.unr/' },
+  { handle: '@enfermeria.csmed.unr', href: 'https://www.instagram.com/enfermeria.csmed.unr/' },
+  { handle: '@fonoaudiologia.csmed', href: 'https://www.instagram.com/fonoaudiologia.csmed/' },
+  { handle: '@to.csmed.unr', href: 'https://www.instagram.com/to.csmed.unr/' },
+];
+
+const jumpLinks = [
+  { href: '#antes', label: 'Antes de empezar' },
+  { href: '#etapas', label: 'Las 2 etapas' },
+  { href: '#documentacion', label: 'Documentación' },
+  { href: '#legalizar', label: 'Legalizar copias' },
+  { href: '#carreras', label: 'Según tu carrera' },
+  { href: '#faq', label: 'Preguntas frecuentes' },
+];
+
+const etapa1Pasos = [
+  {
+    texto: 'Creás tu usuario en el sistema de preinscripción',
+    link: { label: 'preinscripcion-guarani.unr.edu.ar', href: 'https://preinscripcion-guarani.unr.edu.ar' },
+  },
+  { texto: 'Elegís tu carrera: Medicina, Enfermería, Fonoaudiología o Terapia Ocupacional' },
+  {
+    texto: 'Completás el Formulario SUR 1',
+    link: {
+      label: 'hay un video tutorial oficial si te trabás',
+      href: 'https://tutoriales-siu-guarani.unr.edu.ar/?page_id=102',
+    },
+  },
+  { texto: 'Elegís el turno en el que vas a entregar tu documentación' },
+];
+
+type DocItem = {
+  id: string;
+  titulo: string;
+  detalle?: string;
+  plazo?: string;
+  links?: { label: string; href: string }[];
+};
+
+const docsArgentina: DocItem[] = [
+  {
+    id: 'ar-sur1',
+    titulo: 'Formulario SUR 1',
+    detalle:
+      'Firmado, con tu foto 3×3 pegada. Usá la versión más actualizada que hayas descargado — una vez impreso, no lo modifiques más en el sistema.',
+  },
+  { id: 'ar-dni', titulo: 'DNI', detalle: 'Fotocopia de frente y dorso, que se lea bien.' },
+  {
+    id: 'ar-foto',
+    titulo: 'Foto carnet 3×3 cm',
+    detalle: 'Fondo blanco, de frente — la misma que pegaste en el SUR 1.',
+  },
+  {
+    id: 'ar-partida',
+    titulo: 'Partida de nacimiento',
+    detalle: 'Copia, emitida por el Registro Civil.',
+  },
+  {
+    id: 'ar-secundario',
+    titulo: 'Certificado de finalización del secundario',
+    detalle: 'Tiene que decir que ya terminaste — una constancia de alumno/a regular no alcanza.',
+    plazo: 'Si debés materias: hasta el 30/04/2027',
+  },
+  {
+    id: 'ar-analitico',
+    titulo: 'Certificado Analítico Definitivo',
+    detalle: 'Copia legalizada.',
+    plazo: 'Hasta el 31/10/2027',
+  },
+];
+
+const docsExtranjero: DocItem[] = [
+  {
+    id: 'ext-sur1',
+    titulo: 'Formulario SUR 1',
+    detalle: 'Firmado, con foto 3×3 pegada. Se genera después de hacer la preinscripción, igual que para Argentina.',
+  },
+  {
+    id: 'ext-doc',
+    titulo: 'Pasaporte, DNI argentino o documento de tu país',
+    detalle: '+ certificación migratoria. Fotocopia de frente y dorso.',
+  },
+  { id: 'ext-foto', titulo: 'Foto carnet 3×3 cm', detalle: 'Fondo blanco.' },
+  {
+    id: 'ext-partida',
+    titulo: 'Partida de nacimiento',
+    detalle:
+      'Traducida (si tu país no habla español), apostillada y actualizada. No sirve un certificado de nacimiento distinto ni uno de casamiento.',
+  },
+  {
+    id: 'ext-secundario',
+    titulo: 'Certificado de estudios secundarios',
+    detalle:
+      'Traducido y apostillado — es la misma documentación que pide el trámite de convalidación.',
+    links: [
+      {
+        label: 'Países con convenio',
+        href: 'https://www.argentina.gob.ar/educacion/tramites/convalidar-titulo-secundario-de-paises-con-convenio',
+      },
+      {
+        label: 'Países sin convenio',
+        href: 'https://www.argentina.gob.ar/educacion/tramites/reconocer-titulo-secundario-de-paises-sin-convenio',
+      },
+    ],
+  },
+  { id: 'ext-convalidacion', titulo: 'Convalidación de estudios secundarios', plazo: 'Hasta el 31/10/2027' },
+  {
+    id: 'ext-espanol',
+    titulo: 'Certificado de español nivel B2',
+    detalle: 'Solo si no sos hispanohablante.',
+    plazo: 'Hasta el 30/04/2027',
+  },
+  {
+    id: 'ext-residencia',
+    titulo: 'Solicitud de residencia',
+    detalle:
+      'Temporaria o definitiva. Si todavía no la tenés al entregar la documentación, tenés 90 días desde que entrás al país para regularizarla en Migraciones.',
+  },
+];
+
+const carreraNotas = [
+  {
+    carrera: 'Fonoaudiología',
+    extra: true,
+    texto:
+      'Después de la inscripción definitiva, pedís turno para la Evaluación Funcional de Audición, Voz y Habla escribiendo con tu apellido, nombre, DNI, dirección y teléfono. Es obligatoria, pero no te saca de la carrera: el resultado no condiciona tu ingreso.',
+    email: 'examenfisico.fonoaudiologia@gmail.com',
+    href: '/carreras/fonoaudiologia/',
+  },
+  {
+    carrera: 'Enfermería',
+    subtitulo: '2.º ciclo, desde 4.º año',
+    extra: true,
+    texto:
+      'Sumás el Certificado Analítico Definitivo del secundario y, si venís de un terciario o universitario, su analítico legalizado.',
+    plazo: 'Hasta el 30/04/2027',
+    href: '/carreras/enfermeria/',
+  },
+  {
+    carrera: 'Medicina',
+    extra: false,
+    texto: 'Solo el proceso general de las 2 etapas — no hay ningún requisito adicional.',
+    href: '/carreras/medicina/',
+  },
+  {
+    carrera: 'Terapia Ocupacional',
+    extra: false,
+    texto: 'Solo el proceso general de las 2 etapas — no hay ningún requisito adicional.',
+    href: '/carreras/terapia-ocupacional/',
+  },
+];
+
+const faqItems = [
+  {
+    pregunta: '¿Cuánto cuesta inscribirse?',
+    respuesta: 'Nada. No se paga ningún arancel y no hay examen de ingreso para ninguna de las 4 carreras.',
+  },
+  {
+    pregunta: 'Mi escuela secundaria no aparece en la lista del sistema',
+    respuesta:
+      'Pasa sobre todo con escuelas de otras provincias o del extranjero. Elegís cualquier opción disponible por ahora, y lo aclarás al momento de entregar la documentación — ahí te lo corrigen.',
+  },
+  {
+    pregunta: '¿Cómo sé si la Facultad me escribió?',
+    respuesta:
+      'Todo el contacto es por mail: revisá Bandeja de entrada (Principal, Notificaciones y Promociones) y también Spam. Las cuentas de Gmail funcionan mejor con el sistema Guaraní.',
+  },
+  {
+    pregunta: 'Ya entregué toda mi documentación, ¿y ahora?',
+    respuesta: 'Entrá cada tanto a tu autogestión para confirmar que se cargó todo correctamente.',
+    link: { label: 'autogestion-guarani.unr.edu.ar', href: 'https://autogestion-guarani.unr.edu.ar/' },
+  },
+  {
+    pregunta: '¿Qué pasa si presento documentación adulterada?',
+    respuesta:
+      'Según la Ordenanza N.º 490 de la UNR, perdés todos los derechos que hayas adquirido como ingresante hasta ese momento. No vale la pena arriesgarse.',
+  },
+];
+---
+
+<BaseLayout
+  title="Ingreso 2027 a la FCM"
+  description="Guía de ATP con toda la información oficial para inscribirte a Medicina, Enfermería, Fonoaudiología o Terapia Ocupacional en la Facultad de Ciencias Médicas (UNR) — pasos, fechas y documentación necesaria."
+  canonicalPath="/ingresantes"
+>
+  <Section spacing="lg" reveal={false} background="surface-alt">
+    <Container class="flex flex-col gap-6">
+      <span
+        class="text-overline bg-primary/15 text-primary-strong w-fit rounded-full px-3 py-1 font-bold uppercase"
+      >
+        Guía ATP · Ingreso 2027
+      </span>
+      <h1 data-enter class="text-h1 text-text max-w-3xl font-extrabold text-balance">
+        Todo lo que necesitás para anotarte en la FCM
+      </h1>
+      <p class="text-body-lg text-text-secondary max-w-2xl">
+        Medicina, Enfermería, Fonoaudiología y Terapia Ocupacional. La inscripción es pública,
+        gratuita y no tiene examen de ingreso — pero hay un proceso con pasos y fechas que hay que
+        respetar sí o sí. Acá te lo ordenamos para que no se te pase nada.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <Button href="https://preinscripcion-guarani.unr.edu.ar" target="_blank" size="lg">
+          Empezar la preinscripción
+        </Button>
+        <Button href={WHATSAPP_URL} target="_blank" variant="outline" size="lg">
+          ¿Tenés dudas? Escribinos
+        </Button>
+      </div>
+      <p class="text-caption text-text-secondary flex items-center gap-2">
+        <span class="bg-success inline-block size-1.5 rounded-full" aria-hidden="true"></span>
+        Info oficial de fcm.unr.edu.ar/ingresantes — verificada por ATP el 18/09/2026
+      </p>
+    </Container>
+  </Section>
+
+  <nav
+    aria-label="Ir a una sección"
+    class="bg-background/90 border-border sticky top-16 z-10 border-b backdrop-blur"
+  >
+    <Container class="scrollbar-none flex gap-2 overflow-x-auto py-3">
+      {
+        jumpLinks.map((link) => (
+          <a
+            href={link.href}
+            class="text-body-sm text-text-secondary border-border hover:border-primary-strong hover:text-primary-strong ease-standard shrink-0 rounded-full border px-3 py-1.5 font-semibold whitespace-nowrap transition-colors duration-150"
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </Container>
+  </nav>
+
+  <Section id="antes" spacing="md">
+    <Container class="flex max-w-3xl flex-col gap-5">
+      <div class="flex flex-col gap-2">
+        <p class="text-overline text-text-secondary font-bold uppercase">Paso 0</p>
+        <h2 class="text-h2 text-text font-extrabold">Antes de empezar</h2>
+      </div>
+      <div class="bg-info/10 border-info/30 flex gap-3 rounded-md border p-4">
+        <CircleAlert class="text-info mt-0.5 size-5 shrink-0" aria-hidden="true" />
+        <p class="text-body-sm text-info">
+          Necesitás un <strong>mail que uses seguido</strong> — mejor si es Gmail. La Facultad se
+          comunica todo por correo, y a veces cae en Notificaciones, Promociones o directamente en
+          Spam: revisalo con frecuencia durante todo el proceso.
+        </p>
+      </div>
+      <div class="flex flex-col gap-3">
+        <p class="text-body-sm text-text-secondary">
+          También te conviene seguir a las cuentas oficiales de Instagram de tu carrera — ahí
+          avisan novedades y recordatorios:
+        </p>
+        <div class="flex flex-wrap gap-2">
+          {
+            instagramAccounts.map((account) => (
+              <a
+                href={account.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-body-sm text-text border-border bg-surface hover:border-primary-strong ease-standard rounded-full border px-3 py-1.5 font-semibold transition-colors duration-150"
+              >
+                {account.handle}
+              </a>
+            ))
+          }
+        </div>
+      </div>
+    </Container>
+  </Section>
+
+  <Section id="etapas" spacing="md" background="surface-alt">
+    <Container class="flex max-w-3xl flex-col gap-6">
+      <div class="flex flex-col gap-2">
+        <p class="text-overline text-text-secondary font-bold uppercase">El proceso</p>
+        <h2 class="text-h2 text-text font-extrabold">Son 2 etapas obligatorias</h2>
+      </div>
+
+      <div class="bg-error/10 border-error/30 flex gap-3 rounded-md border p-5">
+        <TriangleAlert class="text-error mt-0.5 size-6 shrink-0" aria-hidden="true" />
+        <div class="flex flex-col gap-1">
+          <p class="text-body text-error font-bold">
+            Si te salteás una de las dos etapas, no quedás inscripto/a en la Facultad.
+          </p>
+          <p class="text-body-sm text-error">
+            Y no hay forma de recuperar el año: tenés que esperar a la próxima convocatoria.
+          </p>
+        </div>
+      </div>
+
+      <ol class="flex flex-col">
+        <li class="grid grid-cols-[2.25rem_1fr] gap-4">
+          <div class="flex flex-col items-center">
+            <span
+              class="bg-primary-fill text-primary-fill-foreground flex size-9 shrink-0 items-center justify-center rounded-full text-body font-extrabold"
+            >
+              1
+            </span>
+            <span class="border-border-strong my-1 w-0.5 flex-1 border-l-2"></span>
+          </div>
+          <div class="pb-8">
+            <div class="border-border bg-surface rounded-md border p-5 shadow-sm">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-h4 text-text font-extrabold">
+                  Preinscripción online + elegís turno
+                </h3>
+                <Badge variant="primary">1 al 30 de octubre de 2026</Badge>
+              </div>
+              <p class="text-body-sm text-text-secondary mt-2">
+                Si entrás al sistema antes de esta fecha, no se tiene en cuenta.
+              </p>
+              <ol class="mt-4 flex flex-col gap-2.5">
+                {
+                  etapa1Pasos.map((paso, index) => (
+                    <li class="text-body-sm text-text flex gap-3">
+                      <span class="bg-surface-alt text-text-secondary mt-0.5 flex size-5 shrink-0 items-center justify-center rounded text-caption font-bold">
+                        {index + 1}
+                      </span>
+                      <span>
+                        {paso.texto}
+                        {paso.link && (
+                          <>
+                            {' '}
+                            (
+                            <a
+                              href={paso.link.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="text-secondary-strong underline underline-offset-2"
+                            >
+                              {paso.link.label}
+                            </a>
+                            )
+                          </>
+                        )}
+                      </span>
+                    </li>
+                  ))
+                }
+              </ol>
+              <div class="bg-success/10 border-success/30 mt-4 flex gap-3 rounded-md border p-4">
+                <CircleCheck class="text-success mt-0.5 size-5 shrink-0" aria-hidden="true" />
+                <p class="text-body-sm text-success">
+                  <strong>¿Ya fuiste estudiante de la UNR?</strong> Si el sistema te dice "Ya estás
+                  registrado en la Institución", es normal: ya tenés usuario de Guaraní 3. Usá la
+                  opción <em>Trámites → Preinscripción a Propuestas</em> dentro de tu autogestión.
+                </p>
+              </div>
+              <p class="text-caption text-text-secondary mt-4">
+                ¿Dudas con este paso? Oficina de Alumnado de Ingreso (PB, CUAS II) — lunes a
+                viernes de 8 a 12h, antes de que cierre la preinscripción.
+              </p>
+            </div>
+          </div>
+        </li>
+
+        <li class="grid grid-cols-[2.25rem_1fr] gap-4">
+          <div class="flex flex-col items-center">
+            <span
+              class="bg-primary-fill text-primary-fill-foreground flex size-9 shrink-0 items-center justify-center rounded-full text-body font-extrabold"
+            >
+              2
+            </span>
+          </div>
+          <div>
+            <div class="border-border bg-surface rounded-md border p-5 shadow-sm">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-h4 text-text font-extrabold">
+                  Entrega de documentación (presencial)
+                </h3>
+                <Badge variant="primary">Noviembre 2026 a febrero 2027</Badge>
+              </div>
+              <p class="text-body-sm text-text-secondary mt-2">
+                Vas el día de tu turno a la Oficina de Alumnado de Ingreso (Planta Baja, Bloque B
+                / CUAS II, Casco Histórico de la FCM) con toda tu documentación. El turno exacto
+                para tu carrera lo elegís al completar el SUR 1, en la Etapa 1.
+              </p>
+            </div>
+          </div>
+        </li>
+      </ol>
+    </Container>
+  </Section>
+
+  <Section id="documentacion" spacing="md">
+    <Container class="flex max-w-3xl flex-col gap-6">
+      <div class="flex flex-col gap-2">
+        <p class="text-overline text-text-secondary font-bold uppercase">Etapa 2, en detalle</p>
+        <h2 class="text-h2 text-text font-extrabold">La documentación que tenés que llevar</h2>
+        <p class="text-body text-text-secondary">
+          Cambia un poco según si terminaste el secundario en Argentina o en otro país. Tildá cada
+          ítem a medida que lo vas juntando.
+        </p>
+      </div>
+
+      <div
+        role="tablist"
+        aria-label="Documentación según tu origen"
+        class="bg-surface-alt flex w-fit gap-1 rounded-full p-1"
+      >
+        <button
+          type="button"
+          role="tab"
+          data-doc-tab="ar"
+          aria-selected="true"
+          class="text-body-sm rounded-full px-4 py-2 font-bold transition-colors duration-150"
+        >
+          Terminé el secundario en Argentina
+        </button>
+        <button
+          type="button"
+          role="tab"
+          data-doc-tab="ext"
+          aria-selected="false"
+          class="text-body-sm rounded-full px-4 py-2 font-bold transition-colors duration-150"
+        >
+          Lo terminé en otro país
+        </button>
+      </div>
+
+      <div data-doc-panel="ar" class="flex flex-col gap-2.5">
+        {docsArgentina.map((doc) => <DocChecklistItem {...doc} />)}
+      </div>
+
+      <div data-doc-panel="ext" hidden class="flex flex-col gap-3">
+        <p class="text-body-sm text-text-secondary">
+          Todo lo emitido fuera de Argentina necesita legalización consular argentina (o Apostilla
+          de La Haya, si tu país adhiere) y traducción oficial si no está en español.
+        </p>
+        <div class="flex flex-col gap-2.5">
+          {docsExtranjero.map((doc) => <DocChecklistItem {...doc} />)}
+        </div>
+      </div>
+    </Container>
+  </Section>
+
+  <Section id="legalizar" spacing="md" background="surface-alt">
+    <Container class="flex max-w-3xl flex-col gap-6">
+      <div class="flex flex-col gap-2">
+        <p class="text-overline text-text-secondary font-bold uppercase">Un paso que confunde</p>
+        <h2 class="text-h2 text-text font-extrabold">¿Cómo legalizo las fotocopias?</h2>
+        <p class="text-body text-text-secondary">
+          No se recibe documentación original (excepto el SUR 1). Todo lo demás va en fotocopia
+          legalizada — y tenés dos caminos para eso.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        <details
+          class="group border-border bg-surface rounded-md border"
+          open
+        >
+          <summary
+            class="ease-standard flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-bold transition-colors duration-150 [&::-webkit-details-marker]:hidden"
+          >
+            <span class="text-text">Opción A — Por tu cuenta</span>
+            <ChevronDown
+              class="text-primary-strong ease-standard size-5 shrink-0 transition-transform duration-200 group-open:rotate-180"
+              aria-hidden="true"
+            />
+          </summary>
+          <div class="text-body-sm text-text-secondary px-5 pb-5">
+            La legalizás con autoridades judiciales argentinas: Tribunales, un Juez de Paz, o un
+            escribano público.
+          </div>
+        </details>
+
+        <details class="group border-border bg-surface rounded-md border">
+          <summary
+            class="ease-standard flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-bold transition-colors duration-150 [&::-webkit-details-marker]:hidden"
+          >
+            <span class="text-text">Opción B — En la misma Facultad</span>
+            <ChevronDown
+              class="text-primary-strong ease-standard size-5 shrink-0 transition-transform duration-200 group-open:rotate-180"
+              aria-hidden="true"
+            />
+          </summary>
+          <div class="text-body-sm text-text-secondary flex flex-col gap-3 px-5 pb-5">
+            <p>
+              En la Secretaría Administrativa (oficina A219, 1er piso del Edificio Central de la
+              FCM). Hay que ir <strong>antes</strong> de tu turno de entrega:
+            </p>
+            <ol class="flex list-decimal flex-col gap-2 pl-5">
+              <li>
+                Lunes y martes, de 9 a 12h: llevás el original + la fotocopia (ordenados) a la
+                ventanilla de A219.
+              </li>
+              <li>Te controlan la documentación y te devuelven los originales en el momento.</li>
+              <li>
+                Pagás las hojas a legalizar en la Asociación Cooperadora (A118).
+              </li>
+              <li>
+                Jueves y viernes, de 9 a 12h: retirás las fotocopias ya legalizadas presentando el
+                comprobante de la Cooperadora.
+              </li>
+            </ol>
+            <p class="text-caption">
+              Lo único que no hace falta legalizar: documentos que ya tienen firma digital o
+              código QR.
+            </p>
+          </div>
+        </details>
+      </div>
+    </Container>
+  </Section>
+
+  <Section id="carreras" spacing="md">
+    <Container class="flex flex-col gap-6">
+      <div class="flex max-w-3xl flex-col gap-2">
+        <p class="text-overline text-text-secondary font-bold uppercase">
+          Además del proceso general
+        </p>
+        <h2 class="text-h2 text-text font-extrabold">¿Tu carrera pide algo extra?</h2>
+      </div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {
+          carreraNotas.map((nota) => (
+            <Card>
+              <Fragment slot="badge">
+                <Badge variant={nota.extra ? 'info' : 'success'}>
+                  {nota.extra ? 'Paso extra' : 'Sin pasos extra'}
+                </Badge>
+              </Fragment>
+              <Fragment slot="title">
+                <h3 class="text-h4 text-text font-extrabold">
+                  <a href={nota.href} class="hover:underline">
+                    {nota.carrera}
+                  </a>
+                  {nota.subtitulo && (
+                    <span class="text-body-sm text-text-secondary block font-semibold">
+                      {nota.subtitulo}
+                    </span>
+                  )}
+                </h3>
+              </Fragment>
+              <p>
+                {nota.texto}
+                {nota.email && (
+                  <>
+                    {' '}
+                    <a
+                      href={`mailto:${nota.email}`}
+                      class="text-secondary-strong underline underline-offset-2"
+                    >
+                      {nota.email}
+                    </a>
+                    .
+                  </>
+                )}
+              </p>
+              {nota.plazo && (
+                <Fragment slot="actions">
+                  <Badge variant="warning">{nota.plazo}</Badge>
+                </Fragment>
+              )}
+            </Card>
+          ))
+        }
+      </div>
+    </Container>
+  </Section>
+
+  <Section id="faq" spacing="md" background="surface-alt">
+    <Container class="flex max-w-3xl flex-col gap-6">
+      <div class="flex flex-col gap-2">
+        <p class="text-overline text-text-secondary font-bold uppercase">Lo que más preguntan</p>
+        <h2 class="text-h2 text-text font-extrabold">Preguntas frecuentes</h2>
+      </div>
+      <div class="flex flex-col gap-3">
+        {
+          faqItems.map((item) => (
+            <details class="group border-border bg-surface rounded-md border">
+              <summary class="ease-standard flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-bold transition-colors duration-150 [&::-webkit-details-marker]:hidden">
+                <span class="text-text">{item.pregunta}</span>
+                <ChevronDown
+                  class="text-primary-strong ease-standard size-5 shrink-0 transition-transform duration-200 group-open:rotate-180"
+                  aria-hidden="true"
+                />
+              </summary>
+              <div class="text-body-sm text-text-secondary px-5 pb-5">
+                {item.respuesta}
+                {item.link && (
+                  <>
+                    {' '}
+                    <a
+                      href={item.link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="text-secondary-strong underline underline-offset-2"
+                    >
+                      {item.link.label}
+                    </a>
+                    .
+                  </>
+                )}
+              </div>
+            </details>
+          ))
+        }
+      </div>
+    </Container>
+  </Section>
+
+  <Section spacing="lg">
+    <Container>
+      <div
+        class="border-border bg-surface mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-lg border p-10 text-center"
+      >
+        <h3 class="text-h3 text-text font-extrabold">¿Te perdiste en algún paso?</h3>
+        <p class="text-body text-text-secondary max-w-md">
+          Desde ATP te ayudamos con cualquier duda del proceso — escribinos y te respondemos
+          apenas podamos.
+        </p>
+        <div class="flex flex-wrap justify-center gap-3">
+          <Button href={WHATSAPP_URL} target="_blank" size="lg">Escribir por WhatsApp</Button>
+          <Button href="https://www.instagram.com/atp.fcm/" target="_blank" variant="outline" size="lg">
+            Seguir a ATP en Instagram
+          </Button>
+        </div>
+      </div>
+      <p class="text-caption text-text-secondary mx-auto mt-8 max-w-2xl text-center">
+        Guía elaborada por ATP en base a la información oficial de{' '}
+        <a
+          href="https://fcm.unr.edu.ar/ingresantes/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="underline underline-offset-2"
+        >
+          fcm.unr.edu.ar/ingresantes
+        </a>
+        , verificada el 18/09/2026. Ante cualquier duda o cambio de fecha, la fuente oficial es
+        siempre la Facultad.
+      </p>
+    </Container>
+  </Section>
+</BaseLayout>
+
+{/*
+  Botón flotante de WhatsApp — a pedido explícito, SOLO en esta página (no
+  sitewide, no en BaseLayout): esta es la página con más dudas puntuales y
+  urgentes de todo el sitio durante la ventana de inscripción, a diferencia
+  del resto donde un botón flotante permanente sería puro ruido visual.
+  Mismo número real que KeychainSaleSection.astro/AgendaSaleSection.astro.
+*/}
+<a
+  href={WHATSAPP_URL}
+  target="_blank"
+  rel="noopener noreferrer"
+  aria-label="Escribir a ATP por WhatsApp"
+  class="ease-standard fixed right-4 bottom-4 z-40 flex size-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform duration-150 hover:scale-105 sm:right-6 sm:bottom-6"
+>
+  <svg viewBox="0 0 24 24" fill="currentColor" class="size-7" aria-hidden="true">
+    <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2Zm5.8 14.02c-.24.68-1.4 1.32-1.93 1.4-.5.08-1.12.11-1.81-.11-.42-.13-.95-.31-1.64-.6-2.88-1.24-4.76-4.13-4.9-4.32-.14-.19-1.17-1.56-1.17-2.98 0-1.42.74-2.11 1-2.4.26-.29.57-.36.76-.36.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.58.81 2 .88 2.15.07.15.12.32.02.51-.1.19-.15.31-.29.48-.15.17-.31.38-.44.51-.15.15-.3.31-.13.6.17.29.76 1.25 1.63 2.02 1.12 1 2.06 1.31 2.35 1.46.29.15.46.13.63-.05.17-.19.72-.84.92-1.13.19-.29.38-.24.64-.15.26.1 1.65.78 1.94.92.29.15.48.22.55.34.07.13.07.72-.17 1.4Z"
+    ></path>
+  </svg>
+</a>
+
+<script>
+  // Tabs de "Documentación" (Argentina / Extranjero) — mismo patrón vanilla
+  // que los submenús de Navbar.astro: sin librería, toggle de `hidden` +
+  // `aria-selected`.
+  const tabButtons = document.querySelectorAll<HTMLButtonElement>('[data-doc-tab]');
+  const panels = document.querySelectorAll<HTMLElement>('[data-doc-panel]');
+
+  function selectTab(target: string) {
+    tabButtons.forEach((btn) => {
+      const isActive = btn.dataset.docTab === target;
+      btn.setAttribute('aria-selected', String(isActive));
+      btn.classList.toggle('bg-primary-fill', isActive);
+      btn.classList.toggle('text-primary-fill-foreground', isActive);
+      btn.classList.toggle('text-text-secondary', !isActive);
+    });
+    panels.forEach((panel) => {
+      panel.hidden = panel.dataset.docPanel !== target;
+    });
+  }
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => selectTab(btn.dataset.docTab ?? 'ar'));
+  });
+  selectTab('ar');
+
+  // Checklist de documentación: pura conveniencia de quien visita (no hay
+  // backend, no hace falta) — recuerda en este mismo navegador qué ítems ya
+  // tildó, por tab, para que si vuelve más tarde no arranque de cero.
+  const STORAGE_KEY = 'atp-ingresantes-checklist';
+
+  function readChecked(): Record<string, boolean> {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+    } catch {
+      return {};
+    }
+  }
+
+  function writeChecked(state: Record<string, boolean>) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // localStorage puede fallar (modo privado, storage lleno, etc.) — la
+      // página sigue funcionando igual, solo no recuerda entre visitas.
+    }
+  }
+
+  const checked = readChecked();
+  const checkboxes = document.querySelectorAll<HTMLInputElement>('[data-doc-check]');
+
+  function applyRowState(checkbox: HTMLInputElement) {
+    const row = checkbox.closest('[data-doc-row]');
+    row?.classList.toggle('opacity-60', checkbox.checked);
+    const title = row?.querySelector<HTMLElement>('[data-doc-title]');
+    title?.classList.toggle('line-through', checkbox.checked);
+  }
+
+  checkboxes.forEach((checkbox) => {
+    const id = checkbox.dataset.docCheck;
+    if (id && checked[id]) checkbox.checked = true;
+    applyRowState(checkbox);
+
+    checkbox.addEventListener('change', () => {
+      if (id) checked[id] = checkbox.checked;
+      writeChecked(checked);
+      applyRowState(checkbox);
+    });
+  });
+</script>

@@ -19,6 +19,12 @@ import react from '@astrojs/react';
 // más a quien visita y a Google.
 export default defineConfig({
   site: 'https://atpfcm.com.ar',
+  // "Ingresantes" vivía como una entrada más de la colección `tools` (ver
+  // src/pages/ingresantes.astro) — ahora es una página propia. Redirect para
+  // que un link viejo compartido/indexado no termine en un 404.
+  redirects: {
+    '/herramientas/ingresar-a-la-fcm/': '/ingresantes/',
+  },
   integrations: [
     // /staff/ ya está fuera de robots.txt (herramientas internas, no
     // contenido del sitio) — sin este filtro, sitemap.xml (un archivo
