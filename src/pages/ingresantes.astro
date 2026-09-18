@@ -44,6 +44,11 @@ const WHATSAPP_URL =
   'https://wa.me/5493406404841?text=' +
   encodeURIComponent('Hola ATP! Tengo una duda sobre la inscripción 2027 a la FCM.');
 
+// Grupo de WhatsApp de ingresantes (distinto del wa.me de arriba, que es un
+// chat 1 a 1 con ATP) — pedido explícito del dueño del proyecto: una barra
+// bien arriba de todo, en el verde de WhatsApp, para sumarse al grupo.
+const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/EDhT87aiXVQFUXu8TxpbKb';
+
 const instagramAccounts = [
   { handle: '@csmed.unr', href: 'https://www.instagram.com/csmed.unr/' },
   { handle: '@enfermeria.csmed.unr', href: 'https://www.instagram.com/enfermeria.csmed.unr/' },
@@ -225,6 +230,19 @@ const faqItems = [
   description="Guía de ATP con toda la información oficial para inscribirte a Medicina, Enfermería, Fonoaudiología o Terapia Ocupacional en la Facultad de Ciencias Médicas (UNR): pasos, fechas y documentación necesaria."
   canonicalPath="/ingresantes"
 >
+  <a
+    href={WHATSAPP_GROUP_URL}
+    target="_blank"
+    rel="noopener noreferrer"
+    class="ease-standard flex items-center justify-center gap-2 bg-[#25D366] px-4 py-3 text-center text-body-sm font-bold text-white transition-colors duration-150 hover:brightness-95"
+  >
+    <svg viewBox="0 0 24 24" fill="currentColor" class="size-5 shrink-0" aria-hidden="true">
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2Zm5.8 14.02c-.24.68-1.4 1.32-1.93 1.4-.5.08-1.12.11-1.81-.11-.42-.13-.95-.31-1.64-.6-2.88-1.24-4.76-4.13-4.9-4.32-.14-.19-1.17-1.56-1.17-2.98 0-1.42.74-2.11 1-2.4.26-.29.57-.36.76-.36.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.58.81 2 .88 2.15.07.15.12.32.02.51-.1.19-.15.31-.29.48-.15.17-.31.38-.44.51-.15.15-.3.31-.13.6.17.29.76 1.25 1.63 2.02 1.12 1 2.06 1.31 2.35 1.46.29.15.46.13.63-.05.17-.19.72-.84.92-1.13.19-.29.38-.24.64-.15.26.1 1.65.78 1.94.92.29.15.48.22.55.34.07.13.07.72-.17 1.4Z"
+      ></path>
+    </svg>
+    Grupo Ingresantes 2027
+  </a>
+
   <Section spacing="lg" reveal={false} background="surface-alt">
     <Container class="flex flex-col gap-6">
       <span
@@ -242,9 +260,6 @@ const faqItems = [
       <div class="flex flex-wrap gap-3">
         <Button href="https://fcm.unr.edu.ar/ingresantes/" target="_blank" size="lg">
           Entrá a la página de la facu
-        </Button>
-        <Button href={WHATSAPP_URL} target="_blank" variant="outline" size="lg">
-          ¿Tenés dudas? Escribinos
         </Button>
       </div>
       <p class="text-caption text-text-secondary flex items-center gap-2">
