@@ -89,13 +89,13 @@ const docsArgentina: DocItem[] = [
     id: 'ar-sur1',
     titulo: 'Formulario SUR 1',
     detalle:
-      'Firmado, con tu foto 3×3 pegada. Usá la versión más actualizada que hayas descargado — una vez impreso, no lo modifiques más en el sistema.',
+      'Firmado, con tu foto 3×3 pegada. Usá la versión más actualizada que hayas descargado, una vez impreso no lo modifiques más en el sistema.',
   },
   { id: 'ar-dni', titulo: 'DNI', detalle: 'Fotocopia de frente y dorso, que se lea bien.' },
   {
     id: 'ar-foto',
     titulo: 'Foto carnet 3×3 cm',
-    detalle: 'Fondo blanco, de frente — la misma que pegaste en el SUR 1.',
+    detalle: 'Fondo blanco, de frente, la misma que pegaste en el SUR 1.',
   },
   {
     id: 'ar-partida',
@@ -105,8 +105,8 @@ const docsArgentina: DocItem[] = [
   {
     id: 'ar-secundario',
     titulo: 'Certificado de finalización del secundario',
-    detalle: 'Tiene que decir que ya terminaste — una constancia de alumno/a regular no alcanza.',
-    plazo: 'Si debés materias: hasta el 30/04/2027',
+    detalle: 'Tiene que decir que ya terminaste, una constancia de alumno/a regular no alcanza.',
+    plazo: 'Si todavía no lo tenés o debés materias, lo entregás después, hasta el 30/04/2027',
   },
   {
     id: 'ar-analitico',
@@ -138,7 +138,7 @@ const docsExtranjero: DocItem[] = [
     id: 'ext-secundario',
     titulo: 'Certificado de estudios secundarios',
     detalle:
-      'Traducido y apostillado — es la misma documentación que pide el trámite de convalidación.',
+      'Traducido y apostillado, es la misma documentación que pide el trámite de convalidación.',
     links: [
       {
         label: 'Países con convenio',
@@ -186,13 +186,13 @@ const carreraNotas = [
   {
     carrera: 'Medicina',
     extra: false,
-    texto: 'Solo el proceso general de las 2 etapas — no hay ningún requisito adicional.',
+    texto: 'Solo el proceso general de las 2 etapas, no hay ningún requisito adicional.',
     href: '/carreras/medicina/',
   },
   {
     carrera: 'Terapia Ocupacional',
     extra: false,
-    texto: 'Solo el proceso general de las 2 etapas — no hay ningún requisito adicional.',
+    texto: 'Solo el proceso general de las 2 etapas, no hay ningún requisito adicional.',
     href: '/carreras/terapia-ocupacional/',
   },
 ];
@@ -200,12 +200,12 @@ const carreraNotas = [
 const faqItems = [
   {
     pregunta: '¿Cuánto cuesta inscribirse?',
-    respuesta: 'Nada. No se paga ningún arancel y no hay examen de ingreso para ninguna de las 4 carreras.',
+    respuesta: 'Es gratis y de ingreso irrestricto, sin examen de ingreso.',
   },
   {
     pregunta: 'Mi escuela secundaria no aparece en la lista del sistema',
     respuesta:
-      'Pasa sobre todo con escuelas de otras provincias o del extranjero. Elegís cualquier opción disponible por ahora, y lo aclarás al momento de entregar la documentación — ahí te lo corrigen.',
+      'Pasa sobre todo con escuelas de otras provincias o del extranjero. Elegís cualquier opción disponible por ahora, y lo aclarás al momento de entregar la documentación, ahí te lo corrigen.',
   },
   {
     pregunta: '¿Cómo sé si la Facultad me escribió?',
@@ -217,17 +217,12 @@ const faqItems = [
     respuesta: 'Entrá cada tanto a tu autogestión para confirmar que se cargó todo correctamente.',
     link: { label: 'autogestion-guarani.unr.edu.ar', href: 'https://autogestion-guarani.unr.edu.ar/' },
   },
-  {
-    pregunta: '¿Qué pasa si presento documentación adulterada?',
-    respuesta:
-      'Según la Ordenanza N.º 490 de la UNR, perdés todos los derechos que hayas adquirido como ingresante hasta ese momento. No vale la pena arriesgarse.',
-  },
 ];
 ---
 
 <BaseLayout
   title="Ingreso 2027 a la FCM"
-  description="Guía de ATP con toda la información oficial para inscribirte a Medicina, Enfermería, Fonoaudiología o Terapia Ocupacional en la Facultad de Ciencias Médicas (UNR) — pasos, fechas y documentación necesaria."
+  description="Guía de ATP con toda la información oficial para inscribirte a Medicina, Enfermería, Fonoaudiología o Terapia Ocupacional en la Facultad de Ciencias Médicas (UNR): pasos, fechas y documentación necesaria."
   canonicalPath="/ingresantes"
 >
   <Section spacing="lg" reveal={false} background="surface-alt">
@@ -238,16 +233,15 @@ const faqItems = [
         Guía ATP · Ingreso 2027
       </span>
       <h1 data-enter class="text-h1 text-text max-w-3xl font-extrabold text-balance">
-        Todo lo que necesitás para anotarte en la FCM
+        ¿Cómo ingresar a la FCM?
       </h1>
       <p class="text-body-lg text-text-secondary max-w-2xl">
         Medicina, Enfermería, Fonoaudiología y Terapia Ocupacional. La inscripción es pública,
-        gratuita y no tiene examen de ingreso — pero hay un proceso con pasos y fechas que hay que
-        respetar sí o sí. Acá te lo ordenamos para que no se te pase nada.
+        gratuita y no tiene examen de ingreso.
       </p>
       <div class="flex flex-wrap gap-3">
-        <Button href="https://preinscripcion-guarani.unr.edu.ar" target="_blank" size="lg">
-          Empezar la preinscripción
+        <Button href="https://fcm.unr.edu.ar/ingresantes/" target="_blank" size="lg">
+          Entrá a la página de la facu
         </Button>
         <Button href={WHATSAPP_URL} target="_blank" variant="outline" size="lg">
           ¿Tenés dudas? Escribinos
@@ -255,7 +249,7 @@ const faqItems = [
       </div>
       <p class="text-caption text-text-secondary flex items-center gap-2">
         <span class="bg-success inline-block size-1.5 rounded-full" aria-hidden="true"></span>
-        Info oficial de fcm.unr.edu.ar/ingresantes — verificada por ATP el 18/09/2026
+        Info oficial de fcm.unr.edu.ar/ingresantes
       </p>
     </Container>
   </Section>
@@ -287,14 +281,12 @@ const faqItems = [
       <div class="bg-info/10 border-info/30 flex gap-3 rounded-md border p-4">
         <CircleAlert class="text-info mt-0.5 size-5 shrink-0" aria-hidden="true" />
         <p class="text-body-sm text-info">
-          Necesitás un <strong>mail que uses seguido</strong> — mejor si es Gmail. La Facultad se
-          comunica todo por correo, y a veces cae en Notificaciones, Promociones o directamente en
-          Spam: revisalo con frecuencia durante todo el proceso.
+          Necesitás un <strong>mail que uses seguido</strong>, mejor si es Gmail.
         </p>
       </div>
       <div class="flex flex-col gap-3">
         <p class="text-body-sm text-text-secondary">
-          También te conviene seguir a las cuentas oficiales de Instagram de tu carrera — ahí
+          También te conviene seguir a las cuentas oficiales de Instagram de tu carrera, ahí
           avisan novedades y recordatorios:
         </p>
         <div class="flex flex-wrap gap-2">
@@ -318,7 +310,6 @@ const faqItems = [
   <Section id="etapas" spacing="md" background="surface-alt">
     <Container class="flex max-w-3xl flex-col gap-6">
       <div class="flex flex-col gap-2">
-        <p class="text-overline text-text-secondary font-bold uppercase">El proceso</p>
         <h2 class="text-h2 text-text font-extrabold">Son 2 etapas obligatorias</h2>
       </div>
 
@@ -327,9 +318,6 @@ const faqItems = [
         <div class="flex flex-col gap-1">
           <p class="text-body text-error font-bold">
             Si te salteás una de las dos etapas, no quedás inscripto/a en la Facultad.
-          </p>
-          <p class="text-body-sm text-error">
-            Y no hay forma de recuperar el año: tenés que esperar a la próxima convocatoria.
           </p>
         </div>
       </div>
@@ -352,9 +340,6 @@ const faqItems = [
                 </h3>
                 <Badge variant="primary">1 al 30 de octubre de 2026</Badge>
               </div>
-              <p class="text-body-sm text-text-secondary mt-2">
-                Si entrás al sistema antes de esta fecha, no se tiene en cuenta.
-              </p>
               <ol class="mt-4 flex flex-col gap-2.5">
                 {
                   etapa1Pasos.map((paso, index) => (
@@ -392,10 +377,6 @@ const faqItems = [
                   opción <em>Trámites → Preinscripción a Propuestas</em> dentro de tu autogestión.
                 </p>
               </div>
-              <p class="text-caption text-text-secondary mt-4">
-                ¿Dudas con este paso? Oficina de Alumnado de Ingreso (PB, CUAS II) — lunes a
-                viernes de 8 a 12h, antes de que cierre la preinscripción.
-              </p>
             </div>
           </div>
         </li>
@@ -417,9 +398,9 @@ const faqItems = [
                 <Badge variant="primary">Noviembre 2026 a febrero 2027</Badge>
               </div>
               <p class="text-body-sm text-text-secondary mt-2">
-                Vas el día de tu turno a la Oficina de Alumnado de Ingreso (Planta Baja, Bloque B
-                / CUAS II, Casco Histórico de la FCM) con toda tu documentación. El turno exacto
-                para tu carrera lo elegís al completar el SUR 1, en la Etapa 1.
+                Vas el día de tu turno a la Oficina de Ingreso (Planta Baja, Bloque B / CUAS II)
+                con toda tu documentación. El turno exacto para tu carrera lo elegís al completar
+                el SUR 1, en la Etapa 1.
               </p>
             </div>
           </div>
@@ -431,7 +412,7 @@ const faqItems = [
   <Section id="documentacion" spacing="md">
     <Container class="flex max-w-3xl flex-col gap-6">
       <div class="flex flex-col gap-2">
-        <p class="text-overline text-text-secondary font-bold uppercase">Etapa 2, en detalle</p>
+        <p class="text-overline text-text-secondary font-bold uppercase">Etapa 2</p>
         <h2 class="text-h2 text-text font-extrabold">La documentación que tenés que llevar</h2>
         <p class="text-body text-text-secondary">
           Cambia un poco según si terminaste el secundario en Argentina o en otro país. Tildá cada
@@ -487,7 +468,7 @@ const faqItems = [
         <h2 class="text-h2 text-text font-extrabold">¿Cómo legalizo las fotocopias?</h2>
         <p class="text-body text-text-secondary">
           No se recibe documentación original (excepto el SUR 1). Todo lo demás va en fotocopia
-          legalizada — y tenés dos caminos para eso.
+          legalizada, y tenés dos caminos para eso.
         </p>
       </div>
 
@@ -499,7 +480,7 @@ const faqItems = [
           <summary
             class="ease-standard flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-bold transition-colors duration-150 [&::-webkit-details-marker]:hidden"
           >
-            <span class="text-text">Opción A — Por tu cuenta</span>
+            <span class="text-text">Opción A: por tu cuenta</span>
             <ChevronDown
               class="text-primary-strong ease-standard size-5 shrink-0 transition-transform duration-200 group-open:rotate-180"
               aria-hidden="true"
@@ -515,7 +496,7 @@ const faqItems = [
           <summary
             class="ease-standard flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-bold transition-colors duration-150 [&::-webkit-details-marker]:hidden"
           >
-            <span class="text-text">Opción B — En la misma Facultad</span>
+            <span class="text-text">Opción B: en la misma Facultad</span>
             <ChevronDown
               class="text-primary-strong ease-standard size-5 shrink-0 transition-transform duration-200 group-open:rotate-180"
               aria-hidden="true"
@@ -654,8 +635,8 @@ const faqItems = [
       >
         <h3 class="text-h3 text-text font-extrabold">¿Te perdiste en algún paso?</h3>
         <p class="text-body text-text-secondary max-w-md">
-          Desde ATP te ayudamos con cualquier duda del proceso — escribinos y te respondemos
-          apenas podamos.
+          Desde ATP te ayudamos con cualquier duda del proceso, escribinos y te respondemos apenas
+          podamos.
         </p>
         <div class="flex flex-wrap justify-center gap-3">
           <Button href={WHATSAPP_URL} target="_blank" size="lg">Escribir por WhatsApp</Button>
@@ -664,19 +645,6 @@ const faqItems = [
           </Button>
         </div>
       </div>
-      <p class="text-caption text-text-secondary mx-auto mt-8 max-w-2xl text-center">
-        Guía elaborada por ATP en base a la información oficial de{' '}
-        <a
-          href="https://fcm.unr.edu.ar/ingresantes/"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="underline underline-offset-2"
-        >
-          fcm.unr.edu.ar/ingresantes
-        </a>
-        , verificada el 18/09/2026. Ante cualquier duda o cambio de fecha, la fuente oficial es
-        siempre la Facultad.
-      </p>
     </Container>
   </Section>
 </BaseLayout>
