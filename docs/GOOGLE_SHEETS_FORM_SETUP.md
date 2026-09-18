@@ -207,10 +207,17 @@ actividad solo.
    var AGENDA_SHEET_NAME = 'Reserva Agenda 2C 2026';
 
    // Venta puntual de llaveros ATP (2026-09-08) — ver
-   // src/components/KeychainSaleSection.astro. Mismo motivo que la
-   // Agenda arriba: sus mails también son transaccionales (instrucciones
-   // de pago, sin "Dado de baja"), así que esta hoja también queda
-   // permanentemente excluida de recibir campañas.
+   // src/components/KeychainSaleSection.astro. Al principio quedaba
+   // excluida de campañas por el mismo motivo que la Agenda (sin "Dado de
+   // baja"). El 2026-09-15 el dueño del proyecto pidió explícitamente
+   // poder mandarle campañas igual, sabiendo que no hay forma de darse de
+   // baja — ver decisión completa en docs/SECURITY_DECISIONS.md. Por eso
+   // esta hoja SÍ es elegible (ver getEligibleActivitySheet más abajo),
+   // pero sus campañas nunca llevan el link de "darme de baja" (ver
+   // handleAdminPreviewCampaign/handleAdminSendCampaign): esta hoja no
+   // tiene columna "Dado de baja", y la columna F donde
+   // handleUnsubscribe la buscaría es "Vértebra" acá — sin este cuidado,
+   // alguien que clickeara ese link corrompería datos reales del pedido.
    var KEYCHAIN_SHEET_NAME = 'Reserva Llaveros';
 
    // Charlas/capacitaciones con certificado + QR de acceso (ver
@@ -611,15 +618,18 @@ actividad solo.
    // Único punto que decide qué hoja puede ver o usar el panel admin —
    // ninguna acción de abajo debería llamar a getSheetByName directo con
    // un nombre que vino del cliente sin pasar por acá primero. Excluye
-   // "Errores" (no es una actividad) y cualquier venta puntual
-   // (AGENDA_SHEET_NAME/KEYCHAIN_SHEET_NAME: sus mails son
-   // puntuales/transaccionales, sin link de darse de baja — nunca deben
-   // poder recibir una campaña ni listarse acá, ver
-   // SECURITY_DECISIONS.md). Cualquier otra hoja sin columna "Email"
-   // tampoco es una hoja de inscripciones (ej. la de log de campañas,
-   // CAMPAIGNS_LOG_SHEET_NAME, queda afuera sola por este mismo motivo).
+   // "Errores" (no es una actividad) y AGENDA_SHEET_NAME (venta puntual ya
+   // cerrada, permanece excluida — ver SECURITY_DECISIONS.md 2026-09-05).
+   // KEYCHAIN_SHEET_NAME SÍ es elegible desde el 2026-09-15 (pedido
+   // explícito del dueño del proyecto, ver SECURITY_DECISIONS.md): sus
+   // campañas simplemente nunca llevan link de "darme de baja" (esa hoja
+   // no tiene esa columna — ver handleAdminPreviewCampaign/
+   // handleAdminSendCampaign, que arman el link solo si existe). Cualquier
+   // otra hoja sin columna "Email" tampoco es una hoja de inscripciones
+   // (ej. la de log de campañas, CAMPAIGNS_LOG_SHEET_NAME, queda afuera
+   // sola por este mismo motivo).
    function getEligibleActivitySheet(sheetName) {
-     if (!sheetName || sheetName === AGENDA_SHEET_NAME || sheetName === KEYCHAIN_SHEET_NAME) {
+     if (!sheetName || sheetName === AGENDA_SHEET_NAME) {
        return null;
      }
      var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
@@ -788,7 +798,10 @@ actividad solo.
      var sessionsHtml = getCampaignSessionsHtml(campaign, sheet);
      var subject = applyTemplateTags(campaign.subject, sampleTags);
      var bodyHtml = buildCampaignBodyHtml(campaign, sampleTags, sessionsHtml);
-     var unsubscribeUrl = buildUnsubscribeUrl(campaign.sheetName, sampleTags.email);
+     // Solo si la hoja tiene la columna: nunca armar (ni mostrar en la
+     // vista previa) un link de baja que no se puede honrar de verdad —
+     // ver el comentario sobre KEYCHAIN_SHEET_NAME más arriba.
+     var unsubscribeUrl = unsubCol !== -1 ? buildUnsubscribeUrl(campaign.sheetName, sampleTags.email) : null;
 
      return jsonpResponse({
        result: 'success',
@@ -856,7 +869,9 @@ actividad solo.
        try {
          var subject = applyTemplateTags(campaign.subject, tags);
          var bodyHtml = buildCampaignBodyHtml(campaign, tags, sessionsHtml);
-         var unsubscribeUrl = buildUnsubscribeUrl(campaign.sheetName, tags.email);
+         // Mismo cuidado que en la vista previa: sin columna "Dado de
+         // baja" no se arma el link (ver comentario en KEYCHAIN_SHEET_NAME).
+         var unsubscribeUrl = unsubCol !== -1 ? buildUnsubscribeUrl(campaign.sheetName, tags.email) : null;
          GmailApp.sendEmail(tags.email, subject, '', {
            htmlBody: wrapEmailHtml(bodyHtml, unsubscribeUrl),
            name: SENDER_NAME,
@@ -972,15 +987,18 @@ actividad solo.
 
    // Junta las columnas que puede tener una fila (según el tipo de hoja —
    // inscripción simple: "Nombre y apellido"; charla: "Nombres" +
-   // "Apellidos" separados, ver getOrCreateSheet/getOrCreateCharlaSheet)
-   // en un mismo formato {nombre, apellido, email}, para no repetir esta
-   // lógica en cada handler de arriba.
+   // "Apellidos" separados (ver getOrCreateSheet/getOrCreateCharlaSheet);
+   // llaveros: "Nombre" + "Apellido" en singular (ver
+   // getOrCreateKeychainSheet)) en un mismo formato {nombre, apellido,
+   // email}, para no repetir esta lógica en cada handler de arriba.
    function buildTemplateTags(headers, row) {
      var tags = {};
      var simpleNameCol = headers.indexOf('Nombre y apellido');
      if (simpleNameCol !== -1) tags.nombre = row[simpleNameCol];
      var firstCol = headers.indexOf('Nombres');
+     if (firstCol === -1) firstCol = headers.indexOf('Nombre');
      var lastCol = headers.indexOf('Apellidos');
+     if (lastCol === -1) lastCol = headers.indexOf('Apellido');
      if (firstCol !== -1) tags.nombre = row[firstCol];
      if (lastCol !== -1) tags.apellido = row[lastCol];
      var emailCol = headers.indexOf('Email');

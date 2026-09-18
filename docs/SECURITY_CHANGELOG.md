@@ -10,6 +10,23 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ---
 
+## 2026-09-15
+
+- **feat:** el panel admin ya puede mandar campañas de mail a quienes
+  reservaron llaveros (`KEYCHAIN_SHEET_NAME`) — antes excluida junto con
+  la Agenda. Pedido explícito e informado del dueño del proyecto: manda
+  igual aunque esa hoja no tenga forma de darse de baja. De paso se
+  corrigió un bug real encontrado al implementarlo: el link de "darme de
+  baja" se armaba siempre, sin importar si la hoja tenía esa columna, y
+  al clickearlo escribía en una columna fija (F) que en la hoja de
+  llaveros es "Vértebra" — habría corrompido datos del pedido. Ahora el
+  link solo se arma si la hoja tiene la columna. También se corrigió
+  `buildTemplateTags` para reconocer `Nombre`/`Apellido` (singular), los
+  headers reales de esa hoja. Ver decisión completa en
+  `SECURITY_DECISIONS.md`.
+
+---
+
 ## 2026-09-14
 
 - **feat:** el campo "Archivo del libro" de la Biblioteca (CMS) pasa de

@@ -1084,3 +1084,81 @@ lectura" separada de la admin real sin que haya un pedido concreto de
 volver a distinguir identidades por persona — la lección de esta sesión
 es que, para el tamaño actual de ATP, la complejidad de eso no se paga
 sola.
+
+---
+
+### 2026-09-15 — Campañas de mail a compradores de llaveros (reversión parcial del 2026-09-05)
+
+**Contexto:** el dueño del proyecto pidió poder mandar una campaña de mail
+desde el panel admin a las personas que reservaron llaveros
+(`KEYCHAIN_SHEET_NAME`), algo que la entrada del 2026-09-05 había dejado
+"permanentemente" excluido junto con la Agenda, por el mismo motivo en
+los dos casos: son hojas de una venta puntual, con mails transaccionales,
+sin columna "Dado de baja" — nadie ahí aceptó nunca recibir una lista de
+mails.
+
+Se le explicó el trade-off exacto antes de tocar nada: sin columna "Dado
+de baja", no hay forma de que alguien se dé de baja de esta lista en
+particular. La respuesta fue explícita: **"prefiero mandarles igual y
+listo"** — mandar la campaña de todos modos, sin agregar ningún mecanismo
+de baja para esta hoja. Es una decisión de producto del dueño, tomada con
+el trade-off ya sobre la mesa, no una interpretación de Claude.
+
+**Problema técnico encontrado al revisar cómo implementarlo (no pedido
+por el dueño, encontrado auditando el camino real):** el link de "darme
+de baja" (`buildUnsubscribeUrl`/`handleUnsubscribe`) no depende de que la
+hoja tenga o no la columna "Dado de baja" — se arma siempre, y al
+clickearlo, `handleUnsubscribe` escribe `true` en la columna **F fija**
+(`sheet.getRange(i + 1, 6)`), asumiendo la convención de las hojas de
+actividades (`Fecha, Nombre y apellido, Email, Teléfono, Quiere
+recordatorio, Dado de baja, ...`). En la hoja de llaveros, la columna F
+es **"Vértebra"** (cantidad de un diseño del pedido), no "Dado de baja".
+Sin corregir esto, el primer click en "darme de baja" de un comprador de
+llaveros habría sobreescrito silenciosamente el dato real de su pedido
+con `true` — corrompiendo datos de venta, no solo "faltando" una función
+de baja.
+
+**Decisión:**
+1. `getEligibleActivitySheet` deja de excluir `KEYCHAIN_SHEET_NAME`
+   (`AGENDA_SHEET_NAME` sigue excluida — el dueño solo pidió esto para
+   llaveros, no para la Agenda). Esta es la única hoja que ahora puede
+   recibir campañas sin tener columna "Dado de baja".
+2. `handleAdminPreviewCampaign`/`handleAdminSendCampaign` arman el link
+   de "darme de baja" **solo si la hoja tiene la columna** (`unsubCol
+   !== -1`) — antes se armaba siempre. Para llaveros, `wrapEmailHtml`
+   recibe `null` y el mail sale sin ese link en el footer (mismo patrón
+   que ya usaba `sendKeychainConfirmationEmail`, que nunca lo llevó).
+   Esto resuelve el problema técnico de arriba de forma general (por
+   columna, no por nombre de hoja) y de paso entrega justo lo que el
+   dueño pidió: campaña sin mecanismo de baja para esta hoja.
+3. `buildTemplateTags` no reconocía los headers de la hoja de llaveros
+   (`Nombre`/`Apellido`, singular) — solo `Nombres`/`Apellidos` (charla)
+   o `Nombre y apellido` (actividad simple). Sin este fix, `{{nombre}}`/
+   `{{apellido}}` habrían salido vacíos en cualquier campaña a esta
+   lista. Se agregó el fallback a singular.
+
+**Alternativas consideradas:** agregar una columna "Dado de baja" real a
+la hoja de llaveros (le habría dado a la gente una forma real de bajarse)
+— descartada por decisión explícita del dueño, que prefirió mandar sin
+eso antes que agregar esa fricción/alcance ahora.
+
+**Motivo:** pedido directo e informado del dueño del proyecto, con el
+trade-off explicado antes de decidir — no una lectura de "esto ya no
+aplica", sino una reversión consciente de una decisión anterior propia.
+
+**Riesgo residual (aceptado explícitamente por el dueño):** quien reciba
+una campaña como comprador de llaveros no tiene forma de dejar de
+recibir futuras campañas a esa misma lista, salvo pedirlo manualmente
+(y que alguien del staff lo excluya a mano con el checkbox "Excluir" del
+panel, campaña por campaña — no hay opt-out persistente). Si en el
+futuro ATP vende algo puntual de nuevo y quiere mandar campañas
+recurrentes a esa lista, conviene revisar si para ese caso sí conviene
+agregar la columna "Dado de baja" real, en vez de repetir este mismo
+trade-off sin revisarlo.
+
+**Qué NO hacer en el futuro:** no asumir que "columna F = Dado de baja"
+en ninguna hoja nueva sin verificar su orden real de columnas primero —
+esa suposición fija es la que causó el problema técnico de arriba. No
+sacar la exclusión de `AGENDA_SHEET_NAME` sin un pedido igual de
+explícito del dueño para esa hoja en particular (no aplica solo porque
+aplicó para llaveros).
