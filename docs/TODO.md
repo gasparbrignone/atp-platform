@@ -208,6 +208,7 @@ Se sacó por decisión de producto en la Fase 6 (ver `docs/ROADMAP.md`). No exis
 * ✅ Contenido hardcodeado a propósito (no content collection): es información de una convocatoria puntual, no contenido recurrente — mismo criterio que `KeychainSaleSection.astro`. Ver el comentario "GATILLO DE ACTUALIZACIÓN" al principio del archivo para cuándo revisarla de nuevo (antes del Ingreso 2028).
 * ✅ Botón flotante de WhatsApp — solo en esta página (pedido explícito del dueño del proyecto, no sitewide).
 * ✅ Redirect de la URL vieja (`/herramientas/ingresar-a-la-fcm/`) configurado en `astro.config.mjs`.
+* ✅ Banner llamativo en el home (`IngresantesPromoSection.astro`, justo debajo del Hero) hacia `/ingresantes/` — ocupa el lugar donde antes estaba `KeychainSaleSection` (venta de llaveros, que pasó a ser 100% presencial en la facultad, 2026-09-18).
 
 ---
 

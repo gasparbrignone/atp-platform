@@ -1,0 +1,47 @@
+---
+/**
+ * Banner llamativo de "Ingreso 2027 a la FCM" en el home, apenas debajo
+ * del Hero — mismo lugar donde antes vivía KeychainSaleSection (venta que
+ * pasó a ser 100% presencial en la facultad, ver index.astro). A
+ * diferencia de esa sección (chica y discreta, a propósito), esta pide
+ * ser vistosa: es la única promoción del sitio con fecha límite real
+ * (preinscripción 1-30 de octubre) y afecta a cualquiera que esté por
+ * entrar a la facultad — ver src/pages/ingresantes.astro.
+ *
+ * GATILLO DE ACTUALIZACIÓN: mismo criterio que ingresantes.astro — esto
+ * es la convocatoria de un año puntual, no contenido evergreen. Antes del
+ * Ingreso 2028, actualizar el texto (o sacar el banner si ATP decide que
+ * ya no hace falta un empujón extra en el home).
+ */
+import Section from './Section.astro';
+import Container from './Container.astro';
+import Button from './Button.astro';
+import GraduationCap from '@lucide/astro/icons/graduation-cap';
+---
+
+<Section spacing="sm" background="background" class="bg-primary/10">
+  <Container
+    class="flex flex-col items-center gap-6 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left"
+  >
+    <div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-5">
+      <div
+        class="bg-primary/20 text-primary-strong hidden size-14 shrink-0 items-center justify-center rounded-full sm:flex"
+      >
+        <GraduationCap class="size-7" aria-hidden="true" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <span class="text-overline text-primary-strong font-bold uppercase">
+          Convocatoria abierta
+        </span>
+        <h2 class="text-h3 text-text font-extrabold">Ingreso 2027 a la FCM</h2>
+        <p class="text-body text-text-secondary max-w-xl">
+          Medicina, Enfermería, Fonoaudiología y Terapia Ocupacional. Preinscripción online del 1
+          al 30 de octubre — te mostramos paso a paso cómo inscribirte.
+        </p>
+      </div>
+    </div>
+    <Button href="/ingresantes/" size="lg" class="shrink-0" trackId="home:ingresantes-promo">
+      Ver todos los pasos
+    </Button>
+  </Container>
+</Section>
