@@ -34,3 +34,9 @@ raw-photos/
 # revisión manual) — no son parte del sitio ni de su documentación
 /google/
 docs/*Coverage-Validation*.zip
+
+# salida local de scripts/add-library-promo-page.mjs (--preview /
+# --test-one / --all / --upload) — PDFs de prueba y del batch de los 69
+# libros + su resumen, nunca contenido versionado del sitio
+.tmp-*.pdf
+.tmp-batch-results.json
