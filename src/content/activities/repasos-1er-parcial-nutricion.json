@@ -1,0 +1,61 @@
+{
+  "title": "Repasos 1er parcial Nutrición",
+  "summary": "¡Sumate a repasar para el primer parcial de nutrición!",
+  "description": "",
+  "image": "/uploads/01-portada-1.png",
+  "schedule": null,
+  "sessions": [
+    {
+      "title": "Abordaje UP3",
+      "date": "2026-09-30",
+      "weekday": "",
+      "time": "14:00",
+      "endTime": "16:00",
+      "location": "Aula a confirmar"
+    },
+    {
+      "title": "Abordaje UP4",
+      "date": "2026-09-30",
+      "weekday": "",
+      "time": "16:00",
+      "endTime": "18:00",
+      "location": "Aula a confirmar"
+    },
+    {
+      "title": "Anatomía: cavidad oral, esófago, estómago, duodeno y glándulas anexas",
+      "date": "2026-10-01",
+      "weekday": "",
+      "time": "14:00",
+      "endTime": "16:00",
+      "location": "Aula a confirmar"
+    },
+    {
+      "title": "Digestión y absorción de carbohidratos y proteínas + fisiología gástrica",
+      "date": "2026-10-02",
+      "weekday": "",
+      "time": "14:00",
+      "endTime": "16:00",
+      "location": "Aula a confirmar"
+    },
+    {
+      "title": "SIMULACRO DE PARCIAL",
+      "date": "2026-10-02",
+      "weekday": "",
+      "time": "16:00",
+      "endTime": "18:00",
+      "location": "Aula a confirmar"
+    }
+  ],
+  "status": "proxima",
+  "registration": {
+    "useRegistrationForm": true,
+    "registrationUrl": "",
+    "confirmationMessage": "",
+    "confirmationLinkLabel": "",
+    "confirmationLinkUrl": "",
+    "collectCertificateData": false
+  },
+  "featured": true,
+  "published": true,
+  "order": null
+}
