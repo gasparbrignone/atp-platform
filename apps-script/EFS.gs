@@ -64,12 +64,13 @@ var EFS_CONFIG_INICIAL = [
   ['sitio_url', 'https://efsarg.com.ar', 'Sitio al que vuelve la persona después de pagar'],
   ['webhook_url', '', 'URL del Worker del EFS que recibe los avisos de Mercado Pago (termina en /mp/aviso)'],
   ['evento_nombre', 'Encuentro de Formación en Salud', ''],
-  ['evento_fecha', '', 'Texto para el mail. Ej.: sábado 17 de octubre, de 8 a 18 h'],
+  ['evento_fecha', '', 'Texto para el mail. Ej.: sábado 10 de mayo, de 9 a 17 h'],
   ['evento_lugar', 'Facultad de Ciencias Médicas (UNR), Santa Fe 3100, Rosario', 'Texto para el mail'],
   ['mail_remitente', 'EFS · Encuentro de Formación en Salud', 'Nombre del remitente'],
   ['mail_responder_a', '', 'Correo al que llegan las respuestas (opcional)'],
   ['mail_admin', '', 'A quién le llegan los avisos de anomalías. Vacío = la cuenta del script'],
   ['mail_proveedor', 'auto', 'auto (Gmail y, si se queda sin cupo, Resend) / gmail / resend'],
+  ['whatsapp', '5493415845571', 'WhatsApp de consultas que aparece en el mail (solo números, con 549)'],
 ];
 
 // ─────────────────────────── entrada desde doPost ───────────────────────────
@@ -562,7 +563,8 @@ function efsMandarPorResend_(mail, c) {
     from: String(c.mail_remitente) + ' <' + RESEND_FROM_EMAIL + '>',
     to: [mail.para], subject: mail.asunto, html: mail.html, text: mail.plano,
   };
-  if (c.mail_responder_a) cuerpo.reply_to = String(c.mail_responder_a);
+  // Sin "mail_responder_a", las respuestas van a la cuenta del script (no a la casilla de certificados).
+  cuerpo.reply_to = String(c.mail_responder_a || Session.getEffectiveUser().getEmail());
   if (mail.qr) cuerpo.attachments = [{ filename: 'entrada-efs.png', content: Utilities.base64Encode(mail.qr.getBytes()), content_id: 'qr' }];
   var r = UrlFetchApp.fetch('https://api.resend.com/emails', {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
@@ -591,36 +593,116 @@ function efsArmarMailEntrada_(fila, e, c) {
     logError('efs-qr', err, { codigo: codigo });
   }
 
-  var datos = [
-    c.evento_fecha ? ['Cuándo', c.evento_fecha] : null,
-    c.evento_lugar ? ['Dónde', c.evento_lugar] : null,
-    ['Entrada', codigo],
-  ].filter(Boolean).map(function (x) {
-    return '<tr><td style="padding:4px 14px 4px 0;color:#2C6FA0">' + escapeHtml(x[0]) + '</td><td><b>' + escapeHtml(x[1]) + '</b></td></tr>';
-  }).join('');
+  var titular = String(fila[e.Nombres]) + ' ' + String(fila[e.Apellidos]);
+  var dni = String(fila[e.DNI]).replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  var html = efsHtmlMailEntrada_({
+    nombre: nombre, titular: titular, dni: dni, codigo: codigo, link: link, sitio: sitio, qr: imagen !== '',
+    fecha: String(c.evento_fecha || ''), lugar: String(c.evento_lugar || ''), evento: String(c.evento_nombre),
+    whatsapp: String(c.whatsapp || '').replace(/\D/g, ''),
+  });
 
-  var html =
-    '<div style="font-family:Arial,Helvetica,sans-serif;color:#16283F;max-width:560px">' +
-      '<div style="background:#16283F;color:#fff;padding:22px 24px">' +
-        '<div style="font-size:13px;opacity:.8">' + escapeHtml(c.evento_nombre) + '</div>' +
-        '<div style="font-size:24px;font-weight:bold;margin-top:6px">Tu entrada</div>' +
-      '</div>' +
-      '<div style="padding:22px 24px;background:#EAF2F9">' +
-        '<p style="margin:0 0 16px">Hola ' + escapeHtml(nombre) + ', recibimos tu pago y ya estás inscripto/a.</p>' +
-        '<div style="background:#fff;padding:18px;text-align:center">' + imagen +
-          '<div style="font-family:Consolas,monospace;font-size:20px;letter-spacing:2px">' + escapeHtml(codigo) + '</div>' +
-        '</div>' +
-        '<p style="margin:16px 0 8px">Mostrá este QR en la acreditación. Si no se ve la imagen, abrí tu entrada acá: ' +
-          '<a href="' + escapeHtml(link) + '" style="color:#1B5286">' + escapeHtml(link) + '</a></p>' +
-        '<table style="font-size:15px;border-collapse:collapse;margin-top:10px">' + datos + '</table>' +
-        '<p style="margin:16px 0 0;font-size:13px;color:#4A5F78">La entrada es personal. Guardá este mail o una captura del QR.</p>' +
-      '</div>' +
-    '</div>';
+  var plano = 'Hola ' + nombre + ', ya estás inscripto/a al ' + c.evento_nombre + ' (EFS 2026).\n\n' +
+    'Tu entrada: ' + codigo + '\nA nombre de: ' + titular + ' · DNI ' + dni + '\n' +
+    'Abrí tu entrada con el QR acá: ' + link + '\n' +
+    (c.evento_fecha ? '\nCuándo: ' + c.evento_fecha : '') + (c.evento_lugar ? '\nDónde: ' + c.evento_lugar : '') +
+    '\n\nEl día del encuentro mostrá el QR en la acreditación: ahí te damos tu credencial y elegís taller.' +
+    '\nLa entrada es personal. Guardá este mail o una captura del QR.\n\nATP · ' + sitio.replace(/^https?:\/\//, '');
+  return { para: String(fila[e.Email]), asunto: 'Tu entrada al EFS 2026', html: html, plano: plano, qr: qrBlob };
+}
 
-  var plano = 'Hola ' + nombre + ', recibimos tu pago y ya estás inscripto/a al ' + c.evento_nombre + '.\n\n' +
-    'Tu entrada: ' + codigo + '\nAbrila con el QR acá: ' + link + '\n' +
-    (c.evento_fecha ? '\nCuándo: ' + c.evento_fecha : '') + (c.evento_lugar ? '\nDónde: ' + c.evento_lugar : '');
-  return { para: String(fila[e.Email]), asunto: 'Tu entrada al ' + c.evento_nombre, html: html, plano: plano, qr: qrBlob };
+// Mail de la entrada con la identidad del EFS. Hecho con tablas y estilos en
+// línea (lo único que respetan Gmail, Outlook y Apple Mail); la fuente del
+// sitio (Chivo) no carga en los mails, así que usa Arial.
+function efsHtmlMailEntrada_(d) {
+  var NAVY = '#16283F', AZUL = '#1B5286', CELESTE = '#8FC1E3', PAPEL = '#EAF2F9', GRIS = '#4A5F78';
+  var f = 'font-family:Arial,Helvetica,sans-serif;';
+  var mono = 'font-family:Consolas,\'Courier New\',monospace;';
+  var h = escapeHtml;
+  var dato = function (etiqueta, valor) {
+    return '<tr><td style="' + f + 'padding:10px 0;border-top:1px solid #D5E3EF;font-size:13px;color:' + GRIS + ';width:96px;vertical-align:top">' + h(etiqueta) + '</td>' +
+      '<td style="' + f + 'padding:10px 0;border-top:1px solid #D5E3EF;font-size:15px;color:' + NAVY + ';font-weight:bold">' + h(valor) + '</td></tr>';
+  };
+  var paso = function (n, texto) {
+    return '<tr><td style="' + mono + 'font-size:14px;color:' + AZUL + ';width:34px;vertical-align:top;padding:6px 0">' + n + '</td>' +
+      '<td style="' + f + 'font-size:15px;line-height:1.45;color:' + NAVY + ';padding:6px 0">' + texto + '</td></tr>';
+  };
+  var enlace = function (titulo, texto, url) {
+    return '<tr><td style="' + f + 'padding:9px 0;border-top:1px solid #C9D8E6;font-size:15px;font-weight:bold;color:' + NAVY + ';width:150px;vertical-align:top">' + h(titulo) + '</td>' +
+      '<td style="' + f + 'padding:9px 0;border-top:1px solid #C9D8E6;font-size:15px"><a href="' + h(url) + '" style="color:' + AZUL + ';text-decoration:underline">' + h(texto) + '</a></td></tr>';
+  };
+  var detalles = (d.fecha ? dato('Cuándo', d.fecha) : '') + (d.lugar ? dato('Dónde', d.lugar) : '') +
+    dato('A nombre de', d.titular) + dato('DNI', d.dni);
+
+  return '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<meta name="color-scheme" content="light"><title>Tu entrada al EFS 2026</title></head>' +
+    '<body style="margin:0;padding:0;background:' + PAPEL + '">' +
+    '<div style="display:none;max-height:0;overflow:hidden;opacity:0">Tu QR para el EFS 2026: mostralo en la acreditación.</div>' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:' + PAPEL + '"><tr><td align="center" style="padding:24px 12px">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">' +
+
+    // Encabezado
+    '<tr><td style="background:' + NAVY + ';padding:26px 28px 22px">' +
+      '<img src="' + h(d.sitio) + '/assets/img/logo-efs-light.png" width="170" height="60" alt="Encuentro de Formación en Salud" style="display:block;border:0;width:170px;height:auto">' +
+      '<p style="' + mono + 'margin:18px 0 0;font-size:13px;color:' + CELESTE + ';letter-spacing:.04em">2.ª edición · 2026</p>' +
+    '</td></tr>' +
+    '<tr><td style="background:' + CELESTE + ';height:6px;line-height:6px;font-size:0">&nbsp;</td></tr>' +
+
+    // Cuerpo
+    '<tr><td style="background:#ffffff;padding:30px 28px 8px">' +
+      '<h1 style="' + f + 'margin:0;font-size:32px;line-height:1.05;color:' + NAVY + ';font-weight:900">Tu entrada</h1>' +
+      '<p style="' + f + 'margin:12px 0 0;font-size:16px;line-height:1.5;color:' + NAVY + '">Hola ' + h(d.nombre) + ', recibimos tu pago y ya estás inscripto/a al ' + h(d.evento) + '.</p>' +
+    '</td></tr>' +
+
+    // QR
+    '<tr><td align="center" style="background:#ffffff;padding:22px 28px 6px">' +
+      '<table role="presentation" cellpadding="0" cellspacing="0" style="border:2px solid ' + NAVY + '"><tr><td align="center" style="padding:18px 18px 14px">' +
+        (d.qr ? '<img src="cid:qr" width="220" height="220" alt="Código QR de tu entrada" style="display:block;border:0;width:220px;height:220px">' : '') +
+        '<p style="' + mono + 'margin:' + (d.qr ? '12px' : '0') + ' 0 0;font-size:20px;letter-spacing:.12em;color:' + NAVY + '">' + h(d.codigo) + '</p>' +
+      '</td></tr></table>' +
+      '<p style="' + f + 'margin:12px 0 0;font-size:13px;color:' + GRIS + '">¿No ves el QR? Abrí tu entrada con el botón de abajo.</p>' +
+    '</td></tr>' +
+
+    // Botón
+    '<tr><td align="center" style="background:#ffffff;padding:18px 28px 8px">' +
+      '<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:' + NAVY + '">' +
+        '<a href="' + h(d.link) + '" style="' + f + 'display:inline-block;padding:14px 26px;font-size:16px;font-weight:bold;color:#ffffff;text-decoration:none">Abrir mi entrada</a>' +
+      '</td></tr></table>' +
+    '</td></tr>' +
+
+    // Datos
+    '<tr><td style="background:#ffffff;padding:22px 28px 6px">' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' + detalles + '</table>' +
+    '</td></tr>' +
+
+    // Cómo se usa
+    '<tr><td style="background:#ffffff;padding:22px 28px 30px">' +
+      '<p style="' + f + 'margin:0 0 6px;font-size:18px;font-weight:bold;color:' + NAVY + '">El día del encuentro</p>' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' +
+        paso('01', 'Tené este mail a mano o una captura del QR, con el brillo de la pantalla alto.') +
+        paso('02', 'En la acreditación escaneamos tu QR y te damos tu credencial.') +
+        paso('03', 'Ahí mismo elegís el taller al que querés ir.') +
+      '</table>' +
+      '<p style="' + f + 'margin:14px 0 0;font-size:13px;line-height:1.5;color:' + GRIS + '">La entrada es personal. Tu certificado sale con el nombre y el DNI de arriba: si algo está mal, respondé este mail.</p>' +
+    '</td></tr>' +
+
+    // Antes del encuentro
+    '<tr><td style="background:' + PAPEL + ';padding:24px 28px 26px;border-top:6px solid ' + CELESTE + '">' +
+      '<p style="' + f + 'margin:0 0 10px;font-size:18px;font-weight:bold;color:' + NAVY + '">Antes del encuentro</p>' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' +
+        enlace('Programa y talleres', 'Mirá charlas, talleres y horarios', d.sitio + '/#programa') +
+        enlace('Instagram', 'Novedades en @efs.atp', 'https://instagram.com/efs.atp') +
+        (d.whatsapp ? enlace('¿Dudas?', 'Escribinos por WhatsApp', 'https://wa.me/' + d.whatsapp) : '') +
+      '</table>' +
+    '</td></tr>' +
+
+    // Pie
+    '<tr><td style="background:' + NAVY + ';padding:20px 28px">' +
+      '<p style="' + f + 'margin:0;font-size:13px;line-height:1.5;color:#C9D8E6">Organiza ATP, agrupación estudiantil de la Facultad de Ciencias Médicas (UNR).</p>' +
+      '<p style="' + f + 'margin:6px 0 0;font-size:13px"><a href="' + h(d.sitio) + '" style="color:#ffffff;text-decoration:underline">' + h(d.sitio.replace(/^https?:\/\//, '')) + '</a>' +
+        '<span style="color:' + CELESTE + '">&nbsp;·&nbsp;</span><a href="https://instagram.com/efs.atp" style="color:#ffffff;text-decoration:underline">@efs.atp</a></p>' +
+    '</td></tr>' +
+
+    '</table></td></tr></table></body></html>';
 }
 
 function efsReintentarMails_(inicio) {
@@ -727,6 +809,21 @@ function efsPrepararHojas() {
 function efsInstalarBarrido() {
   var ya = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'efsBarrido'; });
   if (!ya) ScriptApp.newTrigger('efsBarrido').timeBased().everyMinutes(10).create();
+}
+
+// Manda un mail de prueba por Resend a la cuenta del script, con el mismo
+// diseño de la entrada. Sirve para confirmar que la clave de Resend anda.
+function efsProbarResend() {
+  if (!efsResendDisponible_()) throw new Error('No hay RESEND_API_KEY / RESEND_FROM_EMAIL en el archivo principal');
+  var c = efsConfig_();
+  var yo = Session.getEffectiveUser().getEmail();
+  var e = efsIndices_(EFS_COL_ENTRADAS);
+  var fila = efsFilaVacia_(EFS_COL_ENTRADAS);
+  efsAsignar_(fila, e, { Nombres: 'Prueba', Apellidos: 'Resend', DNI: '12345678', Email: yo, RegistrationId: 'EFS26-PRUEBA00' });
+  var mail = efsArmarMailEntrada_(fila, e, c);
+  mail.asunto = '[Prueba Resend] ' + mail.asunto;
+  efsMandarPorResend_(mail, c);
+  Logger.log('Resend anda: mail de prueba enviado a ' + yo);
 }
 
 function efsProbarConexion() {
