@@ -70,6 +70,7 @@ var EFS_CONFIG_INICIAL = [
   ['mail_responder_a', '', 'Correo al que llegan las respuestas (opcional)'],
   ['mail_admin', '', 'A quién le llegan los avisos de anomalías. Vacío = la cuenta del script'],
   ['mail_proveedor', 'auto', 'auto (Gmail y, si se queda sin cupo, Resend) / gmail / resend'],
+  ['acreditacion', '', 'Horario de la acreditación, para el mail. Ej.: Desde las 9 h'],
   ['whatsapp', '5493415845571', 'WhatsApp de consultas que aparece en el mail (solo números, con 549)'],
 ];
 
@@ -598,13 +599,14 @@ function efsArmarMailEntrada_(fila, e, c) {
   var html = efsHtmlMailEntrada_({
     nombre: nombre, titular: titular, dni: dni, codigo: codigo, link: link, sitio: sitio, qr: imagen !== '',
     fecha: String(c.evento_fecha || ''), lugar: String(c.evento_lugar || ''), evento: String(c.evento_nombre),
-    whatsapp: String(c.whatsapp || '').replace(/\D/g, ''),
+    whatsapp: String(c.whatsapp || '').replace(/\D/g, ''), acreditacion: String(c.acreditacion || ''),
   });
 
   var plano = 'Hola ' + nombre + ', ya estás inscripto/a al ' + c.evento_nombre + ' (EFS 2026).\n\n' +
     'Tu entrada: ' + codigo + '\nA nombre de: ' + titular + ' · DNI ' + dni + '\n' +
     'Abrí tu entrada con el QR acá: ' + link + '\n' +
-    (c.evento_fecha ? '\nCuándo: ' + c.evento_fecha : '') + (c.evento_lugar ? '\nDónde: ' + c.evento_lugar : '') +
+    (c.evento_fecha ? '\nCuándo: ' + c.evento_fecha : '') + (c.acreditacion ? '\nAcreditación: ' + c.acreditacion : '') +
+    (c.evento_lugar ? '\nDónde: ' + c.evento_lugar : '') +
     '\n\nEl día del encuentro mostrá el QR en la acreditación: ahí te damos tu credencial y elegís taller.' +
     '\nLa entrada es personal. Guardá este mail o una captura del QR.\n\nATP · ' + sitio.replace(/^https?:\/\//, '');
   return { para: String(fila[e.Email]), asunto: 'Tu entrada al EFS 2026', html: html, plano: plano, qr: qrBlob };
@@ -630,7 +632,8 @@ function efsHtmlMailEntrada_(d) {
     return '<tr><td style="' + f + 'padding:9px 0;border-top:1px solid #C9D8E6;font-size:15px;font-weight:bold;color:' + NAVY + ';width:150px;vertical-align:top">' + h(titulo) + '</td>' +
       '<td style="' + f + 'padding:9px 0;border-top:1px solid #C9D8E6;font-size:15px"><a href="' + h(url) + '" style="color:' + AZUL + ';text-decoration:underline">' + h(texto) + '</a></td></tr>';
   };
-  var detalles = (d.fecha ? dato('Cuándo', d.fecha) : '') + (d.lugar ? dato('Dónde', d.lugar) : '') +
+  var detalles = (d.fecha ? dato('Cuándo', d.fecha) : '') + (d.acreditacion ? dato('Acreditación', d.acreditacion) : '') +
+    (d.lugar ? dato('Dónde', d.lugar) : '') +
     dato('A nombre de', d.titular) + dato('DNI', d.dni);
 
   return '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
@@ -642,7 +645,11 @@ function efsHtmlMailEntrada_(d) {
 
     // Encabezado
     '<tr><td style="background:' + NAVY + ';padding:26px 28px 22px">' +
-      '<img src="' + h(d.sitio) + '/assets/img/logo-efs-light.png" width="170" height="60" alt="Encuentro de Formación en Salud" style="display:block;border:0;width:170px;height:auto">' +
+      // EFS y ATP a la par: mismo alto, mismo color, sin jerarquía entre los dos.
+      '<table role="presentation" cellpadding="0" cellspacing="0"><tr>' +
+        '<td style="vertical-align:middle;padding-right:20px"><img src="' + h(d.sitio) + '/assets/img/logo-efs-light.png" width="114" height="40" alt="Encuentro de Formación en Salud" style="display:block;border:0;width:114px;height:40px"></td>' +
+        '<td style="vertical-align:middle;padding-left:20px;border-left:1px solid #3A5372"><img src="' + h(d.sitio) + '/assets/img/logo-atp-light.png" width="88" height="28" alt="ATP" style="display:block;border:0;width:88px;height:28px"></td>' +
+      '</tr></table>' +
       '<p style="' + mono + 'margin:18px 0 0;font-size:13px;color:' + CELESTE + ';letter-spacing:.04em">2.ª edición · 2026</p>' +
     '</td></tr>' +
     '<tr><td style="background:' + CELESTE + ';height:6px;line-height:6px;font-size:0">&nbsp;</td></tr>' +
