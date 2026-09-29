@@ -11,7 +11,7 @@
       "weekday": "",
       "time": "14:00",
       "endTime": "16:00",
-      "location": "Aula a confirmar"
+      "location": "Anfiteatro Allende"
     },
     {
       "title": "Abordaje UP4",
@@ -19,7 +19,7 @@
       "weekday": "",
       "time": "16:00",
       "endTime": "18:00",
-      "location": "Aula a confirmar"
+      "location": "Anfiteatro Allende"
     },
     {
       "title": "Anatomía: cavidad oral, esófago, estómago, duodeno y glándulas anexas",
@@ -27,7 +27,7 @@
       "weekday": "",
       "time": "14:00",
       "endTime": "16:00",
-      "location": "Aula a confirmar"
+      "location": "Anf. Anato Normal"
     },
     {
       "title": "Digestión y absorción de carbohidratos y proteínas + fisiología gástrica",
@@ -35,7 +35,7 @@
       "weekday": "",
       "time": "14:00",
       "endTime": "16:00",
-      "location": "Aula a confirmar"
+      "location": "Anf. Multimedia"
     },
     {
       "title": "SIMULACRO DE PARCIAL",
@@ -43,7 +43,7 @@
       "weekday": "",
       "time": "16:00",
       "endTime": "18:00",
-      "location": "Aula a confirmar"
+      "location": "Anf. Multimedia"
     }
   ],
   "status": "proxima",
