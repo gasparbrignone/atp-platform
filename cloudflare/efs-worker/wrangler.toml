@@ -1,0 +1,26 @@
+name = "efs-worker"
+main = "src/index.ts"
+compatibility_date = "2026-09-20"
+
+# No son secretos: el endpoint del Apps Script ya es público (está en el JS de
+# atpfcm.com.ar) y los dominios son los de los sitios. Los secretos van aparte
+# con `wrangler secret put` (ver README.md de esta carpeta):
+#   EFS_WORKER_SECRET  mismo valor que la propiedad del script EFS_WORKER_SECRET
+#   TURNSTILE_SECRET   Secret Key del widget de Turnstile del EFS
+#   MP_WEBHOOK_SECRET  (opcional) clave secreta de webhooks de Mercado Pago
+[vars]
+APPS_SCRIPT_ENDPOINT = "https://script.google.com/macros/s/AKfycbzIYU4H3B94IoTyH40O4EXljqPVTNGd0Ult_yi8VzS3hhAOjScEdsCQlNZarE5Ixe6f/exec"
+# TEMPORAL: localhost está para la prueba real de $100 desde la vista previa. Sacarlo antes de abrir la inscripción.
+ALLOWED_ORIGINS = "https://efsarg.com.ar,https://www.efsarg.com.ar,https://atpfcm.com.ar,http://localhost:8080"
+TURNSTILE_HOSTNAMES = "efsarg.com.ar,www.efsarg.com.ar,localhost"
+
+# Entorno de PRUEBA: apunta a la copia de la planilla ("ATP - PRUEBA EFS") y
+# acepta pedidos desde la vista previa local. Publicar con:
+#   wrangler deploy --env prueba
+[env.prueba]
+name = "efs-worker-prueba"
+
+[env.prueba.vars]
+APPS_SCRIPT_ENDPOINT = "https://script.google.com/macros/s/AKfycbwhlo-twBfBncZN751_VnWLMkNRWxbP1_vEDF6C52p2vRm4DFKqwxf9LIfSJUnV2-UZ8A/exec"
+ALLOWED_ORIGINS = "http://localhost:8080,https://efsarg.com.ar"
+TURNSTILE_HOSTNAMES = "localhost,efsarg.com.ar"

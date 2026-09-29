@@ -1,0 +1,19 @@
+{
+  "name": "efs-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/worker.test.mjs",
+    "typecheck": "tsc",
+    "secret:worker": "wrangler secret put EFS_WORKER_SECRET",
+    "secret:turnstile": "wrangler secret put TURNSTILE_SECRET",
+    "secret:webhook": "wrangler secret put MP_WEBHOOK_SECRET"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260908.1",
+    "typescript": "^5.7.0",
+    "wrangler": "^4.0.0"
+  }
+}
