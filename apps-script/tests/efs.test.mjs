@@ -631,5 +631,38 @@ prueba('staff_sync: la planilla anterior a las columnas del evento las recibe al
   igual(hoja.datos[1][cab.indexOf('Taller')], 'RCP');
 });
 
+// ─────────── entradas de prueba del escáner ───────────
+
+prueba('efsCrearEntradasPrueba: crea 5 entradas TEST sin mail, sin duplicar al repetir', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  env.ctx.efsCrearEntradasPrueba(); env.ctx.efsCrearEntradasPrueba();
+  const cab = env.hojas.get('EFS 2026').datos[0];
+  const filas = entradas(env);
+  igual(filas.length, 5);
+  igual(filas.map((f) => f[cab.indexOf('RegistrationId')]), ['EFS26-TEST0001', 'EFS26-TEST0002', 'EFS26-TEST0003', 'EFS26-TEST0004', 'EFS26-TEST0005']);
+  si(filas.every((f) => f[cab.indexOf('EstadoEntrada')] === 'activa' && f[cab.indexOf('Origen')] === 'cortesia'));
+  si(filas.every((f) => env.ctx.efsMailEnviado_(f[cab.indexOf('MailEntrada')])), 'el barrido no debe intentar mandarles mail');
+  si(filas.every((f) => f[4] === '' && f[4] !== true), 'la columna E no es un booleano');
+});
+
+prueba('entradas de prueba: el escáner las ve en staff_lista y no hay reintento de mails', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  env.ctx.efsCrearEntradasPrueba();
+  const l = env.post({ accion: 'staff_lista' }).entradas;
+  igual(l.length, 5); igual(l[0].c, 'EFS26-TEST0001'); igual(l[0].n, 'TEST Uno'); igual(l[0].e, 'activa');
+  env.ctx.efsBarrido && env.ctx.efsReintentarMails_(Date.now());
+  igual(env.mails.length, 0);
+});
+
+prueba('efsRetirarEntradasPrueba: las deja revocadas y no toca otras entradas', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const real = pagarUna(env, mp);
+  env.ctx.efsCrearEntradasPrueba(); env.ctx.efsRetirarEntradasPrueba();
+  const cab = env.hojas.get('EFS 2026').datos[0];
+  const filas = entradas(env);
+  igual(filas.filter((f) => f[cab.indexOf('EstadoEntrada')] === 'revocada').length, 5);
+  igual(real.celda(real.codigo, 'EstadoEntrada'), 'activa');
+});
+
 console.log(`\n${ok} bien, ${fallas} mal\n`);
 process.exit(fallas ? 1 : 0);

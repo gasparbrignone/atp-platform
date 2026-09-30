@@ -950,6 +950,63 @@ function efsListaJson_(v) {
   try { var x = JSON.parse(String(v || '[]')); return Array.isArray(x) ? x : []; } catch (err) { return []; }
 }
 
+// ─────────────────────────── entradas de prueba (para ensayar el escáner) ───────────────────────────
+
+var EFS_PRUEBA_APELLIDOS = ['Uno', 'Dos', 'Tres', 'Cuatro', 'Cinco'];
+
+// Crea 5 entradas de prueba: EFS26-TEST0001 a EFS26-TEST0005, a nombre de "TEST Uno"... "TEST Cinco".
+// No mandan mail y figuran como cortesías (no entran en la cuenta de pagos). Se puede correr más de
+// una vez: las que ya existen no se duplican. Al terminar los ensayos, correr efsRetirarEntradasPrueba.
+function efsCrearEntradasPrueba() {
+  var lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    var hoja = efsHoja_(EFS_HOJA_ENTRADAS);
+    var existentes = efsColumna_(hoja, 'RegistrationId');
+    var e = efsIndices_(EFS_COL_ENTRADAS);
+    var creadas = [];
+    EFS_PRUEBA_APELLIDOS.forEach(function (apellido, i) {
+      var codigo = 'EFS26-TEST000' + (i + 1);
+      if (existentes.indexOf(codigo) !== -1) return;
+      var fila = efsFilaVacia_(EFS_COL_ENTRADAS);
+      efsAsignar_(fila, e, {
+        'Fecha': new Date(), 'Nombres': 'TEST', 'Apellidos': apellido, 'DNI': '9900000' + (i + 1), 'Teléfono': '',
+        'Email': 'prueba' + (i + 1) + '@ejemplo.invalid', 'Carrera': 'Prueba', 'Año': '-', 'RegistrationId': codigo,
+        'Asistencias': '[]', 'Dado de baja': false, 'ActivityId': EFS_ACTIVITY_ID, 'Universidad': 'ATP', 'Origen': 'cortesia',
+        'EstadoEntrada': 'activa', 'MailEntrada': 'prueba (sin mail)',
+      });
+      hoja.appendRow(efsComoTexto_(fila, e));
+      creadas.push(codigo);
+    });
+    SpreadsheetApp.flush();
+    Logger.log(creadas.length ? 'Entradas de prueba creadas: ' + creadas.join(', ') : 'Las 5 entradas de prueba ya existían.');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Deja las entradas de prueba como revocadas (no cuentan en el total ni se pueden acreditar).
+// Las filas quedan en la planilla; se pueden borrar a mano cuando se quiera.
+function efsRetirarEntradasPrueba() {
+  var lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    var hoja = efsHoja_(EFS_HOJA_ENTRADAS);
+    var filas = hoja.getDataRange().getValues();
+    var e = efsIndices_(filas[0]);
+    var retiradas = 0;
+    for (var i = 1; i < filas.length; i++) {
+      if (!/^EFS26-TEST000[1-5]$/.test(String(filas[i][e.RegistrationId]))) continue;
+      hoja.getRange(i + 1, e.EstadoEntrada + 1).setValue('revocada');
+      retiradas++;
+    }
+    SpreadsheetApp.flush();
+    Logger.log('Entradas de prueba retiradas: ' + retiradas);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // ─────────────────────────── puesta en marcha (se corren a mano una vez) ───────────────────────────
 
 function efsPrepararHojas() {
