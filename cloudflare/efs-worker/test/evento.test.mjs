@@ -1,7 +1,7 @@
 // Pruebas de la lógica del día del evento (acreditación, credencial, taller). Correr con: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Evento } from '../src/evento.ts';
+import { Evento, EventoDO } from '../src/evento.ts';
 import worker from '../src/index.ts';
 
 function almacen() {
@@ -262,4 +262,55 @@ test('/staff: tras 15 intentos fallidos desde una IP se bloquea aunque después 
   for (let i = 0; i < 15; i++) assert.equal((await pedir(env, { op: 'lista', clave: 'x' + i }, ip)).error, 'clave');
   assert.equal((await pedir(env, { op: 'lista', clave: env.EFS_STAFF_KEY }, ip)).error, 'demasiados_intentos');
   assert.equal((await pedir(env, { op: 'lista', clave: env.EFS_STAFF_KEY }, '99.9.9.10')).ok, true); // otra IP no se ve afectada
+});
+
+// ─────────── el celular no espera a la planilla ───────────
+
+function crearDO({ apsColgado = true } = {}) {
+  const m = new Map();
+  const state = { storage: { get: async (k) => (m.has(k) ? structuredClone(m.get(k)) : undefined), put: async (k, v) => void m.set(k, structuredClone(v)), getAlarm: async () => null, setAlarm: async () => {} } };
+  const env = { APPS_SCRIPT_ENDPOINT: 'https://x/exec', EFS_WORKER_SECRET: 's' };
+  globalThis.fetch = apsColgado ? () => new Promise(() => {}) : async () => new Response(JSON.stringify({ ok: true, entradas: [{ c: ANA, n: 'Ana Pérez', dni: '30111222', e: 'activa' }] }));
+  const d = new EventoDO(state, env);
+  d.tiempos = { primera: 60, forzada: 60 };
+  return d;
+}
+
+test('DO: con la lista ya cargada, contesta al instante aunque el Apps Script esté colgado', async () => {
+  const d = crearDO();
+  await d.evento.cargar();
+  await d.evento.fusionar([{ c: ANA, n: 'Ana Pérez', dni: '30111222', e: 'activa' }]);
+  const t0 = Date.now();
+  const r = await d.despachar('lista', {});
+  assert.ok(Date.now() - t0 < 30, 'tardó ' + (Date.now() - t0) + ' ms');
+  assert.equal(r.ok, true); assert.equal(r.entradas.length, 1);
+  const b = await d.despachar('buscar', { q: 'perez' });
+  assert.equal(b.resultados.length, 1);
+});
+
+test('DO: la primera vez (sin lista) espera a la planilla solo hasta el tope y contesta igual', async () => {
+  const d = crearDO();
+  await d.evento.cargar();
+  const t0 = Date.now();
+  const r = await d.despachar('lista', {});
+  const ms = Date.now() - t0;
+  assert.ok(ms >= 50 && ms < 400, 'tardó ' + ms + ' ms');
+  assert.equal(r.ok, true); assert.equal(r.entradas.length, 0);
+});
+
+test('DO: acreditar un código que no está no espera más que el tope si la planilla no contesta', async () => {
+  const d = crearDO();
+  await d.evento.cargar();
+  const t0 = Date.now();
+  const r = await d.despachar('acreditar', { id: 'op-abcdef', codigo: ANA, puesto: 'P1' });
+  assert.ok(Date.now() - t0 < 400);
+  assert.equal(r.r, 'no_valido');
+});
+
+test('DO: con el Apps Script sano, la primera lista trae las entradas y acreditar de una entrada recién cargada anda', async () => {
+  const d = crearDO({ apsColgado: false });
+  await d.evento.cargar();
+  const r = await d.despachar('lista', {});
+  assert.equal(r.entradas.length, 1);
+  assert.equal((await d.despachar('acreditar', { id: 'op-abcdef', codigo: ANA, puesto: 'P1' })).r, 'ok');
 });

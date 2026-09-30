@@ -18,7 +18,7 @@ export interface Env {
 
 export type Json = Record<string, unknown>;
 
-export async function appsScript(params: Record<string, string>, env: Env, op: { reintentos: number }): Promise<Json> {
+export async function appsScript(params: Record<string, string>, env: Env, op: { reintentos: number; timeoutMs?: number }): Promise<Json> {
   const cuerpo = new URLSearchParams({ ...params, formType: 'efs', efs_secreto: env.EFS_WORKER_SECRET });
   let ultimo: Json = { ok: false, error: 'servicio' };
   for (let intento = 0; intento <= op.reintentos; intento++) {
@@ -30,7 +30,7 @@ export async function appsScript(params: Record<string, string>, env: Env, op: {
         method: 'POST',
         body: cuerpo,
         redirect: 'follow',
-        signal: AbortSignal.timeout(25000),
+        signal: AbortSignal.timeout(op.timeoutMs ?? 25000),
       });
       const texto = await r.text();
       let datos: Json;

@@ -12,7 +12,7 @@
  * devuelve el mismo resultado sin duplicar efectos (I-8), que es lo que hace
  * seguros los reintentos cuando la red del salón falla.
  */
-import { appsScript } from './apps.ts';
+import { appsScript, esperar } from './apps.ts';
 import type { Env, Json } from './apps.ts';
 
 export interface Almacen {
@@ -356,6 +356,8 @@ export class EventoDO {
   evento: Evento;
   ultimaLista = 0;
   refrescando: Promise<void> | null = null;
+  // Cuánto se le hace esperar al celular por la planilla (el Apps Script a veces tarda decenas de segundos).
+  tiempos = { primera: 20000, forzada: 5000 };
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -375,12 +377,12 @@ export class EventoDO {
   async despachar(op: string, d: Json): Promise<Json> {
     const ev = this.evento;
     switch (op) {
-      case 'lista': await this.refrescar(false); return ev.lista();
+      case 'lista': await this.conListaActual(); return ev.lista();
       case 'talleres': return ev.estado();
-      case 'buscar': await this.refrescar(false); return ev.buscar(String(d.q || ''));
+      case 'buscar': await this.conListaActual(); return ev.buscar(String(d.q || ''));
       case 'acreditar': {
         // Si el código no está, puede ser alguien que pagó hace un minuto: se vuelve a pedir la lista una vez.
-        if (!ev.entradas[String(d.codigo || '').toUpperCase()]) await this.refrescar(true);
+        if (!ev.entradas[String(d.codigo || '').toUpperCase()]) await Promise.race([this.refrescar(true), esperar(this.tiempos.forzada)]);
         return ev.acreditar(String(d.id || ''), String(d.codigo || ''), String(d.puesto || ''));
       }
       case 'vincular': return ev.vincular(String(d.id || ''), String(d.codigo || ''), String(d.credencial || ''), String(d.puesto || ''));
@@ -398,13 +400,22 @@ export class EventoDO {
     }
   }
 
+  // Si ya hay una lista se contesta al instante con ella y la actualización corre por detrás: el celular
+  // nunca espera por la planilla. Solo la primera vez (sin lista todavía) se espera, con un tope.
+  async conListaActual(): Promise<void> {
+    const hayLista = Object.keys(this.evento.entradas).length > 0;
+    const p = this.refrescar(false);
+    if (hayLista) return;
+    await Promise.race([p, esperar(this.tiempos.primera)]);
+  }
+
   // Vuelve a leer la lista de la planilla (como mucho una vez por minuto, salvo `forzar`).
   async refrescar(forzar: boolean): Promise<void> {
     if (this.refrescando) return this.refrescando;
     if (!forzar && Date.now() - this.ultimaLista < REFRESCO_MS && Object.keys(this.evento.entradas).length) return;
     this.refrescando = (async () => {
       try {
-        const r = await appsScript({ accion: 'staff_lista' }, this.env, { reintentos: 1 });
+        const r = await appsScript({ accion: 'staff_lista' }, this.env, { reintentos: 0, timeoutMs: 25000 });
         if (r.ok === true && Array.isArray(r.entradas)) {
           await this.evento.fusionar(r.entradas as ItemLista[]);
           this.ultimaLista = Date.now();
