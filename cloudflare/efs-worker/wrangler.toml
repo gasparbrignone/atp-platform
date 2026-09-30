@@ -10,9 +10,8 @@ compatibility_date = "2026-09-20"
 #   MP_WEBHOOK_SECRET  (opcional) clave secreta de webhooks de Mercado Pago
 [vars]
 APPS_SCRIPT_ENDPOINT = "https://script.google.com/macros/s/AKfycbzIYU4H3B94IoTyH40O4EXljqPVTNGd0Ult_yi8VzS3hhAOjScEdsCQlNZarE5Ixe6f/exec"
-# TEMPORAL: localhost está para la prueba real de $100 desde la vista previa. Sacarlo antes de abrir la inscripción.
-ALLOWED_ORIGINS = "https://efsarg.com.ar,https://www.efsarg.com.ar,https://atpfcm.com.ar,http://localhost:8080"
-TURNSTILE_HOSTNAMES = "efsarg.com.ar,www.efsarg.com.ar,localhost"
+ALLOWED_ORIGINS = "https://efsarg.com.ar,https://www.efsarg.com.ar,https://atpfcm.com.ar"
+TURNSTILE_HOSTNAMES = "efsarg.com.ar,www.efsarg.com.ar"
 
 # Entorno de PRUEBA: apunta a la copia de la planilla ("ATP - PRUEBA EFS") y
 # acepta pedidos desde la vista previa local. Publicar con:
