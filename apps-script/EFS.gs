@@ -235,9 +235,12 @@ function efsProcesarPagoObtenido_(pago, origen) {
   } finally {
     lock.releaseLock();
   }
+  // Un mismo problema del mismo pago se avisa una sola vez: el barrido lo vuelve a ver cada 10 minutos
+  // y, sin esto, el aviso se repetiría cada 30 minutos hasta que el pago salga de la ventana de 3 horas.
+  var yaAvisado = resultado.aviso ? efsYaRegistrado_(pago.id, resultado.accion, resultado.detalle) : false;
   efsRegistrarPago_(pago, origen, resultado.accion, resultado.detalle);
 
-  if (resultado.aviso) efsAvisar_(resultado.aviso, resultado.detalle + '\n\nPago ' + pago.id + ' · referencia ' + ref);
+  if (resultado.aviso && !yaAvisado) efsAvisar_(resultado.aviso, resultado.detalle + '\n\nPago ' + pago.id + ' · referencia ' + ref);
   if (aEnviar) {
     efsVencerPreferencia_(resultado.preferencia_id);
     efsEnviarEntrada_(aEnviar);
@@ -1163,6 +1166,17 @@ function efsActualizarPendiente_(ref, cambios, soloSiEstado) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ¿La bitácora ya tiene este mismo pago con esta misma acción y detalle?
+function efsYaRegistrado_(pagoId, accion, detalle) {
+  var filas = efsHoja_(EFS_HOJA_PAGOS).getDataRange().getValues();
+  var col = efsIndices_(filas[0]);
+  for (var i = 1; i < filas.length; i++) {
+    if (String(filas[i][col.pago_id]) === String(pagoId) && String(filas[i][col.accion]) === String(accion) &&
+        String(filas[i][col.detalle] || '').replace(/^'/, '') === String(detalle || '')) return true;
+  }
+  return false;
 }
 
 function efsRegistrarPago_(pago, origen, accion, detalle) {

@@ -126,7 +126,7 @@ function crearEntorno({ mp, quota = 1500, qrFalla = false, resend = null, brevo 
   poner('webhook_url', 'https://efs-worker.ejemplo/mp/aviso');
 
   const post = (params) => JSON.parse(ctx.efsRouter({ parameter: { efs_secreto: props.EFS_WORKER_SECRET, ...params } }).texto);
-  return { ctx, hojas, mails, resendEnvios, brevoEnvios, smtp2goEnvios, errores, props, post, poner, lock: () => lockTomado };
+  return { ctx, hojas, mails, cache, resendEnvios, brevoEnvios, smtp2goEnvios, errores, props, post, poner, lock: () => lockTomado };
 }
 
 // ─────────────────────────── simulación de Mercado Pago ───────────────────────────
@@ -662,6 +662,23 @@ prueba('efsRetirarEntradasPrueba: las deja revocadas y no toca otras entradas', 
   const filas = entradas(env);
   igual(filas.filter((f) => f[cab.indexOf('EstadoEntrada')] === 'revocada').length, 5);
   igual(real.celda(real.codigo, 'EstadoEntrada'), 'activa');
+});
+
+prueba('un pago sin inscripción se avisa UNA sola vez aunque el barrido lo vea muchas veces (y aunque venza el freno de 30 min)', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const id = mp.pagar('EFSP-ZZZZZZZZZZ').id;
+  const avisos = () => env.mails.filter((m) => m.asunto === 'EFS: pago sin inscripción').length;
+  env.ctx.efsProcesarPago(id, 'barrido'); igual(avisos(), 1);
+  env.cache.clear(); env.ctx.efsProcesarPago(id, 'barrido'); igual(avisos(), 1);
+  env.cache.clear(); env.ctx.efsProcesarPago(id, 'barrido'); igual(avisos(), 1);
+});
+
+prueba('un pago sin inscripción DISTINTO sí se avisa', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const a = mp.pagar('EFSP-ZZZZZZZZZZ').id, b = mp.pagar('EFSP-YYYYYYYYYY').id;
+  const avisos = () => env.mails.filter((m) => m.asunto === 'EFS: pago sin inscripción').length;
+  env.ctx.efsProcesarPago(a, 'barrido'); env.cache.clear(); env.ctx.efsProcesarPago(b, 'barrido');
+  igual(avisos(), 2);
 });
 
 console.log(`\n${ok} bien, ${fallas} mal\n`);
