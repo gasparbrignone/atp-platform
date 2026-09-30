@@ -69,7 +69,7 @@ var EFS_CONFIG_INICIAL = [
   ['mail_remitente', 'EFS · Encuentro de Formación en Salud', 'Nombre del remitente'],
   ['mail_responder_a', '', 'Correo al que llegan las respuestas (opcional)'],
   ['mail_admin', '', 'A quién le llegan los avisos de anomalías. Vacío = la cuenta del script'],
-  ['mail_proveedor', 'auto', 'auto (Gmail; sin cupo, Brevo y luego Resend) / gmail / brevo / resend'],
+  ['mail_proveedor', 'auto', 'auto (Gmail; sin cupo, SMTP2GO, Resend y Brevo) / gmail / smtp2go / resend / brevo'],
   ['acreditacion', '', 'Horario de la acreditación, para el mail. Ej.: Desde las 9 h'],
   ['whatsapp', '5493415845571', 'WhatsApp de consultas que aparece en el mail (solo números, con 549)'],
 ];
@@ -508,10 +508,10 @@ function efsEnviarEntrada_(codigo) {
   try {
     var usado = efsEnviarMail_(efsArmarMailEntrada_(filas[i], e, c), c);
     if (usado) {
-      estado = efsTextoFecha_(new Date()) + (usado === 'resend' ? ' (Resend)' : usado === 'brevo' ? ' (Brevo)' : '');
+      estado = efsTextoFecha_(new Date()) + (usado === 'gmail' ? '' : ' (' + { smtp2go: 'SMTP2GO', resend: 'Resend', brevo: 'Brevo' }[usado] + ')');
     } else {
       estado = 'pendiente: sin cupo de mails hoy';
-      efsAvisar_('EFS: sin cupo de mails', 'Gmail, Brevo y Resend no tienen cupo disponible. Las entradas pendientes se mandan solas en los próximos barridos.');
+      efsAvisar_('EFS: sin cupo de mails', 'Gmail, SMTP2GO, Resend y Brevo no tienen cupo disponible. Las entradas pendientes se mandan solas en los próximos barridos.');
     }
   } catch (err) {
     estado = 'error: ' + String(err && err.message ? err.message : err).slice(0, 120);
@@ -521,23 +521,26 @@ function efsEnviarEntrada_(codigo) {
   return efsMailEnviado_(estado);
 }
 
-// Manda por Gmail, Brevo o Resend según "mail_proveedor" (auto / gmail / brevo / resend).
+// Manda por Gmail, SMTP2GO, Resend o Brevo según "mail_proveedor" (auto / gmail / smtp2go / resend / brevo).
 // En "auto" usa Gmail mientras le queden al menos 30 envíos en el día; después
-// Brevo (300 por día) y por último Resend (100 por día). Si uno falla o no está
+// SMTP2GO (1.000 por mes), Resend (100 por día) y por último Brevo (300 por día,
+// el único que no incrusta el QR). Si uno falla o no está
 // configurado, prueba con el siguiente. Devuelve el proveedor usado o '' si ninguno tiene cupo.
 function efsEnviarMail_(mail, c) {
   var cuotaGmail = MailApp.getRemainingDailyQuota();
   var preferido = String(c.mail_proveedor || 'auto').trim().toLowerCase();
-  var orden = ['gmail', 'brevo', 'resend'];
-  if (preferido === 'brevo' || preferido === 'resend') orden = [preferido].concat(orden.filter(function (p) { return p !== preferido; }));
+  var orden = ['gmail', 'smtp2go', 'resend', 'brevo'];
+  if (preferido === 'smtp2go' || preferido === 'brevo' || preferido === 'resend') orden = [preferido].concat(orden.filter(function (p) { return p !== preferido; }));
   var ultimoError = null;
   for (var k = 0; k < orden.length; k++) {
     var p = orden[k];
     if (p === 'gmail' && cuotaGmail < 30) continue;
+    if (p === 'smtp2go' && !efsSmtp2goDisponible_()) continue;
     if (p === 'brevo' && !efsBrevoDisponible_()) continue;
     if (p === 'resend' && !efsResendDisponible_()) continue;
     try {
       if (p === 'gmail') efsMandarPorGmail_(mail, c);
+      else if (p === 'smtp2go') efsMandarPorSmtp2go_(mail, c);
       else if (p === 'brevo') efsMandarPorBrevo_(mail, c);
       else efsMandarPorResend_(mail, c);
       return p;
@@ -561,6 +564,30 @@ function efsMandarPorGmail_(mail, c) {
 function efsResendDisponible_() {
   return typeof RESEND_API_KEY === 'string' && RESEND_API_KEY !== '' &&
     typeof RESEND_FROM_EMAIL === 'string' && RESEND_FROM_EMAIL !== '';
+}
+
+// SMTP2GO_API_KEY va en las propiedades de la secuencia de comandos. El remitente
+// (SMTP2GO_FROM_EMAIL, opcional) tiene que ser una dirección o dominio verificado en SMTP2GO.
+function efsSmtp2goClave_() { return PropertiesService.getScriptProperties().getProperty('SMTP2GO_API_KEY') || ''; }
+function efsSmtp2goRemitente_() { return PropertiesService.getScriptProperties().getProperty('SMTP2GO_FROM_EMAIL') || 'efs@atpfcm.com.ar'; }
+function efsSmtp2goDisponible_() { return efsSmtp2goClave_() !== ''; }
+
+// SMTP2GO sí incrusta imágenes: el QR va en "inlines" y el HTML lo referencia por cid.
+function efsMandarPorSmtp2go_(mail, c) {
+  var cuerpo = {
+    sender: String(c.mail_remitente) + ' <' + efsSmtp2goRemitente_() + '>',
+    to: [mail.para], subject: mail.asunto, html_body: mail.html, text_body: mail.plano,
+    custom_headers: [{ header: 'Reply-To', value: String(c.mail_responder_a || Session.getEffectiveUser().getEmail()) }],
+  };
+  if (mail.qr) cuerpo.inlines = [{ filename: 'qr', mimetype: 'image/png', fileblob: Utilities.base64Encode(mail.qr.getBytes()) }];
+  var r = UrlFetchApp.fetch('https://api.smtp2go.com/v3/email/send', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { 'X-Smtp2go-Api-Key': efsSmtp2goClave_() }, payload: JSON.stringify(cuerpo),
+  });
+  var texto = String(r.getContentText());
+  var datos = {};
+  try { datos = JSON.parse(texto).data || {}; } catch (err) { /* respuesta no JSON */ }
+  if (r.getResponseCode() >= 300 || datos.failed > 0) throw new Error('SMTP2GO ' + r.getResponseCode() + ': ' + texto.slice(0, 150));
 }
 
 // BREVO_API_KEY va en las propiedades de la secuencia de comandos. El remitente
@@ -859,6 +886,20 @@ function efsProbarResend() {
   mail.asunto = '[Prueba Resend] ' + mail.asunto;
   efsMandarPorResend_(mail, c);
   Logger.log('Resend anda: mail de prueba enviado a ' + yo);
+}
+
+// Igual que efsProbarResend, pero por SMTP2GO.
+function efsProbarSmtp2go() {
+  if (!efsSmtp2goDisponible_()) throw new Error('Falta la propiedad SMTP2GO_API_KEY');
+  var c = efsConfig_();
+  var yo = Session.getEffectiveUser().getEmail();
+  var e = efsIndices_(EFS_COL_ENTRADAS);
+  var fila = efsFilaVacia_(EFS_COL_ENTRADAS);
+  efsAsignar_(fila, e, { Nombres: 'Prueba', Apellidos: 'SMTP2GO', DNI: '12345678', Email: yo, RegistrationId: 'EFS26-PRUEBA00' });
+  var mail = efsArmarMailEntrada_(fila, e, c);
+  mail.asunto = '[Prueba SMTP2GO] ' + mail.asunto;
+  efsMandarPorSmtp2go_(mail, c);
+  Logger.log('SMTP2GO anda: mail de prueba enviado a ' + yo + ' desde ' + efsSmtp2goRemitente_());
 }
 
 // Igual que efsProbarResend, pero por Brevo. Confirma la clave y el remitente.

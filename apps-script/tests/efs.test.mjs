@@ -13,13 +13,14 @@ const CODIGO_EFS = fs.readFileSync(path.join(aqui, '..', 'EFS.gs'), 'utf8');
 
 // ─────────────────────────── simulación de Google ───────────────────────────
 
-function crearEntorno({ mp, quota = 1500, qrFalla = false, resend = null, brevo = null } = {}) {
+function crearEntorno({ mp, quota = 1500, qrFalla = false, resend = null, brevo = null, smtp2go = null } = {}) {
   const hojas = new Map();
   const mails = [];
   const resendEnvios = [];
   const brevoEnvios = [];
+  const smtp2goEnvios = [];
   const errores = [];
-  const props = { EFS_WORKER_SECRET: 'secreto-de-prueba-123', EFS_MP_TOKEN: 'TEST-token', ...(brevo ? { BREVO_API_KEY: 'xkeysib-prueba' } : {}) };
+  const props = { EFS_WORKER_SECRET: 'secreto-de-prueba-123', EFS_MP_TOKEN: 'TEST-token', ...(brevo ? { BREVO_API_KEY: 'xkeysib-prueba' } : {}), ...(smtp2go ? { SMTP2GO_API_KEY: 'api-prueba' } : {}) };
   const cache = new Map();
   let lockTomado = false;
 
@@ -84,6 +85,10 @@ function crearEntorno({ mp, quota = 1500, qrFalla = false, resend = null, brevo 
           resendEnvios.push({ headers: op.headers, cuerpo: JSON.parse(op.payload) });
           return resend && resend.falla ? respuesta(429, { message: 'daily quota exceeded' }) : respuesta(200, { id: 're_1' });
         }
+        if (url === 'https://api.smtp2go.com/v3/email/send') {
+          smtp2goEnvios.push({ headers: op.headers, cuerpo: JSON.parse(op.payload) });
+          return smtp2go && smtp2go.falla ? respuesta(400, { data: { error: 'sender not verified' } }) : respuesta(200, { data: { succeeded: 1, failed: 0, email_id: 's1' } });
+        }
         if (url === 'https://api.brevo.com/v3/smtp/email') {
           brevoEnvios.push({ headers: op.headers, cuerpo: JSON.parse(op.payload) });
           return brevo && brevo.falla ? respuesta(400, { message: 'sender not valid' }) : respuesta(201, { messageId: 'b1' });
@@ -121,7 +126,7 @@ function crearEntorno({ mp, quota = 1500, qrFalla = false, resend = null, brevo 
   poner('webhook_url', 'https://efs-worker.ejemplo/mp/aviso');
 
   const post = (params) => JSON.parse(ctx.efsRouter({ parameter: { efs_secreto: props.EFS_WORKER_SECRET, ...params } }).texto);
-  return { ctx, hojas, mails, resendEnvios, brevoEnvios, errores, props, post, poner, lock: () => lockTomado };
+  return { ctx, hojas, mails, resendEnvios, brevoEnvios, smtp2goEnvios, errores, props, post, poner, lock: () => lockTomado };
 }
 
 // ─────────────────────────── simulación de Mercado Pago ───────────────────────────
@@ -527,8 +532,8 @@ if (principal) {
   });
 }
 
-prueba('Gmail sin cupo: sale por Brevo, con el QR como imagen enlazada y adjunto, sin tocar Resend', () => {
-  const mp = crearMp(); const env = crearEntorno({ mp, quota: 5, resend: {}, brevo: {} });
+prueba('Solo Brevo disponible: sale por Brevo, con el QR como imagen enlazada y adjunto', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp, quota: 5, brevo: {} });
   env.ctx.efsProcesarPago(mp.pagar(env.post(datos()).referencia).id, 'webhook');
   igual(env.mails.length, 0); igual(env.resendEnvios.length, 0); igual(env.brevoEnvios.length, 1);
   const b = env.brevoEnvios[0];
@@ -540,13 +545,21 @@ prueba('Gmail sin cupo: sale por Brevo, con el QR como imagen enlazada y adjunto
   si(String(entradas(env)[0][cab.indexOf('MailEntrada')]).includes('(Brevo)'));
 });
 
-prueba('Brevo falla: cae a Resend; sin clave de Brevo se saltea', () => {
-  const mp = crearMp(); const env = crearEntorno({ mp, quota: 5, resend: {}, brevo: { falla: true } });
+prueba('Gmail sin cupo: sale por SMTP2GO con el QR incrustado (CID) y antes que Resend y Brevo', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp, quota: 5, resend: {}, brevo: {}, smtp2go: {} });
   env.ctx.efsProcesarPago(mp.pagar(env.post(datos()).referencia).id, 'webhook');
-  igual(env.brevoEnvios.length, 1); igual(env.resendEnvios.length, 1);
-  const mp2 = crearMp(); const env2 = crearEntorno({ mp: mp2, quota: 5, resend: {} });
-  env2.ctx.efsProcesarPago(mp2.pagar(env2.post(datos()).referencia).id, 'webhook');
-  igual(env2.brevoEnvios.length, 0); igual(env2.resendEnvios.length, 1);
+  igual(env.mails.length, 0); igual(env.smtp2goEnvios.length, 1); igual(env.resendEnvios.length, 0); igual(env.brevoEnvios.length, 0);
+  const s = env.smtp2goEnvios[0];
+  igual(s.headers['X-Smtp2go-Api-Key'], 'api-prueba'); igual(s.cuerpo.to, ['ana@ejemplo.com']);
+  si(s.cuerpo.sender.includes('<efs@atpfcm.com.ar>')); igual(s.cuerpo.inlines[0].filename, 'qr'); si(s.cuerpo.html_body.includes('cid:qr'));
+  const cab = env.hojas.get('EFS 2026').datos[0];
+  si(String(entradas(env)[0][cab.indexOf('MailEntrada')]).includes('(SMTP2GO)'));
+});
+
+prueba('SMTP2GO falla: cae a Resend y, si este también falla, a Brevo', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp, quota: 5, resend: { falla: true }, brevo: {}, smtp2go: { falla: true } });
+  env.ctx.efsProcesarPago(mp.pagar(env.post(datos()).referencia).id, 'webhook');
+  igual(env.smtp2goEnvios.length, 1); igual(env.resendEnvios.length, 1); igual(env.brevoEnvios.length, 1);
 });
 
 console.log(`\n${ok} bien, ${fallas} mal\n`);
