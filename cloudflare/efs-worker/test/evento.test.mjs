@@ -57,6 +57,12 @@ test('acreditar: dos pedidos con el MISMO id a la vez (reintento con red lenta) 
   assert.equal(t1.r, 'ok'); assert.deepEqual(t2, t1);
 });
 
+test('acreditar: el nombre de quien acredita conserva tildes y ñ, y descarta símbolos raros', async () => {
+  const { ev } = await nuevo();
+  await ev.acreditar(op(), ANA, 'Lucía Peñaloza <b>');
+  assert.equal(ev.acred[ANA][1], 'Lucía Peñaloza b');
+});
+
 test('acreditar: revocada, desconocida y mal formada', async () => {
   const { ev } = await nuevo();
   assert.equal((await ev.acreditar(op(), REV, 'P1')).r, 'revocada');

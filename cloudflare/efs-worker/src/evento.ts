@@ -342,7 +342,7 @@ export class Evento {
 }
 
 function cortar(s: string): string {
-  return String(s || '').replace(/[^\w .-]/g, '').slice(0, 20);
+  return String(s || '').replace(/[^\p{L}\p{N} .'-]/gu, '').slice(0, 20);
 }
 
 // ─────────────────────────── Durable Object ───────────────────────────
