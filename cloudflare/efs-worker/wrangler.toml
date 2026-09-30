@@ -13,6 +13,16 @@ APPS_SCRIPT_ENDPOINT = "https://script.google.com/macros/s/AKfycbzIYU4H3B94IoTyH
 ALLOWED_ORIGINS = "https://efsarg.com.ar,https://www.efsarg.com.ar,https://atpfcm.com.ar"
 TURNSTILE_HOSTNAMES = "efsarg.com.ar,www.efsarg.com.ar"
 
+# Durable Object del día del evento (acreditación, credencial, taller).
+# new_sqlite_classes: backend de storage del plan gratuito de Cloudflare.
+[[durable_objects.bindings]]
+name = "EVENTO"
+class_name = "EventoDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["EventoDO"]
+
 # Entorno de PRUEBA: apunta a la copia de la planilla ("ATP - PRUEBA EFS") y
 # acepta pedidos desde la vista previa local. Publicar con:
 #   wrangler deploy --env prueba
@@ -23,3 +33,11 @@ name = "efs-worker-prueba"
 APPS_SCRIPT_ENDPOINT = "https://script.google.com/macros/s/AKfycbwhlo-twBfBncZN751_VnWLMkNRWxbP1_vEDF6C52p2vRm4DFKqwxf9LIfSJUnV2-UZ8A/exec"
 ALLOWED_ORIGINS = "http://localhost:8080,https://efsarg.com.ar"
 TURNSTILE_HOSTNAMES = "localhost,efsarg.com.ar"
+
+[[env.prueba.durable_objects.bindings]]
+name = "EVENTO"
+class_name = "EventoDO"
+
+[[env.prueba.migrations]]
+tag = "v1"
+new_sqlite_classes = ["EventoDO"]

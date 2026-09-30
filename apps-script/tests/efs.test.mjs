@@ -562,5 +562,74 @@ prueba('SMTP2GO falla: cae a Resend y, si este también falla, a Brevo', () => {
   igual(env.smtp2goEnvios.length, 1); igual(env.resendEnvios.length, 1); igual(env.brevoEnvios.length, 1);
 });
 
+// ─────────── día del evento: lista y sincronización con el Durable Object ───────────
+
+function pagarUna(env, mp, extra = {}) {
+  env.ctx.efsProcesarPago(mp.pagar(env.post(datos(extra)).referencia).id, 'webhook');
+  const cab = env.hojas.get('EFS 2026').datos[0];
+  const col = (n) => cab.indexOf(n);
+  const fila = entradas(env).at(-1);
+  return { codigo: fila[col('RegistrationId')], col, celda: (cod, n) => { const f = entradas(env).find((x) => x[col('RegistrationId')] === cod); return f ? f[col(n)] : undefined; } };
+}
+
+prueba('staff_lista: solo con el secreto del Worker, con datos mínimos de cada entrada', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const { codigo } = pagarUna(env, mp);
+  const r = env.post({ accion: 'staff_lista' });
+  igual(r.ok, true); igual(r.entradas.length, 1);
+  const x = r.entradas[0];
+  igual(x.c, codigo); igual(x.e, 'activa'); igual(x.a, 0); igual(x.dni, '30123456'); igual(x.cr, ''); igual(x.t, '');
+  const sinSecreto = JSON.parse(env.ctx.efsRouter({ parameter: { accion: 'staff_lista' } }).texto);
+  igual(sinSecreto.error, 'no_autorizado');
+});
+
+prueba('staff_sync: deja hora, puesto, credencial, taller y Asistencias; no toca el resto de la fila', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const { codigo, celda } = pagarUna(env, mp);
+  const mailAntes = celda(codigo, 'MailEntrada'); const emailAntes = celda(codigo, 'Email');
+  const hora = Date.UTC(2026, 9, 17, 12, 30);
+  const r = env.post({ accion: 'staff_sync', lote: JSON.stringify([{ c: codigo, a: hora, p: 'Puesto 2', cr: 'EFSC-1234ABCD', t: 'Sutura' }]) });
+  igual(r.ok, true); igual(r.n, 1); igual(r.no_encontrados, []);
+  igual(celda(codigo, 'Credencial'), 'EFSC-1234ABCD'); igual(celda(codigo, 'Taller'), 'Sutura'); igual(celda(codigo, 'AcreditadoPor'), 'Puesto 2');
+  si(String(celda(codigo, 'AcreditadoEn')).includes('2026'));
+  igual(JSON.parse(celda(codigo, 'Asistencias')), ['EFS 2026']);
+  igual(celda(codigo, 'MailEntrada'), mailAntes); igual(celda(codigo, 'Email'), emailAntes); igual(celda(codigo, 'EstadoEntrada'), 'activa');
+  // el listado ya devuelve lo acreditado (para que el Durable Object se pueda recuperar)
+  const l = env.post({ accion: 'staff_lista' }).entradas[0];
+  igual(l.cr, 'EFSC-1234ABCD'); igual(l.t, 'Sutura'); igual(l.p, 'Puesto 2'); si(l.a > 0);
+});
+
+prueba('staff_sync: repetir el lote no duplica nada; desacreditar limpia la asistencia', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const { codigo, celda } = pagarUna(env, mp);
+  const lote = JSON.stringify([{ c: codigo, a: Date.UTC(2026, 9, 17, 12, 0), p: 'P1', cr: '', t: '' }]);
+  env.post({ accion: 'staff_sync', lote }); env.post({ accion: 'staff_sync', lote });
+  igual(JSON.parse(celda(codigo, 'Asistencias')), ['EFS 2026']);
+  env.post({ accion: 'staff_sync', lote: JSON.stringify([{ c: codigo, a: 0, p: '', cr: '', t: '' }]) });
+  igual(JSON.parse(celda(codigo, 'Asistencias')), []); igual(celda(codigo, 'AcreditadoEn'), ''); igual(celda(codigo, 'Credencial'), '');
+});
+
+prueba('staff_sync: un código que no existe se informa y no rompe el lote; un taller con "=" no se vuelve fórmula', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const { codigo, celda } = pagarUna(env, mp);
+  const r = env.post({ accion: 'staff_sync', lote: JSON.stringify([{ c: 'EFS26-ZZZZZZZZ', a: 1 }, { c: codigo, a: Date.UTC(2026, 9, 17, 12, 0), p: 'P1', cr: '', t: '=HYPERLINK("x")' }]) });
+  igual(r.ok, true); igual(r.n, 1); igual(r.no_encontrados, ['EFS26-ZZZZZZZZ']);
+  igual(celda(codigo, 'Taller'), '=HYPERLINK("x")'); // se guardó como texto (con apóstrofo, que Sheets no muestra)
+  igual(env.post({ accion: 'staff_sync', lote: 'esto no es json' }).error, 'formato');
+});
+
+prueba('staff_sync: la planilla anterior a las columnas del evento las recibe al final', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const { codigo } = pagarUna(env, mp);
+  const hoja = env.hojas.get('EFS 2026');
+  const fin = hoja.datos[0].indexOf('Credencial');
+  for (const f of hoja.datos) f.splice(fin); // simula una hoja vieja sin Credencial/Taller/AcreditadoEn/AcreditadoPor
+  const r = env.post({ accion: 'staff_sync', lote: JSON.stringify([{ c: codigo, a: Date.UTC(2026, 9, 17, 12, 0), p: 'P1', cr: 'EFSC-1234ABCD', t: 'RCP' }]) });
+  igual(r.ok, true);
+  const cab = hoja.datos[0];
+  si(cab.includes('Credencial') && cab.includes('Taller') && cab.includes('AcreditadoEn') && cab.includes('AcreditadoPor'));
+  igual(hoja.datos[1][cab.indexOf('Taller')], 'RCP');
+});
+
 console.log(`\n${ok} bien, ${fallas} mal\n`);
 process.exit(fallas ? 1 : 0);

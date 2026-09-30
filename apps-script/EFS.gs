@@ -88,6 +88,8 @@ function efsRouter(e) {
       case 'admin_buscar': return efsJson_(efsAdmin_(p, efsAdminBuscar_));
       case 'admin_procesar': return efsJson_(efsAdmin_(p, efsAdminProcesar_));
       case 'admin_reenviar': return efsJson_(efsAdmin_(p, efsAdminReenviar_));
+      case 'staff_lista': return efsJson_(efsStaffLista_());
+      case 'staff_sync': return efsJson_(efsStaffSync_(p.lote));
       case 'admin_conciliar': return efsJson_(efsAdmin_(p, function () { return efsConciliar(); }));
       default: return efsJson_({ ok: false, error: 'accion_desconocida' });
     }
@@ -857,6 +859,95 @@ function efsAdminProcesar_(p) {
 function efsAdminReenviar_(p) {
   var enviado = efsEnviarEntrada_(String(p.codigo || ''));
   return { ok: enviado, error: enviado ? undefined : 'no_enviado' };
+}
+
+// ─────────────────────────── día del evento (Worker → planilla) ───────────────────────────
+
+var EFS_SESION_ASISTENCIA = 'EFS 2026';
+
+// Lista completa para el Durable Object del evento (solo la pide el Worker, con
+// el secreto compartido). Trae también lo ya acreditado, por si el objeto perdió su estado.
+function efsStaffLista_() {
+  var filas = efsHoja_(EFS_HOJA_ENTRADAS).getDataRange().getValues();
+  var e = efsIndices_(filas[0]);
+  var texto = function (fila, nombre) { return e[nombre] === undefined ? '' : String(fila[e[nombre]] == null ? '' : fila[e[nombre]]); };
+  var lista = [];
+  for (var i = 1; i < filas.length; i++) {
+    var codigo = String(filas[i][e.RegistrationId] || '').trim();
+    if (!codigo) continue;
+    var hora = e.AcreditadoEn === undefined ? null : efsFecha_(filas[i][e.AcreditadoEn]);
+    lista.push({
+      c: codigo, n: (texto(filas[i], 'Nombres') + ' ' + texto(filas[i], 'Apellidos')).trim(),
+      dni: texto(filas[i], 'DNI').replace(/\D/g, ''), e: texto(filas[i], 'EstadoEntrada') || 'activa',
+      a: hora ? hora.getTime() : 0, p: texto(filas[i], 'AcreditadoPor'), cr: texto(filas[i], 'Credencial'), t: texto(filas[i], 'Taller'),
+    });
+  }
+  return { ok: true, entradas: lista };
+}
+
+// Recibe de a lotes lo que pasó en el evento y lo deja en la planilla: hora y
+// puesto de acreditación, credencial, taller y "Asistencias" (que es lo que lee
+// el sistema de certificados de la plataforma). Se puede repetir sin efectos dobles.
+function efsStaffSync_(loteTexto) {
+  var lote;
+  try { lote = JSON.parse(String(loteTexto || '[]')); } catch (err) { return { ok: false, error: 'formato' }; }
+  if (!Array.isArray(lote) || lote.length > 300) return { ok: false, error: 'formato' };
+
+  var lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  var noEncontrados = [];
+  try {
+    var hoja = efsHoja_(EFS_HOJA_ENTRADAS);
+    efsAsegurarColumnas_(hoja, ['Credencial', 'Taller', 'AcreditadoEn', 'AcreditadoPor']);
+    var filas = hoja.getDataRange().getValues();
+    var e = efsIndices_(filas[0]);
+    lote.forEach(function (it) {
+      var i = efsBuscarFila_(filas, e.RegistrationId, it && it.c);
+      if (i < 0) { noEncontrados.push(String(it && it.c)); return; }
+      var hora = Number(it.a) > 0 ? new Date(Number(it.a)) : null;
+      filas[i][e.Credencial] = efsCeldaSegura_(it.cr);
+      filas[i][e.Taller] = efsCeldaSegura_(it.t);
+      filas[i][e.AcreditadoEn] = hora ? efsTextoFecha_(hora) : '';
+      filas[i][e.AcreditadoPor] = hora ? efsCeldaSegura_(it.p) : '';
+      var asistencias = efsListaJson_(filas[i][e.Asistencias]);
+      var tiene = asistencias.indexOf(EFS_SESION_ASISTENCIA) !== -1;
+      if (hora && !tiene) asistencias.push(EFS_SESION_ASISTENCIA);
+      if (!hora && tiene) asistencias = asistencias.filter(function (x) { return x !== EFS_SESION_ASISTENCIA; });
+      filas[i][e.Asistencias] = JSON.stringify(asistencias);
+    });
+    // Se escribe por columnas enteras (5 llamadas en vez de cientos); las demás columnas no se tocan.
+    ['Credencial', 'Taller', 'AcreditadoEn', 'AcreditadoPor', 'Asistencias'].forEach(function (nombre) {
+      var valores = [];
+      for (var k = 1; k < filas.length; k++) valores.push([filas[k][e[nombre]]]);
+      if (valores.length) hoja.getRange(2, e[nombre] + 1, valores.length, 1).setValues(valores);
+    });
+    SpreadsheetApp.flush();
+  } finally {
+    lock.releaseLock();
+  }
+  return { ok: true, n: lote.length - noEncontrados.length, no_encontrados: noEncontrados };
+}
+
+// Si la planilla es anterior a estas columnas, las agrega al final (en formato texto).
+function efsAsegurarColumnas_(hoja, nombres) {
+  var cab = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0].map(String);
+  nombres.forEach(function (nombre) {
+    if (cab.indexOf(nombre) !== -1) return;
+    var col = cab.length + 1;
+    hoja.getRange(1, col).setValue(nombre);
+    hoja.getRange(2, col, Math.max(1, hoja.getMaxRows() - 1), 1).setNumberFormat('@');
+    cab.push(nombre);
+  });
+}
+
+// Texto que puede venir de una persona del staff: nunca se interpreta como fórmula.
+function efsCeldaSegura_(v) {
+  var t = String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, 80);
+  return /^[=+\-@]/.test(t) ? "'" + t : t;
+}
+
+function efsListaJson_(v) {
+  try { var x = JSON.parse(String(v || '[]')); return Array.isArray(x) ? x : []; } catch (err) { return []; }
 }
 
 // ─────────────────────────── puesta en marcha (se corren a mano una vez) ───────────────────────────

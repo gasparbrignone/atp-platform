@@ -16,19 +16,15 @@
  *   POST /verificar   vuelta desde Mercado Pago → QR en pantalla
  *   POST /mp/aviso    webhook de Mercado Pago → procesar el pago
  *   POST /admin       panel del EFS (con la sesión de admin de la plataforma)
+ *   POST /staff       celulares del día del evento: acreditación, credencial, taller (Durable Object)
  *   GET  /salud       chequeo simple
  */
 
-export interface Env {
-  APPS_SCRIPT_ENDPOINT: string;
-  ALLOWED_ORIGINS: string; // separados por coma
-  TURNSTILE_HOSTNAMES: string; // separados por coma
-  EFS_WORKER_SECRET: string; // secreto: wrangler secret put
-  TURNSTILE_SECRET: string; // secreto: wrangler secret put
-  MP_WEBHOOK_SECRET?: string; // secreto opcional: wrangler secret put
-}
+import { appsScript, esperar } from './apps.ts';
+import type { Env, Json } from './apps.ts';
 
-type Json = Record<string, unknown>;
+export { EventoDO } from './evento.ts';
+export type { Env } from './apps.ts';
 
 const ADMIN_ACCIONES = new Set(['admin_resumen', 'admin_buscar', 'admin_procesar', 'admin_reenviar', 'admin_conciliar']);
 const CAMPOS_INSCRIPCION = ['intento_id', 'nombre', 'apellido', 'dni', 'correo', 'telefono', 'carrera', 'anio', 'universidad'];
@@ -53,6 +49,7 @@ export default {
         case '/inscribir': return json(await inscribir(cuerpo, ip, env), env, origen);
         case '/verificar': return json(await verificar(cuerpo, ip, env), env, origen);
         case '/admin': return json(await admin(cuerpo, ip, env), env, origen);
+        case '/staff': return json(await staff(cuerpo, ip, env), env, origen);
         default: return json({ ok: false, error: 'ruta' }, env, origen, 404);
       }
     } catch (err) {
@@ -95,6 +92,35 @@ async function admin(cuerpo: Json, ip: string, env: Env): Promise<Json> {
   return appsScript(params, env, { reintentos: 0 });
 }
 
+// Celulares del staff el día del evento. Todo pasa por el mismo Durable Object
+// (uno solo para todo el EFS), que es quien evita duplicados y respeta los cupos.
+// Dos claves: la del staff (escanear) y la de coordinación (talleres, credenciales).
+const OPS_STAFF = new Set(['lista', 'buscar', 'acreditar', 'vincular', 'taller', 'puerta']);
+const OPS_COORD = new Set(['coord_resumen', 'coord_taller', 'coord_taller_borrar', 'coord_credenciales', 'coord_desvincular', 'coord_desacreditar', 'coord_despues', 'coord_sincronizar']);
+
+async function staff(cuerpo: Json, ip: string, env: Env): Promise<Json> {
+  const op = String(cuerpo.op || '');
+  const coord = OPS_COORD.has(op);
+  if (!coord && !OPS_STAFF.has(op)) return { ok: false, error: 'op' };
+
+  // Con demasiados intentos fallidos desde una IP se corta ANTES de comparar la
+  // clave: así no sirve adivinarla, ni siquiera acertando después.
+  if (excedido('clave:' + ip, 15)) return { ok: false, error: 'demasiados_intentos' };
+  const esperada = coord ? env.EFS_COORD_KEY : env.EFS_STAFF_KEY;
+  const recibida = String((coord ? cuerpo.clave_coord : cuerpo.clave) || '');
+  if (!esperada || !igualesSeguro(recibida, esperada)) {
+    frenado('clave:' + ip, 15, 600);
+    await esperar(300);
+    return { ok: false, error: 'clave' };
+  }
+  if (frenado('staff:' + ip, 1500, 600)) return { ok: false, error: 'demasiados_intentos' };
+
+  const { clave: _c, clave_coord: _k, ...datos } = cuerpo;
+  const stub = env.EVENTO.get(env.EVENTO.idFromName('efs-2026'));
+  const r = await stub.fetch('https://evento/', { method: 'POST', body: JSON.stringify(datos) });
+  return (await r.json()) as Json;
+}
+
 // Webhook de Mercado Pago. Responde 200 al instante y reenvía en segundo
 // plano: si el reenvío falla, el barrido del Apps Script lo encuentra igual.
 async function aviso(request: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -113,39 +139,6 @@ async function aviso(request: Request, url: URL, env: Env, ctx: ExecutionContext
 
   ctx.waitUntil(appsScript({ accion: 'aviso', tipo, id }, env, { reintentos: 1 }).catch(() => undefined));
   return new Response('ok', { status: 200 });
-}
-
-// ─────────────────────────── Apps Script ───────────────────────────
-
-async function appsScript(params: Record<string, string>, env: Env, op: { reintentos: number }): Promise<Json> {
-  const cuerpo = new URLSearchParams({ ...params, formType: 'efs', efs_secreto: env.EFS_WORKER_SECRET });
-  let ultimo: Json = { ok: false, error: 'servicio' };
-  for (let intento = 0; intento <= op.reintentos; intento++) {
-    if (intento > 0) await esperar(1000 * intento);
-    try {
-      // El POST ejecuta doPost; Google responde con un 302 a
-      // script.googleusercontent.com y fetch lo sigue para leer el JSON.
-      const r = await fetch(env.APPS_SCRIPT_ENDPOINT, {
-        method: 'POST',
-        body: cuerpo,
-        redirect: 'follow',
-        signal: AbortSignal.timeout(25000),
-      });
-      const texto = await r.text();
-      let datos: Json;
-      try {
-        datos = JSON.parse(texto) as Json;
-      } catch {
-        ultimo = { ok: false, error: 'servicio' };
-        continue;
-      }
-      if (datos.error === 'ocupado' || datos.error === 'interno') { ultimo = datos; continue; }
-      return datos;
-    } catch {
-      ultimo = { ok: false, error: 'servicio' };
-    }
-  }
-  return ultimo;
 }
 
 // ─────────────────────────── seguridad ───────────────────────────
@@ -202,6 +195,12 @@ function frenado(clave: string, max: number, segundos: number): boolean {
   return c.n > max;
 }
 
+// Cuenta sin sumar: ¿esta clave ya pasó el máximo dentro de su ventana?
+function excedido(clave: string, max: number): boolean {
+  const c = contadores.get(clave);
+  return Boolean(c && c.hasta > Date.now() && c.n >= max);
+}
+
 // ─────────────────────────── utilidades ───────────────────────────
 
 function cors(env: Env, origen: string): HeadersInit {
@@ -235,8 +234,4 @@ async function leerJson(request: Request): Promise<Json | null> {
 
 function lista(v: string | undefined): string[] {
   return String(v || '').split(',').map((s) => s.trim()).filter(Boolean);
-}
-
-function esperar(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
 }
