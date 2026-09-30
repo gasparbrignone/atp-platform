@@ -69,7 +69,7 @@ var EFS_CONFIG_INICIAL = [
   ['mail_remitente', 'EFS · Encuentro de Formación en Salud', 'Nombre del remitente'],
   ['mail_responder_a', '', 'Correo al que llegan las respuestas (opcional)'],
   ['mail_admin', '', 'A quién le llegan los avisos de anomalías. Vacío = la cuenta del script'],
-  ['mail_proveedor', 'auto', 'auto (Gmail y, si se queda sin cupo, Resend) / gmail / resend'],
+  ['mail_proveedor', 'auto', 'auto (Gmail; sin cupo, Brevo y luego Resend) / gmail / brevo / resend'],
   ['acreditacion', '', 'Horario de la acreditación, para el mail. Ej.: Desde las 9 h'],
   ['whatsapp', '5493415845571', 'WhatsApp de consultas que aparece en el mail (solo números, con 549)'],
 ];
@@ -508,10 +508,10 @@ function efsEnviarEntrada_(codigo) {
   try {
     var usado = efsEnviarMail_(efsArmarMailEntrada_(filas[i], e, c), c);
     if (usado) {
-      estado = efsTextoFecha_(new Date()) + (usado === 'resend' ? ' (Resend)' : '');
+      estado = efsTextoFecha_(new Date()) + (usado === 'resend' ? ' (Resend)' : usado === 'brevo' ? ' (Brevo)' : '');
     } else {
       estado = 'pendiente: sin cupo de mails hoy';
-      efsAvisar_('EFS: sin cupo de mails', 'Gmail y Resend no tienen cupo disponible. Las entradas pendientes se mandan solas en los próximos barridos.');
+      efsAvisar_('EFS: sin cupo de mails', 'Gmail, Brevo y Resend no tienen cupo disponible. Las entradas pendientes se mandan solas en los próximos barridos.');
     }
   } catch (err) {
     estado = 'error: ' + String(err && err.message ? err.message : err).slice(0, 120);
@@ -521,21 +521,25 @@ function efsEnviarEntrada_(codigo) {
   return efsMailEnviado_(estado);
 }
 
-// Manda por Gmail o por Resend según "mail_proveedor" (auto / gmail / resend).
-// En "auto" usa Gmail mientras le queden al menos 30 envíos en el día y si no,
-// Resend (ya configurado en la plataforma para los certificados). Si uno
-// falla, prueba con el otro. Devuelve 'gmail', 'resend' o '' si ninguno tiene cupo.
+// Manda por Gmail, Brevo o Resend según "mail_proveedor" (auto / gmail / brevo / resend).
+// En "auto" usa Gmail mientras le queden al menos 30 envíos en el día; después
+// Brevo (300 por día) y por último Resend (100 por día). Si uno falla o no está
+// configurado, prueba con el siguiente. Devuelve el proveedor usado o '' si ninguno tiene cupo.
 function efsEnviarMail_(mail, c) {
   var cuotaGmail = MailApp.getRemainingDailyQuota();
   var preferido = String(c.mail_proveedor || 'auto').trim().toLowerCase();
-  var orden = preferido === 'resend' || (preferido !== 'gmail' && cuotaGmail < 30) ? ['resend', 'gmail'] : ['gmail', 'resend'];
+  var orden = ['gmail', 'brevo', 'resend'];
+  if (preferido === 'brevo' || preferido === 'resend') orden = [preferido].concat(orden.filter(function (p) { return p !== preferido; }));
   var ultimoError = null;
   for (var k = 0; k < orden.length; k++) {
     var p = orden[k];
     if (p === 'gmail' && cuotaGmail < 30) continue;
+    if (p === 'brevo' && !efsBrevoDisponible_()) continue;
     if (p === 'resend' && !efsResendDisponible_()) continue;
     try {
-      if (p === 'gmail') efsMandarPorGmail_(mail, c); else efsMandarPorResend_(mail, c);
+      if (p === 'gmail') efsMandarPorGmail_(mail, c);
+      else if (p === 'brevo') efsMandarPorBrevo_(mail, c);
+      else efsMandarPorResend_(mail, c);
       return p;
     } catch (err) {
       ultimoError = err;
@@ -557,6 +561,30 @@ function efsMandarPorGmail_(mail, c) {
 function efsResendDisponible_() {
   return typeof RESEND_API_KEY === 'string' && RESEND_API_KEY !== '' &&
     typeof RESEND_FROM_EMAIL === 'string' && RESEND_FROM_EMAIL !== '';
+}
+
+// BREVO_API_KEY va en las propiedades de la secuencia de comandos. El remitente
+// (BREVO_FROM_EMAIL, opcional) tiene que ser una dirección verificada en Brevo.
+function efsBrevoClave_() { return PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY') || ''; }
+function efsBrevoRemitente_() { return PropertiesService.getScriptProperties().getProperty('BREVO_FROM_EMAIL') || 'efs@atpfcm.com.ar'; }
+function efsBrevoDisponible_() { return efsBrevoClave_() !== ''; }
+
+// Brevo no acepta imágenes incrustadas por CID: el QR va como imagen enlazada
+// (mismo generador que usa el sitio) y además adjunto, por si el mail bloquea imágenes.
+function efsMandarPorBrevo_(mail, c) {
+  var html = mail.html;
+  if (mail.qr && mail.codigo) html = html.split('cid:qr').join('https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=16&ecc=M&format=png&data=' + encodeURIComponent(mail.codigo));
+  var cuerpo = {
+    sender: { name: String(c.mail_remitente), email: efsBrevoRemitente_() },
+    to: [{ email: mail.para }], subject: mail.asunto, htmlContent: html, textContent: mail.plano,
+    replyTo: { email: String(c.mail_responder_a || Session.getEffectiveUser().getEmail()) },
+  };
+  if (mail.qr) cuerpo.attachment = [{ name: 'entrada-efs.png', content: Utilities.base64Encode(mail.qr.getBytes()) }];
+  var r = UrlFetchApp.fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { 'api-key': efsBrevoClave_(), accept: 'application/json' }, payload: JSON.stringify(cuerpo),
+  });
+  if (r.getResponseCode() >= 300) throw new Error('Brevo ' + r.getResponseCode() + ': ' + String(r.getContentText()).slice(0, 150));
 }
 
 function efsMandarPorResend_(mail, c) {
@@ -609,7 +637,7 @@ function efsArmarMailEntrada_(fila, e, c) {
     (c.evento_lugar ? '\nDónde: ' + c.evento_lugar : '') +
     '\n\nEl día del encuentro mostrá el QR en la acreditación: ahí te damos tu credencial y elegís taller.' +
     '\nLa entrada es personal. Guardá este mail o una captura del QR.\n\nATP · ' + sitio.replace(/^https?:\/\//, '');
-  return { para: String(fila[e.Email]), asunto: 'Tu entrada al EFS 2026', html: html, plano: plano, qr: qrBlob };
+  return { para: String(fila[e.Email]), asunto: 'Tu entrada al EFS 2026', html: html, plano: plano, qr: qrBlob, codigo: codigo };
 }
 
 // Mail de la entrada con la identidad del EFS. Hecho con tablas y estilos en
@@ -831,6 +859,20 @@ function efsProbarResend() {
   mail.asunto = '[Prueba Resend] ' + mail.asunto;
   efsMandarPorResend_(mail, c);
   Logger.log('Resend anda: mail de prueba enviado a ' + yo);
+}
+
+// Igual que efsProbarResend, pero por Brevo. Confirma la clave y el remitente.
+function efsProbarBrevo() {
+  if (!efsBrevoDisponible_()) throw new Error('Falta la propiedad BREVO_API_KEY');
+  var c = efsConfig_();
+  var yo = Session.getEffectiveUser().getEmail();
+  var e = efsIndices_(EFS_COL_ENTRADAS);
+  var fila = efsFilaVacia_(EFS_COL_ENTRADAS);
+  efsAsignar_(fila, e, { Nombres: 'Prueba', Apellidos: 'Brevo', DNI: '12345678', Email: yo, RegistrationId: 'EFS26-PRUEBA00' });
+  var mail = efsArmarMailEntrada_(fila, e, c);
+  mail.asunto = '[Prueba Brevo] ' + mail.asunto;
+  efsMandarPorBrevo_(mail, c);
+  Logger.log('Brevo anda: mail de prueba enviado a ' + yo + ' desde ' + efsBrevoRemitente_());
 }
 
 function efsProbarConexion() {

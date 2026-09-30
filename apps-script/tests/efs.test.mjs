@@ -13,12 +13,13 @@ const CODIGO_EFS = fs.readFileSync(path.join(aqui, '..', 'EFS.gs'), 'utf8');
 
 // ─────────────────────────── simulación de Google ───────────────────────────
 
-function crearEntorno({ mp, quota = 1500, qrFalla = false, resend = null } = {}) {
+function crearEntorno({ mp, quota = 1500, qrFalla = false, resend = null, brevo = null } = {}) {
   const hojas = new Map();
   const mails = [];
   const resendEnvios = [];
+  const brevoEnvios = [];
   const errores = [];
-  const props = { EFS_WORKER_SECRET: 'secreto-de-prueba-123', EFS_MP_TOKEN: 'TEST-token' };
+  const props = { EFS_WORKER_SECRET: 'secreto-de-prueba-123', EFS_MP_TOKEN: 'TEST-token', ...(brevo ? { BREVO_API_KEY: 'xkeysib-prueba' } : {}) };
   const cache = new Map();
   let lockTomado = false;
 
@@ -83,6 +84,10 @@ function crearEntorno({ mp, quota = 1500, qrFalla = false, resend = null } = {})
           resendEnvios.push({ headers: op.headers, cuerpo: JSON.parse(op.payload) });
           return resend && resend.falla ? respuesta(429, { message: 'daily quota exceeded' }) : respuesta(200, { id: 're_1' });
         }
+        if (url === 'https://api.brevo.com/v3/smtp/email') {
+          brevoEnvios.push({ headers: op.headers, cuerpo: JSON.parse(op.payload) });
+          return brevo && brevo.falla ? respuesta(400, { message: 'sender not valid' }) : respuesta(201, { messageId: 'b1' });
+        }
         const u = new URL(url);
             const r = mp.manejar((op.method || 'get').toLowerCase(), u.pathname, u.searchParams, op.payload ? JSON.parse(op.payload) : null, op.headers || {});
         return respuesta(r[0], r[1]);
@@ -116,7 +121,7 @@ function crearEntorno({ mp, quota = 1500, qrFalla = false, resend = null } = {})
   poner('webhook_url', 'https://efs-worker.ejemplo/mp/aviso');
 
   const post = (params) => JSON.parse(ctx.efsRouter({ parameter: { efs_secreto: props.EFS_WORKER_SECRET, ...params } }).texto);
-  return { ctx, hojas, mails, resendEnvios, errores, props, post, poner, lock: () => lockTomado };
+  return { ctx, hojas, mails, resendEnvios, brevoEnvios, errores, props, post, poner, lock: () => lockTomado };
 }
 
 // ─────────────────────────── simulación de Mercado Pago ───────────────────────────
@@ -521,6 +526,28 @@ if (principal) {
     for (const h of ['logError', 'escapeHtml', 'isValidAdminSession']) si(deMain.has(h), 'falta ' + h);
   });
 }
+
+prueba('Gmail sin cupo: sale por Brevo, con el QR como imagen enlazada y adjunto, sin tocar Resend', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp, quota: 5, resend: {}, brevo: {} });
+  env.ctx.efsProcesarPago(mp.pagar(env.post(datos()).referencia).id, 'webhook');
+  igual(env.mails.length, 0); igual(env.resendEnvios.length, 0); igual(env.brevoEnvios.length, 1);
+  const b = env.brevoEnvios[0];
+  igual(b.headers['api-key'], 'xkeysib-prueba'); igual(b.cuerpo.to, [{ email: 'ana@ejemplo.com' }]);
+  igual(b.cuerpo.sender.email, 'efs@atpfcm.com.ar');
+  si(!b.cuerpo.htmlContent.includes('cid:qr')); si(b.cuerpo.htmlContent.includes('api.qrserver.com/v1/create-qr-code/')); si(b.cuerpo.htmlContent.includes('EFS26-'));
+  igual(b.cuerpo.attachment[0].name, 'entrada-efs.png');
+  const cab = env.hojas.get('EFS 2026').datos[0];
+  si(String(entradas(env)[0][cab.indexOf('MailEntrada')]).includes('(Brevo)'));
+});
+
+prueba('Brevo falla: cae a Resend; sin clave de Brevo se saltea', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp, quota: 5, resend: {}, brevo: { falla: true } });
+  env.ctx.efsProcesarPago(mp.pagar(env.post(datos()).referencia).id, 'webhook');
+  igual(env.brevoEnvios.length, 1); igual(env.resendEnvios.length, 1);
+  const mp2 = crearMp(); const env2 = crearEntorno({ mp: mp2, quota: 5, resend: {} });
+  env2.ctx.efsProcesarPago(mp2.pagar(env2.post(datos()).referencia).id, 'webhook');
+  igual(env2.brevoEnvios.length, 0); igual(env2.resendEnvios.length, 1);
+});
 
 console.log(`\n${ok} bien, ${fallas} mal\n`);
 process.exit(fallas ? 1 : 0);
