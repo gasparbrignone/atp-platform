@@ -45,6 +45,7 @@ export class Evento {
   ajustes: { despues: boolean } = { despues: false };
   sucio: Record<string, number> = {}; // código → versión pendiente de pasar a la planilla
   seq = 0;
+  opsMem: Record<string, Json> = {}; // resultados de operaciones ya decididas (se anotan en el mismo instante, sin esperar al almacén)
 
   constructor(almacen: Almacen) {
     this.almacen = almacen;
@@ -86,6 +87,11 @@ export class Evento {
     };
   }
 
+  // Lo que el celular refresca cada pocos segundos: lugares libres y contadores.
+  estado(): Json {
+    return { ok: true, talleres: this.estadoTalleres(), despues: this.ajustes.despues, acreditados: Object.keys(this.acred).length, credenciales: Object.keys(this.cred).length, ahora: Date.now() };
+  }
+
   estadoTalleres(): Json[] {
     const ocupados: Record<string, number> = {};
     for (const t of Object.values(this.tall)) ocupados[t] = (ocupados[t] || 0) + 1;
@@ -110,11 +116,19 @@ export class Evento {
 
   // ─────────── operaciones del día (idempotentes por `id`) ───────────
 
+  // Si el celular repite una operación (por ejemplo porque la red tardó), se contesta lo mismo que la
+  // primera vez. Se mira primero la memoria: así vale incluso si la primera todavía se está guardando.
   private async repetida(id: string): Promise<Json | undefined> {
-    return this.almacen.get<Json>('op:' + id);
+    if (this.opsMem[id]) return this.opsMem[id];
+    const guardada = await this.almacen.get<Json>('op:' + id);
+    return this.opsMem[id] ?? guardada; // se vuelve a mirar: otro pedido igual pudo decidirse mientras se leía
   }
 
-  private async recordar(id: string, r: Json): Promise<Json> {
+  // Anota el resultado ANTES de esperar a que se guarde nada: entre decidir y anotar no hay ninguna espera,
+  // por eso dos pedidos con el mismo id nunca se cruzan.
+  private async cerrar(id: string, r: Json, ...claves: string[]): Promise<Json> {
+    this.opsMem[id] = r;
+    if (claves.length) await this.guardar(...claves);
     await this.almacen.put('op:' + id, r);
     return r;
   }
@@ -130,26 +144,25 @@ export class Evento {
 
   async acreditar(id: string, codigo: string, puesto: string): Promise<Json> {
     if (!RE_OP.test(id)) return { ok: false, error: 'op' };
-    const previa = await this.repetida(id);
+    const previa = (await this.repetida(id)) ?? this.opsMem[id]; // se mira de nuevo justo antes de decidir
     if (previa) return previa;
     const c = String(codigo || '').trim().toUpperCase();
     if (!RE_CODIGO.test(c)) return { ok: true, r: 'formato' };
     const e = this.entradas[c];
     if (!e) return { ok: true, r: 'no_valido' };
-    if (e.e !== 'activa') return this.recordar(id, { ok: true, r: 'revocada', n: e.n });
+    if (e.e !== 'activa') return this.cerrar(id, { ok: true, r: 'revocada', n: e.n });
     if (this.acred[c]) {
       const [hora, donde] = this.acred[c];
-      return this.recordar(id, { ok: true, r: 'ya', hora, puesto: donde, ...this.datosDe(c) });
+      return this.cerrar(id, { ok: true, r: 'ya', hora, puesto: donde, ...this.datosDe(c) });
     }
     this.acred[c] = [Date.now(), cortar(puesto)];
     this.marcarSucio(c);
-    await this.guardar('acred', 'sucio', 'seq');
-    return this.recordar(id, { ok: true, r: 'ok', hora: this.acred[c][0], ...this.datosDe(c) });
+    return this.cerrar(id, { ok: true, r: 'ok', hora: this.acred[c][0], ...this.datosDe(c) }, 'acred', 'sucio', 'seq');
   }
 
   async vincular(id: string, codigo: string, credencial: string, puesto: string): Promise<Json> {
     if (!RE_OP.test(id)) return { ok: false, error: 'op' };
-    const previa = await this.repetida(id);
+    const previa = (await this.repetida(id)) ?? this.opsMem[id]; // se mira de nuevo justo antes de decidir
     if (previa) return previa;
     const c = String(codigo || '').trim().toUpperCase();
     const cr = String(credencial || '').trim().toUpperCase();
@@ -159,21 +172,20 @@ export class Evento {
     if (!e) return { ok: true, r: 'no_valido' };
     if (e.e !== 'activa') return { ok: true, r: 'revocada', n: e.n };
     const dueno = this.cred[cr];
-    if (dueno && dueno !== c) return this.recordar(id, { ok: true, r: 'credencial_ocupada', de: this.entradas[dueno]?.n || '' });
-    if (this.credDe[c] && this.credDe[c] !== cr) return this.recordar(id, { ok: true, r: 'ya_tiene', cr: this.credDe[c], n: e.n });
+    if (dueno && dueno !== c) return this.cerrar(id, { ok: true, r: 'credencial_ocupada', de: this.entradas[dueno]?.n || '' });
+    if (this.credDe[c] && this.credDe[c] !== cr) return this.cerrar(id, { ok: true, r: 'ya_tiene', cr: this.credDe[c], n: e.n });
     if (!this.acred[c]) { // por si el paso 1 todavía no llegó (cola sin red): se acredita igual
       this.acred[c] = [Date.now(), cortar(puesto)];
     }
     this.cred[cr] = c;
     this.credDe[c] = cr;
     this.marcarSucio(c);
-    await this.guardar('acred', 'cred', 'sucio', 'seq');
-    return this.recordar(id, { ok: true, r: 'ok', ...this.datosDe(c) });
+    return this.cerrar(id, { ok: true, r: 'ok', ...this.datosDe(c) }, 'acred', 'cred', 'sucio', 'seq');
   }
 
   async asignarTaller(id: string, codigo: string, tallerId: string): Promise<Json> {
     if (!RE_OP.test(id)) return { ok: false, error: 'op' };
-    const previa = await this.repetida(id);
+    const previa = (await this.repetida(id)) ?? this.opsMem[id]; // se mira de nuevo justo antes de decidir
     if (previa) return previa;
     const c = String(codigo || '').trim().toUpperCase();
     const e = this.entradas[c];
@@ -182,12 +194,11 @@ export class Evento {
     if (!this.acred[c]) return { ok: true, r: 'sin_acreditar' };
     const t = this.talleres[tallerId];
     if (!t) return { ok: true, r: 'no_taller' };
-    if (this.tall[c] === tallerId) return this.recordar(id, { ok: true, r: 'ok', libres: this.libres(tallerId), ...this.datosDe(c) });
-    if (this.libres(tallerId) <= 0) return this.recordar(id, { ok: true, r: 'sin_cupo', libres: 0, tn: t.nombre });
+    if (this.tall[c] === tallerId) return this.cerrar(id, { ok: true, r: 'ok', libres: this.libres(tallerId), ...this.datosDe(c) });
+    if (this.libres(tallerId) <= 0) return this.cerrar(id, { ok: true, r: 'sin_cupo', libres: 0, tn: t.nombre });
     this.tall[c] = tallerId;
     this.marcarSucio(c);
-    await this.guardar('tall', 'sucio', 'seq');
-    return this.recordar(id, { ok: true, r: 'ok', libres: this.libres(tallerId), ...this.datosDe(c) });
+    return this.cerrar(id, { ok: true, r: 'ok', libres: this.libres(tallerId), ...this.datosDe(c) }, 'tall', 'sucio', 'seq');
   }
 
   libres(tallerId: string): number {
@@ -365,6 +376,7 @@ export class EventoDO {
     const ev = this.evento;
     switch (op) {
       case 'lista': await this.refrescar(false); return ev.lista();
+      case 'talleres': return ev.estado();
       case 'buscar': await this.refrescar(false); return ev.buscar(String(d.q || ''));
       case 'acreditar': {
         // Si el código no está, puede ser alguien que pagó hace un minuto: se vuelve a pedir la lista una vez.

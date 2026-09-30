@@ -45,6 +45,18 @@ test('acreditar: repetir el mismo id devuelve lo mismo (I-8), aunque la persona 
   assert.deepEqual(r2, r1); assert.equal(r2.r, 'ok');
 });
 
+test('acreditar: dos pedidos con el MISMO id a la vez (reintento con red lenta) reciben la misma respuesta', async () => {
+  const { a, ev } = await nuevo();
+  const put = a.put; a.put = async (k, v) => { await new Promise((r) => setTimeout(r, 5)); return put(k, v); }; // el almacén tarda
+  const id = op();
+  const [r1, r2] = await Promise.all([ev.acreditar(id, ANA, 'P1'), ev.acreditar(id, ANA, 'P1')]);
+  assert.equal(r1.r, 'ok'); assert.deepEqual(r2, r1);
+  const t = Object.fromEntries(ev.estadoTalleres().map((z) => [z.nombre, z.id]));
+  const idT = op();
+  const [t1, t2] = await Promise.all([ev.asignarTaller(idT, ANA, t.RCP), ev.asignarTaller(idT, ANA, t.RCP)]);
+  assert.equal(t1.r, 'ok'); assert.deepEqual(t2, t1);
+});
+
 test('acreditar: revocada, desconocida y mal formada', async () => {
   const { ev } = await nuevo();
   assert.equal((await ev.acreditar(op(), REV, 'P1')).r, 'revocada');

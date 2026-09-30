@@ -95,7 +95,7 @@ async function admin(cuerpo: Json, ip: string, env: Env): Promise<Json> {
 // Celulares del staff el día del evento. Todo pasa por el mismo Durable Object
 // (uno solo para todo el EFS), que es quien evita duplicados y respeta los cupos.
 // Dos claves: la del staff (escanear) y la de coordinación (talleres, credenciales).
-const OPS_STAFF = new Set(['lista', 'buscar', 'acreditar', 'vincular', 'taller', 'puerta']);
+const OPS_STAFF = new Set(['lista', 'talleres', 'buscar', 'acreditar', 'vincular', 'taller', 'puerta']);
 const OPS_COORD = new Set(['coord_resumen', 'coord_taller', 'coord_taller_borrar', 'coord_credenciales', 'coord_desvincular', 'coord_desacreditar', 'coord_despues', 'coord_sincronizar']);
 
 async function staff(cuerpo: Json, ip: string, env: Env): Promise<Json> {
