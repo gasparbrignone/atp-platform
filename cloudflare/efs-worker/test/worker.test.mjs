@@ -124,34 +124,78 @@ test('verificar: exige referencia con formato EFSP y pago numérico', async () =
   assert.equal(ll.apps.length, 1); assert.equal(ll.apps[0].accion, 'verificar');
 });
 
-test('aviso de Mercado Pago: responde 200 al instante y reenvía en segundo plano', async () => {
+// Aviso firmado como lo hace Mercado Pago: HMAC-SHA256 de "id:<data.id>;request-id:<x-request-id>;ts:<ts>;".
+const envWebhook = { ...baseEnv, MP_WEBHOOK_SECRET: 'clave-webhook' };
+function avisoFirmado(ruta, { id = '555', reqId = 'req-1', ts = '1742505638683', clave = 'clave-webhook', ip } = {}) {
+  const firma = crypto.createHmac('sha256', clave).update(`id:${id};request-id:${reqId};ts:${ts};`).digest('hex');
+  return pedido(ruta, {}, { origen: '', ip, headers: { 'x-signature': `ts=${ts},v1=${firma}`, 'x-request-id': reqId } });
+}
+
+test('aviso de Mercado Pago firmado: responde 200 al instante y reenvía en segundo plano', async () => {
   const ll = simular({ respuestas: [{ ok: true }] });
   const c = ctx();
-  const r = await worker.fetch(pedido('/mp/aviso?type=payment&data.id=555', { type: 'payment', data: { id: '555' } }, { origen: '' }), baseEnv, c);
+  const r = await worker.fetch(avisoFirmado('/mp/aviso?type=payment&data.id=555'), envWebhook, c);
   assert.equal(r.status, 200);
   await c.esperar();
   assert.equal(ll.apps[0].accion, 'aviso'); assert.equal(ll.apps[0].tipo, 'payment'); assert.equal(ll.apps[0].id, '555');
 });
 
-test('aviso: formato viejo (topic/id) y merchant_order también se reenvían; otros tipos se ignoran', async () => {
+test('aviso: sin firma, con firma falsa o con otra clave se rechaza y no llega al Apps Script', async () => {
   const ll = simular({ respuestas: [{ ok: true }] });
   const c = ctx();
-  await worker.fetch(pedido('/mp/aviso?topic=merchant_order&id=777', {}, { origen: '' }), baseEnv, c);
-  await worker.fetch(pedido('/mp/aviso?type=subscription&data.id=1', {}, { origen: '' }), baseEnv, c);
+  const sinFirma = await worker.fetch(pedido('/mp/aviso?type=payment&data.id=555', { type: 'payment', data: { id: '555' } }, { origen: '' }), envWebhook, c);
+  assert.equal(sinFirma.status, 401);
+  const falsa = await worker.fetch(pedido('/mp/aviso?type=payment&data.id=555', {}, { origen: '', headers: { 'x-signature': `ts=1742505638683,v1=${'0'.repeat(64)}`, 'x-request-id': 'req-1' } }), envWebhook, c);
+  assert.equal(falsa.status, 401);
+  const otraClave = await worker.fetch(avisoFirmado('/mp/aviso?type=payment&data.id=555', { clave: 'otra' }), envWebhook, c);
+  assert.equal(otraClave.status, 401);
+  const otroId = await worker.fetch(avisoFirmado('/mp/aviso?type=payment&data.id=556'), envWebhook, c); // firma de 555 usada con otro pago
+  assert.equal(otroId.status, 401);
+  await c.esperar();
+  assert.equal(ll.apps.length, 0);
+});
+
+test('aviso: sin MP_WEBHOOK_SECRET configurado no se procesa nada (503)', async () => {
+  const ll = simular({ respuestas: [{ ok: true }] });
+  const c = ctx();
+  const r = await worker.fetch(pedido('/mp/aviso?type=payment&data.id=555', { type: 'payment', data: { id: '555' } }, { origen: '' }), baseEnv, c);
+  assert.equal(r.status, 503);
+  await c.esperar();
+  assert.equal(ll.apps.length, 0);
+});
+
+test('aviso: merchant_order también exige firma; otros tipos se ignoran sin procesar', async () => {
+  const ll = simular({ respuestas: [{ ok: true }] });
+  const c = ctx();
+  const sinFirma = await worker.fetch(pedido('/mp/aviso?topic=merchant_order&id=777', {}, { origen: '' }), envWebhook, c);
+  assert.equal(sinFirma.status, 401);
+  const firmada = await worker.fetch(avisoFirmado('/mp/aviso?type=merchant_order&data.id=777', { id: '777' }), envWebhook, c);
+  assert.equal(firmada.status, 200);
+  const otro = await worker.fetch(pedido('/mp/aviso?type=subscription&data.id=1', {}, { origen: '' }), envWebhook, c);
+  assert.equal(otro.status, 200);
   await c.esperar();
   assert.equal(ll.apps.length, 1); assert.equal(ll.apps[0].tipo, 'merchant_order');
 });
 
-test('aviso con clave de webhook: acepta la firma correcta y rechaza la falsa', async () => {
+test('aviso: el data.id del manifiesto sale del query; si el query no lo trae se omite (como dice Mercado Pago)', async () => {
   const ll = simular({ respuestas: [{ ok: true }] });
-  const env = { ...baseEnv, MP_WEBHOOK_SECRET: 'clave-webhook' };
-  const ts = '1742505638683';
-  const firma = crypto.createHmac('sha256', 'clave-webhook').update(`id:555;request-id:req-1;ts:${ts};`).digest('hex');
   const c = ctx();
-  const bien = await worker.fetch(pedido('/mp/aviso?type=payment&data.id=555', {}, { origen: '', headers: { 'x-signature': `ts=${ts},v1=${firma}`, 'x-request-id': 'req-1' } }), env, c);
-  assert.equal(bien.status, 200);
-  const mal = await worker.fetch(pedido('/mp/aviso?type=payment&data.id=555', {}, { origen: '', headers: { 'x-signature': `ts=${ts},v1=${'0'.repeat(64)}`, 'x-request-id': 'req-1' } }), env, c);
-  assert.equal(mal.status, 401);
+  const ts = '1742505638683';
+  const firma = crypto.createHmac('sha256', 'clave-webhook').update(`request-id:req-9;ts:${ts};`).digest('hex');
+  const r = await worker.fetch(pedido('/mp/aviso', { type: 'payment', data: { id: '555' } }, { origen: '', headers: { 'x-signature': `ts=${ts},v1=${firma}`, 'x-request-id': 'req-9' } }), envWebhook, c);
+  assert.equal(r.status, 200);
+  await c.esperar();
+  assert.equal(ll.apps[0].id, '555');
+});
+
+test('aviso: tras 20 firmas falsas desde la misma IP se corta (429), incluso con una firma buena', async () => {
+  const ll = simular({ respuestas: [{ ok: true }] });
+  const c = ctx();
+  for (let i = 0; i < 20; i++) await worker.fetch(pedido('/mp/aviso?type=payment&data.id=555', {}, { origen: '', ip: '7.7.7.7' }), envWebhook, c);
+  const buena = await worker.fetch(avisoFirmado('/mp/aviso?type=payment&data.id=555', { ip: '7.7.7.7' }), envWebhook, c);
+  assert.equal(buena.status, 429);
+  const otraIp = await worker.fetch(avisoFirmado('/mp/aviso?type=payment&data.id=555', { ip: '7.7.7.8' }), envWebhook, c);
+  assert.equal(otraIp.status, 200);
   await c.esperar();
   assert.equal(ll.apps.length, 1);
 });

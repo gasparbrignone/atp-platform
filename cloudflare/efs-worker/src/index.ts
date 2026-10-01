@@ -123,7 +123,11 @@ async function staff(cuerpo: Json, ip: string, env: Env): Promise<Json> {
 
 // Webhook de Mercado Pago. Responde 200 al instante y reenvía en segundo
 // plano: si el reenvío falla, el barrido del Apps Script lo encuentra igual.
+// Solo se reenvía un aviso con firma válida (x-signature). Sin MP_WEBHOOK_SECRET
+// no se reenvía nada (503): el barrido y la vuelta al sitio procesan los pagos igual.
 async function aviso(request: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const ip = request.headers.get('CF-Connecting-IP') || 'sin-ip';
+  if (frenado('aviso:' + ip, 600, 600)) return new Response('demasiados', { status: 429 });
   const cuerpo = (await leerJson(request)) || {};
   const data = (cuerpo.data as Json | undefined) || {};
   const tipo = String(url.searchParams.get('type') || url.searchParams.get('topic') || cuerpo.type || cuerpo.topic || '');
@@ -132,9 +136,14 @@ async function aviso(request: Request, url: URL, env: Env, ctx: ExecutionContext
   if (tipo !== 'payment' && tipo !== 'merchant_order') return new Response('ignorado', { status: 200 });
   if (!id) return new Response('sin id', { status: 200 });
 
-  if (env.MP_WEBHOOK_SECRET && tipo === 'payment') {
-    const firmaOk = await firmaMercadoPagoValida(request, url.searchParams.get('data.id') || id, env.MP_WEBHOOK_SECRET);
-    if (!firmaOk) return new Response('firma', { status: 401 });
+  if (!env.MP_WEBHOOK_SECRET) return new Response('sin_configurar', { status: 503 });
+  // Muchas firmas falsas desde la misma IP: se corta antes de calcular nada.
+  if (excedido('aviso-mal:' + ip, 20)) return new Response('demasiados', { status: 429 });
+  // Según la documentación de Mercado Pago, el id del manifiesto es el data.id del query (si falta, se omite).
+  const firmaOk = await firmaMercadoPagoValida(request, url.searchParams.get('data.id') || '', env.MP_WEBHOOK_SECRET);
+  if (!firmaOk) {
+    frenado('aviso-mal:' + ip, 20, 600);
+    return new Response('firma', { status: 401 });
   }
 
   ctx.waitUntil(appsScript({ accion: 'aviso', tipo, id }, env, { reintentos: 1 }).catch(() => undefined));

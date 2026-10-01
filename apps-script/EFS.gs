@@ -119,21 +119,33 @@ function efsIniciar_(p) {
     var filas = hoja.getDataRange().getValues();
     var col = efsIndices_(filas[0]);
     var i = efsBuscarFila_(filas, col.intento_id, d.intento_id);
+    var porDni = false;
     if (i < 0) {
       i = efsBuscarFila_(filas, col.dni, d.dni, function (fila) {
         return ['pendiente', 'rechazado', 'abandonado'].indexOf(String(fila[col.estado])) !== -1;
       });
+      porDni = i >= 0;
     }
     var ahora = new Date();
     if (i >= 0) {
       ref = String(filas[i][col.referencia]);
       var fila = filas[i].slice();
-      efsAsignar_(fila, col, {
-        intento_id: d.intento_id, nombre: d.nombre, apellido: d.apellido, correo: d.correo, telefono: d.telefono,
-        carrera: d.carrera, anio: d.anio, universidad: d.universidad, precio: c.precio, estado: 'pendiente',
-        motivo: '', actualizado: ahora,
-      });
-      hoja.getRange(i + 1, 1, 1, fila.length).setValues([efsComoTexto_(fila, col)]);
+      var correoGuardado = String(fila[col.correo]).replace(/^'/, '').trim().toLowerCase();
+      if (porDni && String(fila[col.estado]) === 'pendiente' && correoGuardado !== d.correo) {
+        // Otro intento con el mismo DNI y OTRO correo mientras hay un pago en curso: conocer el DNI no alcanza para
+        // pisar los datos de la inscripción original (si no, la entrada saldría al correo de quien lo reescribió).
+        // La fila queda como estaba y el cobro se arma con los datos guardados.
+        d.nombre = String(fila[col.nombre]).replace(/^'/, '');
+        d.apellido = String(fila[col.apellido]).replace(/^'/, '');
+        d.correo = String(fila[col.correo]).replace(/^'/, '');
+      } else {
+        efsAsignar_(fila, col, {
+          intento_id: d.intento_id, nombre: d.nombre, apellido: d.apellido, correo: d.correo, telefono: d.telefono,
+          carrera: d.carrera, anio: d.anio, universidad: d.universidad, precio: c.precio, estado: 'pendiente',
+          motivo: '', actualizado: ahora,
+        });
+        hoja.getRange(i + 1, 1, 1, fila.length).setValues([efsComoTexto_(fila, col)]);
+      }
     } else {
       ref = efsNuevaReferencia_();
       var nueva = efsFilaVacia_(EFS_COL_PENDIENTES);

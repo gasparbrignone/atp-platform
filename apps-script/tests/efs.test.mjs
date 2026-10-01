@@ -288,6 +288,43 @@ prueba('mismo DNI con un intento nuevo reutiliza el pendiente', () => {
   igual(a.referencia, b.referencia); igual(pendientes(env).length, 1);
 });
 
+// Conocer el DNI de otra persona no alcanza para pisar su inscripción pendiente (auditoría de seguridad, M1).
+const celda = (env, fila, columna) => String(env.hojas.get('EFS · Pendientes').datos[0].indexOf(columna) < 0 ? '' : fila[env.hojas.get('EFS · Pendientes').datos[0].indexOf(columna)]).replace(/^'/, '');
+
+prueba('mismo DNI, otro intento y OTRO correo con un pago en curso: la fila original no se pisa y el cobro usa los datos guardados', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const a = env.post(datos());
+  const intentoOriginal = celda(env, pendientes(env)[0], 'intento_id');
+  const b = env.post(datos({ nombre: 'Eva', apellido: 'Intrusa', correo: 'eva@intrusa.com', telefono: '999 999-9999' }));
+  si(b.ok, JSON.stringify(b)); igual(b.referencia, a.referencia); igual(pendientes(env).length, 1);
+  const fila = pendientes(env)[0];
+  igual(celda(env, fila, 'correo'), 'ana@ejemplo.com'); igual(celda(env, fila, 'nombre'), 'Ana'); igual(celda(env, fila, 'apellido'), 'Pérez');
+  igual(celda(env, fila, 'telefono'), '341 555-1234'); igual(celda(env, fila, 'intento_id'), intentoOriginal);
+  const pref = [...mp.preferencias.values()].pop().cuerpo;
+  igual(pref.payer.email, 'ana@ejemplo.com'); igual(pref.payer.name, 'Ana');
+  // y si ahora paga: la entrada sale a nombre y correo de la inscripción original
+  env.ctx.efsProcesarPago(mp.pagar(a.referencia).id, 'webhook');
+  const e = entradas(env)[0];
+  igual(String(e[5]).replace(/^'/, ''), 'ana@ejemplo.com'); igual(String(e[1]).replace(/^'/, ''), 'Ana');
+});
+
+prueba('mismo DNI y mismo correo (la misma persona que recarga la página) sí actualiza los datos', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const a = env.post(datos()); const b = env.post(datos({ correo: 'ANA@ejemplo.com', telefono: '341 000-0000', nombre: 'Ana María' }));
+  igual(a.referencia, b.referencia); igual(pendientes(env).length, 1);
+  const fila = pendientes(env)[0];
+  igual(celda(env, fila, 'telefono'), '341 000-0000'); igual(celda(env, fila, 'nombre'), 'Ana María');
+});
+
+prueba('un pendiente ya rechazado o abandonado sí se puede reescribir con otro correo', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const a = env.post(datos());
+  env.ctx.efsProcesarPago(mp.pagar(a.referencia, { status: 'rejected', status_detail: 'cc_rejected_other_reason' }).id, 'webhook');
+  const b = env.post(datos({ correo: 'nuevo@ejemplo.com' }));
+  igual(b.referencia, a.referencia);
+  igual(celda(env, pendientes(env)[0], 'correo'), 'nuevo@ejemplo.com');
+});
+
 prueba('datos inválidos se rechazan en el servidor', () => {
   const env = crearEntorno({ mp: crearMp() });
   igual(env.post(datos({ dni: '12' })).campo, 'dni');
