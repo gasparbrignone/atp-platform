@@ -105,6 +105,9 @@ function crearEntorno({ mp, quota = 1500, qrFalla = false, resend = null, brevo 
     ContentService: { createTextOutput: (t) => ({ texto: t, setMimeType() { return this; } }), MimeType: { JSON: 'json' } },
     Utilities: {
       getUuid: () => crypto.randomUUID(),
+      // Como en Apps Script: bytes con signo (-128..127).
+      computeDigest: (_alg, texto) => [...crypto.createHash('sha256').update(String(texto), 'utf8').digest()].map((b) => (b > 127 ? b - 256 : b)),
+      DigestAlgorithm: { SHA_256: 'SHA_256' }, Charset: { UTF_8: 'UTF_8' },
       base64Encode: (s) => Buffer.from(String(s)).toString('base64'),
       formatDate: (d, _z, f) => (f.includes('T') ? new Date(d.getTime() - 3 * 3600e3).toISOString().replace('Z', '-03:00') : d.toISOString()),
     },
@@ -649,6 +652,114 @@ prueba('errores internos se registran sin el secreto, el DNI ni el correo', () =
   env.post(datos());
   const reg = JSON.stringify(env.errores);
   si(env.errores.length > 0); si(!reg.includes('secreto-de-prueba')); si(!reg.includes('30.123.456')); si(!reg.includes('Ana@'));
+});
+
+// ─────────────────────────── Meta · API de Conversiones ───────────────────────────
+
+const sha = (t) => crypto.createHash('sha256').update(t).digest('hex');
+const UA = 'Mozilla/5.0 (Linux; Android 14) Chrome/130.0 Mobile';
+const FBP = 'fb.1.1759400000000.1234567890';
+const FBC = 'fb.1.1759400000000.IwAR2abc_DEF-123';
+const celdaMeta = (env, ref, campo) => { const h = env.hojas.get('EFS · Pendientes'); const cab = h.datos[0]; return h.datos.find((f) => f[cab.indexOf('referencia')] === ref)[cab.indexOf(campo)]; };
+const ponerMeta = (env, ref, campo, v) => { const h = env.hojas.get('EFS · Pendientes'); const cab = h.datos[0]; h.datos.find((f) => f[cab.indexOf('referencia')] === ref)[cab.indexOf(campo)] = v; };
+const envejecerMeta = (env, ref, seg = 600) => ponerMeta(env, ref, 'meta_tiempo', String(Math.floor(Date.now() / 1000) - seg));
+function pagadoConMeta(extra = {}) {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const r = env.post(datos({ meta_fbp: FBP, meta_fbc: FBC, meta_ua: UA, ...extra }));
+  const pago = mp.pagar(r.referencia);
+  env.post({ accion: 'aviso', tipo: 'payment', id: String(pago.id) });
+  return { mp, env, ref: r.referencia, pago };
+}
+
+prueba('meta: al inscribirse guarda fbp, fbc y navegador; descarta cookies con forma rara', () => {
+  const { env, ref } = pagadoConMeta();
+  igual(celdaMeta(env, ref, 'meta_fbp'), FBP); igual(celdaMeta(env, ref, 'meta_fbc'), FBC); igual(celdaMeta(env, ref, 'meta_ua'), UA);
+  const mp = crearMp(); const env2 = crearEntorno({ mp });
+  const r2 = env2.post(datos({ meta_fbp: '<script>', meta_fbc: 'fb.1.2.x"', meta_ua: 'A\nB' }));
+  igual(celdaMeta(env2, r2.referencia, 'meta_fbp'), ''); igual(celdaMeta(env2, r2.referencia, 'meta_fbc'), ''); igual(celdaMeta(env2, r2.referencia, 'meta_ua'), 'AB');
+});
+
+prueba('meta: el pago aprobado deja el evento efs26-<pago>, pero se espera unos minutos (primero el navegador)', () => {
+  const { env, ref, pago } = pagadoConMeta();
+  igual(celdaMeta(env, ref, 'meta_evento'), 'efs26-' + pago.id);
+  igual(celdaMeta(env, ref, 'meta_estado'), 'pendiente');
+  igual(env.post({ accion: 'meta_pendientes' }).eventos.length, 0);
+});
+
+prueba('meta: la cola manda correo y teléfono SOLO hasheados y normalizados, con fbp, fbc, navegador y precio', () => {
+  const { env, ref, pago } = pagadoConMeta();
+  envejecerMeta(env, ref);
+  const r = env.post({ accion: 'meta_pendientes' });
+  igual(r.eventos.length, 1);
+  const e = r.eventos[0];
+  igual(e.evento, 'efs26-' + pago.id); igual(e.valor, 5000);
+  igual(e.em, sha('ana@ejemplo.com')); igual(e.ph, sha('543415551234'));
+  igual(e.fbp, FBP); igual(e.fbc, FBC); igual(e.ua, UA);
+  const texto = JSON.stringify(r);
+  for (const dato of ['Ana', 'ejemplo.com', '555', '30123456', 'Pérez']) si(!texto.includes(dato), 'sale en claro: ' + dato);
+  si(!env.lock(), 'el candado quedó tomado');
+});
+
+prueba('meta: un lote pedido no se vuelve a entregar; "ok" lo marca enviado y no sale más', () => {
+  const { env, ref } = pagadoConMeta();
+  envejecerMeta(env, ref);
+  const ev = env.post({ accion: 'meta_pendientes' }).eventos[0].evento;
+  igual(env.post({ accion: 'meta_pendientes' }).eventos.length, 0);
+  igual(env.post({ accion: 'meta_marcar', eventos: ev, resultado: 'ok' }).marcados, 1);
+  si(String(celdaMeta(env, ref, 'meta_estado')).startsWith('enviado '));
+  igual(env.post({ accion: 'meta_pendientes' }).eventos.length, 0);
+});
+
+prueba('meta: con error de Meta vuelve a la cola; a los 5 errores se deja de lado y se avisa por mail', () => {
+  const { env, ref } = pagadoConMeta();
+  envejecerMeta(env, ref);
+  for (let n = 1; n <= 5; n++) {
+    const ev = env.post({ accion: 'meta_pendientes' }).eventos;
+    igual(ev.length, 1, 'intento ' + n);
+    env.post({ accion: 'meta_marcar', eventos: ev[0].evento, resultado: 'error', detalle: 'Invalid parameter' });
+  }
+  si(String(celdaMeta(env, ref, 'meta_estado')).startsWith('omitido'), celdaMeta(env, ref, 'meta_estado'));
+  igual(env.post({ accion: 'meta_pendientes' }).eventos.length, 0);
+  si(env.mails.some((m) => /Meta no aceptó/.test(m.asunto)), 'sin aviso');
+  si(env.errores.some((e) => e.dónde === 'efs-meta'));
+});
+
+prueba('meta: lote pedido y nunca confirmado vuelve a la cola a los 15 minutos', () => {
+  const { env, ref } = pagadoConMeta();
+  envejecerMeta(env, ref);
+  env.post({ accion: 'meta_pendientes' });
+  ponerMeta(env, ref, 'meta_estado', 'enviando:' + (Math.floor(Date.now() / 1000) - 1000) + ':0');
+  igual(env.post({ accion: 'meta_pendientes' }).eventos.length, 1);
+});
+
+prueba('meta: sin navegador o con más de 6 días se omite; devuelto o sin pagar no entra a la cola', () => {
+  const a = pagadoConMeta({ meta_ua: '' });
+  envejecerMeta(a.env, a.ref);
+  igual(a.env.post({ accion: 'meta_pendientes' }).eventos.length, 0);
+  igual(celdaMeta(a.env, a.ref, 'meta_estado'), 'omitido: sin navegador');
+  const b = pagadoConMeta();
+  envejecerMeta(b.env, b.ref, 7 * 86400);
+  igual(b.env.post({ accion: 'meta_pendientes' }).eventos.length, 0);
+  const c = pagadoConMeta();
+  envejecerMeta(c.env, c.ref);
+  c.pago.status = 'refunded';
+  c.env.post({ accion: 'aviso', tipo: 'payment', id: String(c.pago.id) });
+  igual(c.env.post({ accion: 'meta_pendientes' }).eventos.length, 0);
+  const mp = crearMp(); const d = crearEntorno({ mp });
+  d.post(datos({ meta_ua: UA }));
+  igual(d.post({ accion: 'meta_pendientes' }).eventos.length, 0);
+});
+
+prueba('meta: hoja de Pendientes vieja (sin columnas meta) se completa sola y sigue funcionando', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const h = env.hojas.get('EFS · Pendientes');
+  h.datos[0] = h.datos[0].filter((c) => !c.startsWith('meta_'));
+  const r = env.post(datos({ meta_ua: UA }));
+  si(r.ok);
+  env.post({ accion: 'aviso', tipo: 'payment', id: String(mp.pagar(r.referencia).id) });
+  igual(entradas(env).length, 1);
+  si(h.datos[0].includes('meta_evento') && h.datos[0].includes('meta_estado'));
+  si(String(celdaMeta(env, r.referencia, 'meta_evento')).startsWith('efs26-'));
 });
 
 prueba('regla de hojas §10.2: ninguna hoja del EFS tiene true en la columna E ni las internas una columna "Email"', () => {

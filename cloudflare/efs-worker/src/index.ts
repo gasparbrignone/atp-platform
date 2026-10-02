@@ -18,10 +18,13 @@
  *   POST /admin       panel del EFS (con la sesión de admin de la plataforma)
  *   POST /staff       celulares del día del evento: acreditación, credencial, taller (Durable Object)
  *   GET  /salud       chequeo simple
+ *
+ * Cada 5 minutos (cron): manda a la API de Conversiones de Meta los pagos aprobados (ver meta.ts).
  */
 
 import { appsScript, esperar } from './apps.ts';
 import type { Env, Json } from './apps.ts';
+import { cookieMeta, enviarConversiones } from './meta.ts';
 
 export { EventoDO } from './evento.ts';
 export type { Env } from './apps.ts';
@@ -46,7 +49,7 @@ export default {
       if (!cuerpo) return json({ ok: false, error: 'formato' }, env, origen, 400);
 
       switch (url.pathname) {
-        case '/inscribir': return json(await inscribir(cuerpo, ip, env), env, origen);
+        case '/inscribir': return json(await inscribir(cuerpo, ip, env, request.headers.get('User-Agent') || ''), env, origen);
         case '/verificar': return json(await verificar(cuerpo, ip, env), env, origen);
         case '/admin': return json(await admin(cuerpo, ip, env), env, origen);
         case '/staff': return json(await staff(cuerpo, ip, env), env, origen);
@@ -57,11 +60,15 @@ export default {
       return json({ ok: false, error: 'interno' }, env, origen, 500);
     }
   },
+
+  async scheduled(_evento: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(enviarConversiones(env).catch((err) => console.error('efs-worker meta', String(err))));
+  },
 };
 
 // ─────────────────────────── rutas ───────────────────────────
 
-async function inscribir(cuerpo: Json, ip: string, env: Env): Promise<Json> {
+async function inscribir(cuerpo: Json, ip: string, env: Env, navegador: string): Promise<Json> {
   if (frenado('insc:' + ip, 8, 600)) return { ok: false, error: 'demasiados_intentos' };
 
   const turnstile = await verificarTurnstile(String(cuerpo.turnstile || ''), ip, env);
@@ -73,6 +80,10 @@ async function inscribir(cuerpo: Json, ip: string, env: Env): Promise<Json> {
 
   const params: Record<string, string> = { accion: 'iniciar' };
   for (const campo of CAMPOS_INSCRIPCION) params[campo] = String(cuerpo[campo] ?? '').slice(0, 200);
+  // Para la API de Conversiones de Meta: cookies del píxel (si las hay) y el navegador.
+  params.meta_fbp = cookieMeta(cuerpo.fbp);
+  params.meta_fbc = cookieMeta(cuerpo.fbc);
+  params.meta_ua = navegador.slice(0, 400);
 
   // Si el Apps Script está saturado ("ocupado", timeout o error de red), se
   // reintenta con el MISMO intento_id: del otro lado es idempotente.

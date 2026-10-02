@@ -40,7 +40,10 @@ var EFS_ALFABETO = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'; // base32 Crockford: sin 
 var EFS_COL_PENDIENTES = [
   'referencia', 'alta', 'intento_id', 'nombre', 'dni', 'apellido', 'correo', 'telefono', 'carrera',
   'anio', 'universidad', 'precio', 'estado', 'motivo', 'preferencia_id', 'pago_id', 'entrada', 'actualizado',
+  'meta_fbp', 'meta_fbc', 'meta_ua', 'meta_evento', 'meta_tiempo', 'meta_estado',
 ];
+// Columnas de la API de Conversiones de Meta (ver "Meta · API de Conversiones"). Se agregan solas a una hoja existente.
+var EFS_META_COLS = ['meta_fbp', 'meta_fbc', 'meta_ua', 'meta_evento', 'meta_tiempo', 'meta_estado'];
 var EFS_COL_PAGOS = [
   'fecha', 'pago_id', 'referencia', 'status', 'status_detail', 'monto_bruto', 'moneda', 'collector_id',
   'live_mode', 'origen', 'accion', 'detalle',
@@ -96,6 +99,8 @@ function efsRouter(e) {
       case 'admin_reenviar': return efsJson_(efsAdmin_(p, efsAdminReenviar_));
       case 'staff_lista': return efsJson_(efsStaffLista_());
       case 'staff_sync': return efsJson_(efsStaffSync_(p.lote));
+      case 'meta_pendientes': return efsJson_(efsMetaPendientes_());
+      case 'meta_marcar': return efsJson_(efsMetaMarcar_(p));
       case 'admin_conciliar': return efsJson_(efsAdmin_(p, function () { return efsConciliar(); }));
       default: return efsJson_({ ok: false, error: 'accion_desconocida' });
     }
@@ -122,8 +127,10 @@ function efsIniciar_(p) {
     if (entrada) return { ok: false, error: 'ya_inscripto' };
 
     var hoja = efsHoja_(EFS_HOJA_PENDIENTES);
+    efsAsegurarColumnas_(hoja, EFS_META_COLS);
     var filas = hoja.getDataRange().getValues();
     var col = efsIndices_(filas[0]);
+    var nav = efsMetaNavegador_(p);
     var i = efsBuscarFila_(filas, col.intento_id, d.intento_id);
     var porDni = false;
     if (i < 0) {
@@ -148,17 +155,17 @@ function efsIniciar_(p) {
         efsAsignar_(fila, col, {
           intento_id: d.intento_id, nombre: d.nombre, apellido: d.apellido, correo: d.correo, telefono: d.telefono,
           carrera: d.carrera, anio: d.anio, universidad: d.universidad, precio: c.precio, estado: 'pendiente',
-          motivo: '', actualizado: ahora,
+          motivo: '', actualizado: ahora, meta_fbp: nav.fbp, meta_fbc: nav.fbc, meta_ua: nav.ua,
         });
         hoja.getRange(i + 1, 1, 1, fila.length).setValues([efsComoTexto_(fila, col)]);
       }
     } else {
       ref = efsNuevaReferencia_();
-      var nueva = efsFilaVacia_(EFS_COL_PENDIENTES);
+      var nueva = efsFilaVacia_(filas[0]);
       efsAsignar_(nueva, col, {
         referencia: ref, alta: ahora, intento_id: d.intento_id, nombre: d.nombre, dni: d.dni, apellido: d.apellido,
         correo: d.correo, telefono: d.telefono, carrera: d.carrera, anio: d.anio, universidad: d.universidad,
-        precio: c.precio, estado: 'pendiente', actualizado: ahora,
+        precio: c.precio, estado: 'pendiente', actualizado: ahora, meta_fbp: nav.fbp, meta_fbc: nav.fbc, meta_ua: nav.ua,
       });
       hoja.appendRow(efsComoTexto_(nueva, col));
     }
@@ -222,6 +229,131 @@ function efsCrearPreferencia_(c, ref, d) {
   return efsMp_('post', '/checkout/preferences', cuerpo, ref + '-' + d.intento_id);
 }
 
+// ─────────────────────────── Meta · API de Conversiones ───────────────────────────
+// Cada pago aprobado deja en Pendientes un evento para Meta (meta_evento = efs26-<n.º de pago>, el mismo
+// eventID que manda el píxel del navegador). El Worker pide la cola cada 5 minutos, la manda a Meta con su
+// token (secreto del Worker, nunca acá) y avisa cómo le fue. De acá salen solo hashes SHA-256 del correo y
+// del teléfono: el dato en claro no sale de la planilla. fbp, fbc y el navegador van sin hashear (así lo pide Meta).
+// meta_estado: pendiente → enviando:<hora>:<errores previos> → "enviado <fecha>" | error:<n> | "omitido: <motivo>".
+
+var EFS_META_ESPERA = 180;          // segundos: primero llega el evento del navegador (Meta deduplica mejor en ese orden)
+var EFS_META_VIGENCIA = 6 * 86400;  // Meta acepta eventos de hasta 7 días
+var EFS_META_RECLAMO = 900;         // un lote pedido y nunca confirmado vuelve a la cola a los 15 minutos
+var EFS_META_INTENTOS = 5;          // errores de Meta antes de dejar un evento de lado
+var EFS_META_LOTE = 25;
+
+// Datos del navegador que manda el Worker al inscribirse. Solo se guardan si tienen la forma esperada.
+function efsMetaNavegador_(p) {
+  var cookie = /^fb\.[0-9]\.[0-9]{10,13}\.[A-Za-z0-9_\-]{1,500}$/;
+  var fbp = String(p.meta_fbp || '').trim();
+  var fbc = String(p.meta_fbc || '').trim();
+  var ua = String(p.meta_ua || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 400);
+  return { fbp: cookie.test(fbp) ? fbp : '', fbc: cookie.test(fbc) ? fbc : '', ua: ua };
+}
+
+function efsMetaTexto_(v) {
+  return String(v == null ? '' : v).replace(/^'/, '').trim();
+}
+
+function efsMetaHash_(texto) {
+  if (!texto) return '';
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, texto, Utilities.Charset.UTF_8);
+  return bytes.map(function (b) { return ('0' + ((b + 256) % 256).toString(16)).slice(-2); }).join('');
+}
+
+// Normalización de Meta: correo sin espacios y en minúsculas; teléfono solo dígitos, sin ceros
+// adelante y con el código de país (54) aunque todos sean de Argentina.
+function efsMetaCorreo_(v) {
+  return efsMetaTexto_(v).toLowerCase();
+}
+function efsMetaTelefono_(v) {
+  var t = efsMetaTexto_(v).replace(/\D/g, '').replace(/^0+/, '');
+  if (t.length < 8) return '';
+  return t.indexOf('54') === 0 ? t : '54' + t;
+}
+
+function efsMetaPendientes_() {
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(10000)) return { ok: false, error: 'ocupado' };
+  try {
+    var hoja = efsHoja_(EFS_HOJA_PENDIENTES);
+    efsAsegurarColumnas_(hoja, EFS_META_COLS);
+    var filas = hoja.getDataRange().getValues();
+    var col = efsIndices_(filas[0]);
+    var ahora = Math.floor(Date.now() / 1000);
+    var eventos = [];
+    for (var i = 1; i < filas.length && eventos.length < EFS_META_LOTE; i++) {
+      var f = filas[i];
+      var evento = efsMetaTexto_(f[col.meta_evento]);
+      if (!evento || String(f[col.estado]) !== 'pagado') continue;
+      var estado = efsMetaTexto_(f[col.meta_estado]);
+      var error = /^error:(\d+)$/.exec(estado);
+      var reclamo = /^enviando:(\d+):(\d+)$/.exec(estado);
+      var enCola = estado === 'pendiente' || error || (reclamo && ahora - Number(reclamo[1]) > EFS_META_RECLAMO);
+      if (!enCola) continue;
+      var tiempo = Number(efsMetaTexto_(f[col.meta_tiempo]));
+      if (!(tiempo > 0) || ahora - tiempo < EFS_META_ESPERA) continue;
+      var errores = error ? Number(error[1]) : reclamo ? Number(reclamo[2]) : 0;
+      var ua = efsMetaTexto_(f[col.meta_ua]);
+      var marca;
+      if (ahora - tiempo > EFS_META_VIGENCIA) marca = 'omitido: más de 6 días';
+      else if (!ua) marca = 'omitido: sin navegador';  // Meta exige client_user_agent en eventos de sitio web
+      else {
+        marca = 'enviando:' + ahora + ':' + errores;
+        eventos.push({
+          evento: evento, tiempo: tiempo, valor: Number(efsMetaTexto_(f[col.precio])) || 0,
+          em: efsMetaHash_(efsMetaCorreo_(f[col.correo])), ph: efsMetaHash_(efsMetaTelefono_(f[col.telefono])),
+          fbp: efsMetaTexto_(f[col.meta_fbp]), fbc: efsMetaTexto_(f[col.meta_fbc]), ua: ua,
+        });
+      }
+      hoja.getRange(i + 1, col.meta_estado + 1).setValue(marca);
+    }
+    SpreadsheetApp.flush();
+    return { ok: true, eventos: eventos };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// El Worker avisa cómo le fue: resultado "ok" (enviados) o "error" (vuelven a la cola, hasta EFS_META_INTENTOS).
+function efsMetaMarcar_(p) {
+  var ids = String(p.eventos || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  if (!ids.length) return { ok: false, error: 'datos' };
+  var bien = p.resultado === 'ok';
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(10000)) return { ok: false, error: 'ocupado' };
+  var marcados = 0, descartados = 0;
+  try {
+    var hoja = efsHoja_(EFS_HOJA_PENDIENTES);
+    efsAsegurarColumnas_(hoja, EFS_META_COLS);
+    var filas = hoja.getDataRange().getValues();
+    var col = efsIndices_(filas[0]);
+    for (var i = 1; i < filas.length; i++) {
+      if (ids.indexOf(efsMetaTexto_(filas[i][col.meta_evento])) === -1) continue;
+      var reclamo = /^enviando:(\d+):(\d+)$/.exec(efsMetaTexto_(filas[i][col.meta_estado]));
+      if (!reclamo) continue;
+      var marca;
+      if (bien) marca = 'enviado ' + Utilities.formatDate(new Date(), EFS_ZONA, "yyyy-MM-dd'T'HH:mm:ssXXX");
+      else {
+        var n = Number(reclamo[2]) + 1;
+        if (n >= EFS_META_INTENTOS) { marca = 'omitido: Meta lo rechazó ' + n + ' veces'; descartados++; }
+        else marca = 'error:' + n;
+      }
+      hoja.getRange(i + 1, col.meta_estado + 1).setValue(marca);
+      marcados++;
+    }
+    SpreadsheetApp.flush();
+  } finally {
+    lock.releaseLock();
+  }
+  if (!bien) logError('efs-meta', String(p.detalle || 'error de Meta').slice(0, 300), { eventos: ids.length });
+  if (descartados) {
+    efsAvisar_('EFS: conversiones que Meta no aceptó', descartados + ' evento(s) quedaron sin enviar a Meta después de ' +
+      EFS_META_INTENTOS + ' intentos.\n\nÚltimo error: ' + String(p.detalle || '').slice(0, 300));
+  }
+  return { ok: true, marcados: marcados };
+}
+
 // ─────────────────────────── F2 · procesar un pago ───────────────────────────
 
 // Idempotente: se puede llamar cuantas veces haga falta con el mismo pago
@@ -271,6 +403,7 @@ function efsAplicarPago_(pago, c) {
   var ref = String(pago.external_reference);
   var pagoId = String(pago.id);
   var hoja = efsHoja_(EFS_HOJA_PENDIENTES);
+  efsAsegurarColumnas_(hoja, EFS_META_COLS);
   var filas = hoja.getDataRange().getValues();
   var col = efsIndices_(filas[0]);
   var i = efsBuscarFila_(filas, col.referencia, ref);
@@ -305,6 +438,8 @@ function efsAplicarPago_(pago, c) {
       // Un pago combinado (dos medios) guarda los ids de todos sus pagos, separados por coma.
       r.codigo = efsEmitirEntrada_(fila, col, idsPago.join(','), 'pago');
       cambios.estado = 'pagado'; cambios.motivo = ''; cambios.pago_id = idsPago.join(','); cambios.entrada = r.codigo;
+      // Conversión para Meta: mismo eventID que el píxel del navegador (efs26-<n.º de pago>), para que Meta deduplique.
+      cambios.meta_evento = 'efs26-' + pagoId; cambios.meta_tiempo = String(Math.floor(Date.now() / 1000)); cambios.meta_estado = 'pendiente';
       r.estado = 'pagado'; r.accion = 'entrada_emitida'; r.detalle = r.codigo; r.emitida = true;
     }
   } else if (status === 'refunded' || status === 'charged_back') {
@@ -1410,7 +1545,8 @@ function efsHoja_(nombre) {
 // parte del valor. Fechas, números y booleanos del sistema quedan como están.
 function efsComoTexto_(fila, col) {
   var libres = ['nombre', 'apellido', 'dni', 'correo', 'telefono', 'carrera', 'anio', 'universidad',
-    'Nombres', 'Apellidos', 'DNI', 'Teléfono', 'Email', 'Carrera', 'Año', 'Universidad', 'detalle', 'motivo'];
+    'Nombres', 'Apellidos', 'DNI', 'Teléfono', 'Email', 'Carrera', 'Año', 'Universidad', 'detalle', 'motivo',
+    'meta_fbp', 'meta_fbc', 'meta_ua'];
   var salida = fila.slice();
   libres.forEach(function (k) {
     var i = col[k];

@@ -14,6 +14,9 @@ export interface Env {
   MP_WEBHOOK_SECRET?: string; // secreto opcional: wrangler secret put
   EFS_STAFF_KEY?: string; // secreto: clave de los celulares del staff
   EFS_COORD_KEY?: string; // secreto: clave de coordinación (talleres, credenciales)
+  META_PIXEL_ID?: string; // píxel de Meta (no es secreto: está en el HTML del sitio)
+  META_CAPI_TOKEN?: string; // secreto: token de la API de Conversiones (wrangler secret put)
+  META_TEST_EVENT_CODE?: string; // opcional, solo para "Probar eventos": mientras esté puesto, Meta no cuenta los eventos
 }
 
 export type Json = Record<string, unknown>;

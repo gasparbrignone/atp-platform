@@ -5,11 +5,12 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node --test test/worker.test.mjs test/evento.test.mjs",
+    "test": "node --test test/worker.test.mjs test/evento.test.mjs test/meta.test.mjs",
     "typecheck": "tsc",
     "secret:worker": "wrangler secret put EFS_WORKER_SECRET",
     "secret:turnstile": "wrangler secret put TURNSTILE_SECRET",
-    "secret:webhook": "wrangler secret put MP_WEBHOOK_SECRET"
+    "secret:webhook": "wrangler secret put MP_WEBHOOK_SECRET",
+    "secret:meta": "wrangler secret put META_CAPI_TOKEN"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260908.1",

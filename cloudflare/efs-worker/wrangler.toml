@@ -8,10 +8,18 @@ compatibility_date = "2026-09-20"
 #   EFS_WORKER_SECRET  mismo valor que la propiedad del script EFS_WORKER_SECRET
 #   TURNSTILE_SECRET   Secret Key del widget de Turnstile del EFS
 #   MP_WEBHOOK_SECRET  (opcional) clave secreta de webhooks de Mercado Pago
+#   META_CAPI_TOKEN    token de la API de Conversiones de Meta (Administrador de eventos)
 [vars]
 APPS_SCRIPT_ENDPOINT = "https://script.google.com/macros/s/AKfycbzIYU4H3B94IoTyH40O4EXljqPVTNGd0Ult_yi8VzS3hhAOjScEdsCQlNZarE5Ixe6f/exec"
 ALLOWED_ORIGINS = "https://efsarg.com.ar,https://www.efsarg.com.ar,https://atpfcm.com.ar"
 TURNSTILE_HOSTNAMES = "efsarg.com.ar,www.efsarg.com.ar"
+META_PIXEL_ID = "1096888216454556"
+
+# API de Conversiones de Meta: cada 5 minutos se mandan los pagos aprobados (src/meta.ts).
+# Token: wrangler secret put META_CAPI_TOKEN. Para "Probar eventos", por un rato:
+# wrangler secret put META_TEST_EVENT_CODE (y borrarlo después con wrangler secret delete).
+[triggers]
+crons = ["*/5 * * * *"]
 
 # Durable Object del día del evento (acreditación, credencial, taller).
 # new_sqlite_classes: backend de storage del plan gratuito de Cloudflare.
