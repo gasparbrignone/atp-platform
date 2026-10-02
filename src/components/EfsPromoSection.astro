@@ -1,78 +1,299 @@
 ---
 /**
- * Banner del EFS (Encuentro de Formación en Salud) en el home, arriba de
- * todo (justo debajo del Hero, antes incluso de IngresantesPromoSection) —
- * pedido explícito: "bien llamativo", para el evento pago del 17/10/2026
- * que organiza ATP (ver docs/EFS_2026_PLAN.md para el proyecto técnico
- * completo, en efsarg.com.ar — un sitio aparte, no esta plataforma).
+ * Banner del EFS 2026 en el home, justo debajo del Hero (y de sus botones).
+ * La inscripcion esta ABIERTA: $5.000, se paga con Mercado Pago, hasta el
+ * jueves 15/10 a las 23:59 (hora Argentina), en efsarg.com.ar. El evento es
+ * el sabado 17/10/2026, de 8 a 18 h, presencial, en la Facultad de Ciencias
+ * Medicas (UNR). Este banner solo enlaza al sitio del EFS: no tiene formulario
+ * ni logica de pago.
  *
- * Contenido verificado contra el sitio oficial (efsarg.com.ar) el
- * 2026-10-01, no copiado del plan técnico: a esa fecha la inscripción
- * todavía dice "Próximamente" (sin botón activo, sin precio público), así
- * que acá tampoco se promete que ya se puede inscribir ni se menciona un
- * precio — solo lo que el sitio del evento ya muestra. El botón linkea al
- * sitio del EFS, no agrega un formulario propio.
+ * Es una banda aparte, con su propia paleta oficial del EFS (navy/azul/
+ * celeste/papel) y CSS propio, a proposito distinta del resto del home. No usa
+ * los tokens de ATP ni el componente Button porque el diseno del evento es su
+ * propio sistema visual (esquinas rectas, sombra dura, cifra gigante). El
+ * tracking si usa el atributo real del proyecto (data-goatcounter-click, ver
+ * Button.astro / BaseLayout.astro).
  *
- * GATILLO DE ACTUALIZACIÓN:
- * - Cuando efsarg.com.ar abra la inscripción de verdad, cambiar el badge
- *   "Próximamente" y el texto, y podés agregar el precio si ya es público.
- * - Después del 17/10/2026 (o cuando ATP decida cerrar la promoción acá),
- *   sacar este componente de index.astro — es un evento puntual, no
- *   contenido evergreen, igual que IngresantesPromoSection.
+ * GATILLOS DE ACTUALIZACION:
+ * - Pasado el 15/10/2026 23:59 el boton pasa solo a "Mas informacion" sin
+ *   precio (lo hace el navegador, no hace falta redesplegar).
+ * - Despues del 17/10/2026 sacar este componente de index.astro: es un evento
+ *   puntual, no contenido permanente.
  */
-import Section from './Section.astro';
-import Container from './Container.astro';
-import Button from './Button.astro';
-import Badge from './Badge.astro';
-import MapPin from '@lucide/astro/icons/map-pin';
-import Clock from '@lucide/astro/icons/clock';
+import { Image } from 'astro:assets';
+import efsLogo from '@/assets/efs/efs-logo.png';
+import efsTextura from '@/assets/efs/efs-textura.png';
+
+const URL_EFS = 'https://efsarg.com.ar';
+// Cierre de la inscripcion (hora Argentina). Pasada esta fecha el boton se oculta solo en el navegador.
+const CIERRE = '2026-10-15T23:59:00-03:00';
 ---
 
-<Section spacing="sm" background="background" class="bg-secondary/10">
-  <Container
-    class="flex flex-col items-center gap-6 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left"
-  >
-    <div class="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-5">
-      <div
-        class="bg-secondary-strong text-secondary-foreground flex shrink-0 flex-col items-center justify-center rounded-xl px-4 py-2 leading-none"
-        aria-hidden="true"
-      >
-        <span class="text-h3 font-extrabold">17</span>
-        <span class="text-caption font-bold tracking-wide uppercase">Oct</span>
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-          <span class="text-overline text-secondary-strong font-bold uppercase">
-            Evento ATP · EFS 2026
-          </span>
-          <Badge variant="info">Inscripción: próximamente</Badge>
-        </div>
-        <h2 class="text-h3 text-text font-extrabold">Encuentro de Formación en Salud</h2>
-        <p class="text-body text-text-secondary max-w-xl">
-          Un día de charlas y talleres para estudiantes del área salud, en la Facultad de Ciencias
-          Médicas (UNR).
-        </p>
-        <div class="text-body-sm text-text-secondary mt-1 flex flex-wrap justify-center gap-x-4 gap-y-1 sm:justify-start">
-          <span class="inline-flex items-center gap-1.5">
-            <Clock class="size-4 shrink-0" aria-hidden="true" />
-            Sábado 17/10, de 8 a 18h
-          </span>
-          <span class="inline-flex items-center gap-1.5">
-            <MapPin class="size-4 shrink-0" aria-hidden="true" />
-            Facultad de Ciencias Médicas, UNR
-          </span>
-        </div>
-      </div>
+<section class="efs-banner" aria-labelledby="efs-banner-titulo" data-cierre={CIERRE}>
+  {/*
+   * Trama halftone de fondo como <Image> (no CSS background-image): la CSP del
+   * sitio bloquea los atributos style inline, asi que un background-image
+   * inline no se renderizaria en produccion. Mismo patron que el Hero. La PNG
+   * original pesa ~700KB; aca sale reencodeada a avif (decorativa, lazy).
+   */}
+  <Image
+    class="efs-banner__textura"
+    src={efsTextura}
+    alt=""
+    aria-hidden="true"
+    widths={[768, 1080]}
+    sizes="100vw"
+    format="avif"
+    quality={55}
+    loading="lazy"
+    decoding="async"
+  />
+
+  <div class="efs-banner__inner">
+    <div class="efs-banner__fecha" aria-hidden="true">
+      <span class="efs-banner__tag">2.ª edición</span>
+      <span class="efs-banner__cifra">17.10</span>
     </div>
-    <Button
-      href="https://efsarg.com.ar"
-      target="_blank"
-      variant="secondary"
-      size="lg"
-      class="shrink-0"
-      trackId="home:efs-promo"
-    >
-      Más información
-    </Button>
-  </Container>
-</Section>
+
+    <div class="efs-banner__texto">
+      <img
+        class="efs-banner__logo"
+        src={efsLogo.src}
+        width={efsLogo.width}
+        height={efsLogo.height}
+        alt=""
+        loading="lazy"
+        decoding="async"
+      />
+      <h2 id="efs-banner-titulo" class="efs-banner__titulo">Encuentro de Formación en Salud</h2>
+      <p class="efs-banner__bajada">
+        Un día de charlas y talleres para estudiantes del área salud, en la Facultad de Ciencias
+        Médicas (UNR).
+      </p>
+      <p class="efs-banner__datos">
+        <span>Sábado 17 de octubre</span>
+        <span>8 a 18 h</span>
+        <span>Presencial</span>
+      </p>
+    </div>
+
+    <div class="efs-banner__accion">
+      <p class="efs-banner__precio">
+        <strong>$5.000</strong>
+        <span>Inscripción hasta el jueves 15/10</span>
+      </p>
+      <a
+        class="efs-banner__boton"
+        href={URL_EFS}
+        target="_blank"
+        rel="noopener"
+        data-goatcounter-click="home:efs-promo"
+      >
+        Inscribite en efsarg.com.ar
+        <svg
+          viewBox="0 0 24 24"
+          width="22"
+          height="22"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.6"
+          stroke-linecap="square"
+          aria-hidden="true"
+        >
+          <path d="M4 12h15M13 5l7 7-7 7"></path>
+        </svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Pasado el cierre, el boton pasa a "Mas informacion" sin precio.
+  const sec = document.querySelector<HTMLElement>('.efs-banner');
+  const cierre = sec && Date.parse(sec.dataset.cierre || '');
+  if (sec && cierre && Date.now() > cierre) {
+    sec.classList.add('efs-banner--cerrada');
+    const p = sec.querySelector('.efs-banner__precio');
+    if (p) p.innerHTML = '<span>La inscripción online cerró</span>';
+    const b = sec.querySelector('.efs-banner__boton');
+    if (b && b.firstChild) b.firstChild.textContent = 'Más información ';
+  }
+</script>
+
+<style>
+  /* Paleta oficial EFS: navy #16283F, azul #2C6FA0, celeste #5AA6CC, papel #EAF2F9 */
+  .efs-banner {
+    --navy: #16283f;
+    --azul: #2c6fa0;
+    --celeste: #5aa6cc;
+    --papel: #eaf2f9;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: var(--navy);
+    color: #fff;
+  }
+  .efs-banner__textura {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    opacity: 0.9;
+  }
+  .efs-banner__inner {
+    margin-inline: auto;
+    max-width: 80rem;
+    padding: 2.5rem 1.25rem;
+    display: grid;
+    gap: 1.75rem;
+    align-items: center;
+  }
+
+  /* 17.10: lo primero que se ve */
+  .efs-banner__fecha {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+  .efs-banner__tag {
+    font-family: 'Chivo Mono', ui-monospace, 'Segoe UI', Consolas, monospace;
+    font-weight: 500;
+    font-size: 0.95rem;
+    line-height: 1;
+    padding: 0.55rem 0.8rem;
+    background: #fff;
+    color: var(--navy);
+  }
+  .efs-banner__cifra {
+    font-weight: 900;
+    font-size: clamp(5rem, 22vw, 8rem);
+    line-height: 0.85;
+    letter-spacing: -0.045em;
+  }
+
+  .efs-banner__logo {
+    height: 2.75rem;
+    width: auto;
+    filter: brightness(0) invert(1); /* el logo oficial es navy: se ve blanco sobre el fondo oscuro */
+    margin-bottom: 0.9rem;
+  }
+  .efs-banner__titulo {
+    font-weight: 800;
+    font-size: clamp(1.7rem, 4.2vw, 2.6rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+  .efs-banner__bajada {
+    margin-top: 0.75rem;
+    max-width: 34rem;
+    font-size: 1.05rem;
+    line-height: 1.45;
+    color: #dbe7f2;
+  }
+  .efs-banner__datos {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .efs-banner__datos span {
+    border: 2px solid var(--celeste);
+    border-radius: 999px;
+    padding: 0.3rem 0.85rem;
+    color: #fff;
+  }
+
+  .efs-banner__accion {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    align-items: stretch;
+  }
+  .efs-banner__precio {
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+  }
+  .efs-banner__precio strong {
+    font-weight: 900;
+    font-size: 2.1rem;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--celeste);
+  }
+  .efs-banner__precio span {
+    font-family: 'Chivo Mono', ui-monospace, 'Segoe UI', Consolas, monospace;
+    font-size: 0.9rem;
+    color: #dbe7f2;
+  }
+  .efs-banner__boton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    min-height: 3.5rem;
+    padding: 0.9rem 1.5rem;
+    background: #fff;
+    color: var(--navy);
+    font-weight: 800;
+    font-size: 1.1rem;
+    line-height: 1.15;
+    text-align: center;
+    text-decoration: none;
+    box-shadow: 0 0 0 0 var(--celeste);
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease,
+      background 0.15s ease;
+  }
+  .efs-banner__boton:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0 0 var(--celeste);
+    background: var(--papel);
+  }
+  .efs-banner__boton:focus-visible {
+    outline: 3px solid var(--celeste);
+    outline-offset: 3px;
+  }
+
+  /* Escritorio: fecha | texto | accion */
+  @media (min-width: 62rem) {
+    .efs-banner__inner {
+      grid-template-columns: auto 1fr auto;
+      gap: 3rem;
+      padding: 3rem 1.5rem;
+    }
+    .efs-banner__accion {
+      min-width: 20rem;
+      max-width: 22rem;
+    }
+  }
+  /* Tablet: fecha y texto lado a lado, accion abajo */
+  @media (min-width: 40rem) and (max-width: 61.99rem) {
+    .efs-banner__inner {
+      grid-template-columns: auto 1fr;
+      padding: 2.5rem 1.5rem;
+    }
+    .efs-banner__accion {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .efs-banner__boton {
+      transition: none;
+    }
+    .efs-banner__boton:hover {
+      transform: none;
+    }
+  }
+</style>
