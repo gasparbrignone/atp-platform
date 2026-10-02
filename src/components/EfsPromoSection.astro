@@ -1,0 +1,78 @@
+---
+/**
+ * Banner del EFS (Encuentro de Formación en Salud) en el home, arriba de
+ * todo (justo debajo del Hero, antes incluso de IngresantesPromoSection) —
+ * pedido explícito: "bien llamativo", para el evento pago del 17/10/2026
+ * que organiza ATP (ver docs/EFS_2026_PLAN.md para el proyecto técnico
+ * completo, en efsarg.com.ar — un sitio aparte, no esta plataforma).
+ *
+ * Contenido verificado contra el sitio oficial (efsarg.com.ar) el
+ * 2026-10-01, no copiado del plan técnico: a esa fecha la inscripción
+ * todavía dice "Próximamente" (sin botón activo, sin precio público), así
+ * que acá tampoco se promete que ya se puede inscribir ni se menciona un
+ * precio — solo lo que el sitio del evento ya muestra. El botón linkea al
+ * sitio del EFS, no agrega un formulario propio.
+ *
+ * GATILLO DE ACTUALIZACIÓN:
+ * - Cuando efsarg.com.ar abra la inscripción de verdad, cambiar el badge
+ *   "Próximamente" y el texto, y podés agregar el precio si ya es público.
+ * - Después del 17/10/2026 (o cuando ATP decida cerrar la promoción acá),
+ *   sacar este componente de index.astro — es un evento puntual, no
+ *   contenido evergreen, igual que IngresantesPromoSection.
+ */
+import Section from './Section.astro';
+import Container from './Container.astro';
+import Button from './Button.astro';
+import Badge from './Badge.astro';
+import MapPin from '@lucide/astro/icons/map-pin';
+import Clock from '@lucide/astro/icons/clock';
+---
+
+<Section spacing="sm" background="background" class="bg-secondary/10">
+  <Container
+    class="flex flex-col items-center gap-6 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left"
+  >
+    <div class="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-5">
+      <div
+        class="bg-secondary-strong text-secondary-foreground flex shrink-0 flex-col items-center justify-center rounded-xl px-4 py-2 leading-none"
+        aria-hidden="true"
+      >
+        <span class="text-h3 font-extrabold">17</span>
+        <span class="text-caption font-bold tracking-wide uppercase">Oct</span>
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+          <span class="text-overline text-secondary-strong font-bold uppercase">
+            Evento ATP · EFS 2026
+          </span>
+          <Badge variant="info">Inscripción: próximamente</Badge>
+        </div>
+        <h2 class="text-h3 text-text font-extrabold">Encuentro de Formación en Salud</h2>
+        <p class="text-body text-text-secondary max-w-xl">
+          Un día de charlas y talleres para estudiantes del área salud, en la Facultad de Ciencias
+          Médicas (UNR).
+        </p>
+        <div class="text-body-sm text-text-secondary mt-1 flex flex-wrap justify-center gap-x-4 gap-y-1 sm:justify-start">
+          <span class="inline-flex items-center gap-1.5">
+            <Clock class="size-4 shrink-0" aria-hidden="true" />
+            Sábado 17/10, de 8 a 18h
+          </span>
+          <span class="inline-flex items-center gap-1.5">
+            <MapPin class="size-4 shrink-0" aria-hidden="true" />
+            Facultad de Ciencias Médicas, UNR
+          </span>
+        </div>
+      </div>
+    </div>
+    <Button
+      href="https://efsarg.com.ar"
+      target="_blank"
+      variant="secondary"
+      size="lg"
+      class="shrink-0"
+      trackId="home:efs-promo"
+    >
+      Más información
+    </Button>
+  </Container>
+</Section>
