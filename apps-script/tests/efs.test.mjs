@@ -389,6 +389,134 @@ prueba('I-3: monto distinto, otra moneda, otro cobrador, modo equivocado → ano
   }
 });
 
+prueba('pago combinado (2 medios de $2.500): una sola entrada, sin aviso de duplicado', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const ref = env.post(datos()).referencia;
+  const a = mp.pagar(ref, { transaction_amount: 2500 }); const b = mp.pagar(ref, { transaction_amount: 2500 });
+  igual(env.ctx.efsProcesarPago(a.id, 'webhook').estado, 'pagado');
+  igual(env.ctx.efsProcesarPago(b.id, 'webhook').estado, 'pagado');
+  igual(entradas(env).length, 1);
+  const cab = env.hojas.get('EFS 2026').datos[0];
+  igual(entradas(env)[0][cab.indexOf('PagoId')], [a.id, b.id].sort().join(','));
+  si(!env.mails.some((m) => m.asunto.includes('duplicado') || m.asunto.includes('no cumple')), 'avisó de más');
+});
+
+prueba('pago combinado: la primera mitad sola es anomalía; al llegar la segunda se emite la entrada', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const ref = env.post(datos()).referencia;
+  const a = mp.pagar(ref, { transaction_amount: 2500 });
+  igual(env.ctx.efsProcesarPago(a.id, 'webhook').estado, 'anomalia'); igual(entradas(env).length, 0);
+  const b = mp.pagar(ref, { transaction_amount: 2500 });
+  igual(env.ctx.efsProcesarPago(b.id, 'webhook').estado, 'pagado'); igual(entradas(env).length, 1);
+  igual(env.ctx.efsProcesarPago(a.id, 'barrido').estado, 'pagado'); igual(entradas(env).length, 1);
+});
+
+prueba('pago combinado que no suma el precio (2500 + 2000) o con un medio devuelto → anomalía', () => {
+  for (const [x, y, extraY] of [[2500, 2000, {}], [2500, 2500, { status: 'rejected' }], [2500, 2500, { transaction_amount_refunded: 100 }]]) {
+    const mp = crearMp(); const env = crearEntorno({ mp });
+    const ref = env.post(datos()).referencia;
+    const a = mp.pagar(ref, { transaction_amount: x }); mp.pagar(ref, { transaction_amount: y, ...extraY });
+    igual(env.ctx.efsProcesarPago(a.id, 'webhook').estado, 'anomalia', JSON.stringify([x, y, extraY])); igual(entradas(env).length, 0);
+  }
+});
+
+prueba('pago combinado: devolver una mitad revoca la entrada', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const ref = env.post(datos()).referencia;
+  const a = mp.pagar(ref, { transaction_amount: 2500 }); const b = mp.pagar(ref, { transaction_amount: 2500 });
+  env.ctx.efsProcesarPago(a.id, 'webhook'); env.ctx.efsProcesarPago(b.id, 'webhook');
+  b.status = 'refunded'; env.ctx.efsProcesarPago(b.id, 'barrido');
+  const cab = env.hojas.get('EFS 2026').datos[0];
+  igual(entradas(env)[0][cab.indexOf('EstadoEntrada')], 'revocada');
+});
+
+prueba('pago combinado + un tercer pago completo de $5.000 sí se avisa como duplicado', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const ref = env.post(datos()).referencia;
+  const a = mp.pagar(ref, { transaction_amount: 2500 }); const b = mp.pagar(ref, { transaction_amount: 2500 });
+  env.ctx.efsProcesarPago(a.id, 'webhook'); env.ctx.efsProcesarPago(b.id, 'webhook');
+  env.ctx.efsProcesarPago(mp.pagar(ref).id, 'webhook');
+  igual(entradas(env).length, 1);
+  si(env.mails.some((m) => m.asunto.includes('duplicado')), 'no avisó el duplicado');
+});
+
+prueba('transferencia: la hoja carga la entrada, manda mail, rechaza DNI repetido y datos incompletos', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const h = env.hojas.get('EFS · Transferencias') || (env.ctx.efsHoja_('EFS · Transferencias'), env.hojas.get('EFS · Transferencias'));
+  h.datos.push(['Luz', 'Gómez', '31.222.333', 'luz@ejemplo.com', '341 555-9999', 'Medicina', '2.º', 'UNR', 'transf 5000', '', '']);
+  h.datos.push(['Ana', 'Pérez', '31.222.333', 'ana@ejemplo.com', '341 555-9999', 'Medicina', '2.º', 'UNR', '', '', '']);
+  h.datos.push(['Sin', 'Mail', '31.222.444', 'no-es-mail', '341 555-9999', 'Medicina', '2.º', 'UNR', '', '', '']);
+  const r = env.ctx.efsProcesarTransferencias();
+  igual(r.emitidas, 1); igual(r.rechazadas, 2);
+  igual(entradas(env).length, 1);
+  const cab = env.hojas.get('EFS 2026').datos[0];
+  igual(entradas(env)[0][cab.indexOf('Origen')], 'transferencia');
+  si(String(h.datos[1][9]) === 'ok' && String(h.datos[1][10]).startsWith('EFS26-'), 'fila 1 sin estado');
+  si(String(h.datos[2][9]).includes('ya tiene entrada'), 'DNI repetido no rechazado');
+  si(String(h.datos[3][9]).includes('correo'), 'correo malo no rechazado');
+  si(env.mails.length >= 1, 'no mandó el mail');
+  const r2 = env.ctx.efsProcesarTransferencias(); igual(r2.emitidas, 0); igual(entradas(env).length, 1);
+});
+
+prueba('transferencia: acepta pasaporte con "PAS", lo guarda normalizado y el mail dice Pasaporte; la web sigue exigiendo DNI', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const h = env.hojas.get('EFS · Transferencias') || (env.ctx.efsHoja_('EFS · Transferencias'), env.hojas.get('EFS · Transferencias'));
+  h.datos.push(['Lucía', 'Silva', 'Pasaporte: ab 123.456', 'lucia@ejemplo.com', '+598 99 123 456', 'Medicina', '3.º', 'UdelaR', '', '', '']);
+  h.datos.push(['Otra', 'Silva', 'pas AB123456', 'otra@ejemplo.com', '+598 99 123 456', 'Medicina', '3.º', 'UdelaR', '', '', '']);
+  h.datos.push(['Sin', 'Prefijo', 'AB123456', 'sp@ejemplo.com', '+598 99 123 456', 'Medicina', '3.º', 'UdelaR', '', '', '']);
+  h.datos.push(['Corto', 'Pas', 'PAS 12', 'cp@ejemplo.com', '+598 99 123 456', 'Medicina', '3.º', 'UdelaR', '', '', '']);
+  const r = env.ctx.efsProcesarTransferencias();
+  igual(r.emitidas, 1); igual(r.rechazadas, 3);
+  const cab = env.hojas.get('EFS 2026').datos[0];
+  igual(entradas(env)[0][cab.indexOf('DNI')], 'PAS AB123456');
+  si(String(h.datos[2][9]).includes('ya tiene entrada'), 'pasaporte repetido no rechazado');
+  si(String(h.datos[3][9]).includes('dni') && String(h.datos[4][9]).includes('dni'), 'pasaporte sin PAS o corto no rechazado');
+  const m = env.mails.find((x) => x.to === 'lucia@ejemplo.com');
+  si(m && m.plano.includes('Pasaporte AB123456') && m.op.htmlBody.includes('Pasaporte'), 'el mail no muestra el pasaporte');
+  igual(env.ctx.efsValidarDatos_({ intento_id: 'abcdefgh1', nombre: 'a', apellido: 'b', dni: 'PAS AB123456', correo: 'a@b.com', telefono: '34155599999', carrera: 'm', anio: '1', universidad: 'u' }).error, 'dni');
+});
+
+const hace = (horas) => new Date(Date.now() - horas * 3600 * 1000).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour12: false }).replace(',', '');
+function envejecer(env, horas) {
+  const h = env.hojas.get('EFS · Pendientes'); const cab = h.datos[0];
+  h.datos.slice(1).forEach((f) => { f[cab.indexOf('alta')] = hace(horas); });
+}
+const recordatorios = (env) => env.mails.filter((m) => m.asunto.includes('necesitás ayuda'));
+
+prueba('recordatorio: a quien no pagó en 24 h le llega UN mail de ayuda; antes no, y no se repite', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  env.post(datos());
+  env.ctx.efsBarrido(); igual(recordatorios(env).length, 0, 'mandó antes de tiempo');
+  envejecer(env, 25);
+  env.ctx.efsBarrido(); igual(recordatorios(env).length, 1);
+  igual(recordatorios(env)[0].to, 'ana@ejemplo.com');
+  const cab = env.hojas.get('EFS · Pendientes').datos[0];
+  si(String(pendientes(env)[0][cab.indexOf('motivo')]).includes('recordatorio'), 'no quedó anotado');
+  env.ctx.efsBarrido(); igual(recordatorios(env).length, 1, 'se repitió');
+});
+
+prueba('recordatorio: no se manda a quien ya tiene entrada, ni con recordatorio_horas = 0, ni después del cierre', () => {
+  const mp = crearMp(); let env = crearEntorno({ mp });
+  const ref = env.post(datos()).referencia;
+  env.ctx.efsProcesarPago(mp.pagar(ref).id, 'webhook'); envejecer(env, 30);
+  env.ctx.efsBarrido(); igual(recordatorios(env).length, 0, 'mandó a alguien que ya pagó');
+
+  env = crearEntorno({ mp: crearMp() }); env.poner('recordatorio_horas', 0);
+  env.post(datos()); envejecer(env, 30); env.ctx.efsBarrido(); igual(recordatorios(env).length, 0, 'mandó con 0');
+
+  env = crearEntorno({ mp: crearMp() }); env.poner('cierre', '1/1/2020 23:59');
+  env.post(datos()); envejecer(env, 30); env.ctx.efsBarrido(); igual(recordatorios(env).length, 0, 'mandó después del cierre');
+});
+
+prueba('recordatorio: si la persona paga después del mail, la entrada se emite igual', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const ref = env.post(datos()).referencia;
+  envejecer(env, 60); env.ctx.efsBarrido();
+  igual(recordatorios(env).length, 1);
+  env.ctx.efsProcesarPago(mp.pagar(ref).id, 'webhook');
+  igual(entradas(env).length, 1);
+});
+
 prueba('I-4: pago con referencia EFSP inexistente → anomalía; pago ajeno al EFS → se ignora', () => {
   const mp = crearMp(); const env = crearEntorno({ mp });
   igual(env.ctx.efsProcesarPago(mp.pagar('EFSP-NOEXISTE00').id, 'barrido').estado, 'anomalia');

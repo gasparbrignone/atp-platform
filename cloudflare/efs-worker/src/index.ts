@@ -67,12 +67,65 @@ async function inscribir(cuerpo: Json, ip: string, env: Env): Promise<Json> {
   const turnstile = await verificarTurnstile(String(cuerpo.turnstile || ''), ip, env);
   if (!turnstile) return { ok: false, error: 'turnstile' };
 
+  // Antes de cobrar: el dominio del correo tiene que existir y poder recibir mail (los rebotes dejan a la persona sin QR).
+  const mal = await problemaDelCorreo(String(cuerpo.correo || ''));
+  if (mal) return { ok: false, ...mal };
+
   const params: Record<string, string> = { accion: 'iniciar' };
   for (const campo of CAMPOS_INSCRIPCION) params[campo] = String(cuerpo[campo] ?? '').slice(0, 200);
 
   // Si el Apps Script está saturado ("ocupado", timeout o error de red), se
   // reintenta con el MISMO intento_id: del otro lado es idempotente.
   return appsScript(params, env, { reintentos: 2 });
+}
+
+// ─────────────────────────── correo ───────────────────────────
+
+// Errores de tipeo comunes de dominios populares → el dominio correcto.
+const DOMINIOS_TIPEADOS: Record<string, string> = {
+  'gmial.com': 'gmail.com', 'gmai.com': 'gmail.com', 'gmaill.com': 'gmail.com', 'gamil.com': 'gmail.com', 'gnail.com': 'gmail.com',
+  'gmail.con': 'gmail.com', 'gmail.co': 'gmail.com', 'gmail.cm': 'gmail.com', 'gmail.om': 'gmail.com', 'gmail.comm': 'gmail.com',
+  'gmail.com.ar': 'gmail.com', 'gmeil.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gimail.com': 'gmail.com', 'gmail.cim': 'gmail.com',
+  'hotmial.com': 'hotmail.com', 'hotmai.com': 'hotmail.com', 'hotmail.con': 'hotmail.com', 'hotmal.com': 'hotmail.com', 'hotamil.com': 'hotmail.com',
+  'hotmail.co': 'hotmail.com', 'hotmil.com': 'hotmail.com', 'outlok.com': 'outlook.com', 'outlook.con': 'outlook.com', 'outloo.com': 'outlook.com',
+  'yahooo.com': 'yahoo.com', 'yaho.com': 'yahoo.com', 'yahoo.con': 'yahoo.com', 'yahoo.com.arr': 'yahoo.com.ar', 'icloud.con': 'icloud.com',
+};
+
+// Devuelve null si el correo parece bueno, o { error, sugerencia? } si hay que corregirlo.
+// Solo rechaza lo que seguro no recibe mail: sin formato, tipeo conocido o dominio que no existe.
+// Si la consulta DNS falla o tarda, deja pasar (no se bloquea una inscripción por un problema nuestro).
+async function problemaDelCorreo(correo: string): Promise<Json | null> {
+  const c = correo.trim().toLowerCase();
+  const m = /^[^\s@]+@([^\s@]+\.[^\s@]{2,})$/.exec(c);
+  if (!m) return { error: 'datos', campo: 'correo' };
+  const dominio = m[1];
+  if (DOMINIOS_TIPEADOS[dominio]) return { error: 'correo_dominio', sugerencia: c.replace(/@.*$/, '@' + DOMINIOS_TIPEADOS[dominio]) };
+  try {
+    const existe = await dominioRecibeMail(dominio);
+    if (existe === false) return { error: 'correo_dominio' };
+  } catch {
+    /* sin respuesta DNS: se deja pasar */
+  }
+  return null;
+}
+
+// true si el dominio tiene MX (o, a falta de MX, una dirección A); false si no existe; null si no se pudo saber.
+async function dominioRecibeMail(dominio: string): Promise<boolean | null> {
+  const consulta = async (tipo: string) => {
+    const r = await fetch('https://cloudflare-dns.com/dns-query?name=' + encodeURIComponent(dominio) + '&type=' + tipo, {
+      headers: { Accept: 'application/dns-json' }, signal: AbortSignal.timeout(2500),
+    });
+    if (!r.ok) return null;
+    return (await r.json()) as { Status: number; Answer?: unknown[] };
+  };
+  const mx = await consulta('MX');
+  if (!mx) return null;
+  if (mx.Status === 3) return false; // NXDOMAIN
+  if (mx.Status === 0 && mx.Answer && mx.Answer.length) return true;
+  const a = await consulta('A');
+  if (!a) return null;
+  if (a.Status === 3) return false;
+  return Boolean(a.Status === 0 && a.Answer && a.Answer.length);
 }
 
 async function verificar(cuerpo: Json, ip: string, env: Env): Promise<Json> {

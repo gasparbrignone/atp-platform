@@ -15,9 +15,19 @@ const baseEnv = {
 };
 
 // Simula Turnstile y el Apps Script. `respuestas` es la cola de respuestas del Apps Script.
-function simular({ turnstile = { success: true, hostname: 'efsarg.com.ar' }, respuestas = [{ ok: true, pago_url: 'https://mp/checkout/1', referencia: 'EFSP-ABCDEFGHJK' }] } = {}) {
+function simular({ dns = 'ok', turnstile = { success: true, hostname: 'efsarg.com.ar' }, respuestas = [{ ok: true, pago_url: 'https://mp/checkout/1', referencia: 'EFSP-ABCDEFGHJK' }] } = {}) {
   const llamadas = { apps: [], turnstile: [] };
   globalThis.fetch = async (url, op = {}) => {
+    if (String(url).includes('cloudflare-dns.com')) {
+      llamadas.dns = (llamadas.dns || 0) + 1;
+      if (dns === 'caido') throw new Error('dns caído');
+      if (dns === 'nxdomain') return new Response(JSON.stringify({ Status: 3 }));
+      if (dns === 'sinmx') {
+        const esMx = String(url).includes('type=MX');
+        return new Response(JSON.stringify(esMx ? { Status: 0 } : { Status: 0, Answer: [{ data: '1.2.3.4' }] }));
+      }
+      return new Response(JSON.stringify({ Status: 0, Answer: [{ data: '10 mx.ejemplo.com.' }] }));
+    }
     if (String(url).includes('turnstile')) {
       llamadas.turnstile.push(Object.fromEntries(op.body));
       return new Response(JSON.stringify(turnstile));
@@ -212,4 +222,23 @@ test('rutas desconocidas y métodos no permitidos', async () => {
   assert.equal((await worker.fetch(pedido('/otra', {}), baseEnv, ctx())).status, 404);
   assert.equal((await worker.fetch(pedido('/inscribir', null, { metodo: 'GET' }), baseEnv, ctx())).status, 405);
   assert.equal((await worker.fetch(pedido('/salud', null, { metodo: 'GET' }), baseEnv, ctx())).status, 200);
+});
+
+test('correo: dominio inexistente, tipeo conocido o sin formato se rechazan antes de cobrar', async () => {
+  for (const [dns, correo, esperado] of [['nxdomain', 'ana@noexiste-zzz.com', 'correo_dominio'], ['ok', 'ana@gmial.com', 'correo_dominio'], ['ok', 'ana@gmail.con', 'correo_dominio'], ['ok', 'ana-sin-arroba', 'datos']]) {
+    const llamadas = simular({ dns });
+    const r = await (await worker.fetch(pedido('/inscribir', formulario({ correo })), baseEnv, ctx())).json();
+    assert.equal(r.ok, false, correo); assert.equal(r.error, esperado, correo);
+    assert.equal(llamadas.apps.length, 0, 'no debe llegar al Apps Script: ' + correo);
+  }
+  const r = await (await worker.fetch(pedido('/inscribir', formulario({ correo: 'Ana@Gmial.com' })), baseEnv, ctx())).json();
+  assert.equal(r.sugerencia, 'ana@gmail.com');
+});
+
+test('correo: dominio con solo registro A, o con DNS caído, deja pasar', async () => {
+  for (const dns of ['sinmx', 'caido', 'ok']) {
+    const llamadas = simular({ dns });
+    const r = await (await worker.fetch(pedido('/inscribir', formulario()), baseEnv, ctx())).json();
+    assert.equal(r.ok, true, dns); assert.equal(llamadas.apps.length, 1, dns);
+  }
 });
