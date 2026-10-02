@@ -10,8 +10,10 @@
  * presencial en la facultad (2026-09-18) — KeychainSaleSection.astro
  * (como AgendaSaleSection.astro antes) queda sin usar, de referencia por
  * si hace falta armar otra venta puntual el día de mañana. En su lugar,
- * justo debajo del Hero, va IngresantesPromoSection: banner llamativo
- * hacia /ingresantes/ mientras dure la ventana de inscripción 2027.
+ * justo debajo del Hero van dos banners llamativos, en orden de
+ * prioridad: EfsPromoSection (evento pago del 17/10/2026, ver
+ * docs/EFS_2026_PLAN.md) y después IngresantesPromoSection (hacia
+ * /ingresantes/, mientras dure la ventana de inscripción 2027).
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Hero from '@/components/Hero.astro';
@@ -25,6 +27,7 @@ import Button from '@/components/Button.astro';
 import Carousel from '@/components/Carousel.astro';
 import WhatsAppGroupsSection from '@/components/WhatsAppGroupsSection.astro';
 import IngresantesPromoSection from '@/components/IngresantesPromoSection.astro';
+import EfsPromoSection from '@/components/EfsPromoSection.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import YouTubeVideoGrid from '@/components/YouTubeVideoGrid.astro';
 import SocialLinks from '@/components/SocialLinks.astro';
@@ -85,6 +88,8 @@ const careers = [
       }
     </div>
   </Hero>
+
+  <EfsPromoSection />
 
   <IngresantesPromoSection />
 
