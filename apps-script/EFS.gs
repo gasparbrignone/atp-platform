@@ -1074,6 +1074,11 @@ var EFS_SESION_ASISTENCIA = 'EFS 2026';
 
 // Lista completa para el Durable Object del evento (solo la pide el Worker, con
 // el secreto compartido). Trae también lo ya acreditado, por si el objeto perdió su estado.
+// Un DNI se guarda solo con dígitos; un pasaporte ("PAS AB123456") conserva su forma para que el staff lo encuentre.
+function efsDniParaStaff_(dni) {
+  return /^PAS /.test(dni) ? dni : dni.replace(/\D/g, '');
+}
+
 function efsStaffLista_() {
   var filas = efsHoja_(EFS_HOJA_ENTRADAS).getDataRange().getValues();
   var e = efsIndices_(filas[0]);
@@ -1085,7 +1090,7 @@ function efsStaffLista_() {
     var hora = e.AcreditadoEn === undefined ? null : efsFecha_(filas[i][e.AcreditadoEn]);
     lista.push({
       c: codigo, n: (texto(filas[i], 'Nombres') + ' ' + texto(filas[i], 'Apellidos')).trim(),
-      dni: texto(filas[i], 'DNI').replace(/\D/g, ''), e: texto(filas[i], 'EstadoEntrada') || 'activa',
+      dni: efsDniParaStaff_(texto(filas[i], 'DNI')), e: texto(filas[i], 'EstadoEntrada') || 'activa',
       a: hora ? hora.getTime() : 0, p: texto(filas[i], 'AcreditadoPor'), cr: texto(filas[i], 'Credencial'), t: texto(filas[i], 'Taller'),
     });
   }
