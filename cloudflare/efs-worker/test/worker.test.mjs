@@ -136,7 +136,8 @@ test('verificar: exige referencia con formato EFSP y pago numérico', async () =
 
 // Aviso firmado como lo hace Mercado Pago: HMAC-SHA256 de "id:<data.id>;request-id:<x-request-id>;ts:<ts>;".
 const envWebhook = { ...baseEnv, MP_WEBHOOK_SECRET: 'clave-webhook' };
-function avisoFirmado(ruta, { id = '555', reqId = 'req-1', ts = '1742505638683', clave = 'clave-webhook', ip } = {}) {
+const TS_AHORA = String(Date.now()); // la firma vale 5 minutos (ver firmaMercadoPagoValida)
+function avisoFirmado(ruta, { id = '555', reqId = 'req-1', ts = TS_AHORA, clave = 'clave-webhook', ip } = {}) {
   const firma = crypto.createHmac('sha256', clave).update(`id:${id};request-id:${reqId};ts:${ts};`).digest('hex');
   return pedido(ruta, {}, { origen: '', ip, headers: { 'x-signature': `ts=${ts},v1=${firma}`, 'x-request-id': reqId } });
 }
@@ -155,7 +156,7 @@ test('aviso: sin firma, con firma falsa o con otra clave se rechaza y no llega a
   const c = ctx();
   const sinFirma = await worker.fetch(pedido('/mp/aviso?type=payment&data.id=555', { type: 'payment', data: { id: '555' } }, { origen: '' }), envWebhook, c);
   assert.equal(sinFirma.status, 401);
-  const falsa = await worker.fetch(pedido('/mp/aviso?type=payment&data.id=555', {}, { origen: '', headers: { 'x-signature': `ts=1742505638683,v1=${'0'.repeat(64)}`, 'x-request-id': 'req-1' } }), envWebhook, c);
+  const falsa = await worker.fetch(pedido('/mp/aviso?type=payment&data.id=555', {}, { origen: '', headers: { 'x-signature': `ts=${TS_AHORA},v1=${'0'.repeat(64)}`, 'x-request-id': 'req-1' } }), envWebhook, c);
   assert.equal(falsa.status, 401);
   const otraClave = await worker.fetch(avisoFirmado('/mp/aviso?type=payment&data.id=555', { clave: 'otra' }), envWebhook, c);
   assert.equal(otraClave.status, 401);
@@ -190,12 +191,22 @@ test('aviso: merchant_order también exige firma; otros tipos se ignoran sin pro
 test('aviso: el data.id del manifiesto sale del query; si el query no lo trae se omite (como dice Mercado Pago)', async () => {
   const ll = simular({ respuestas: [{ ok: true }] });
   const c = ctx();
-  const ts = '1742505638683';
+  const ts = TS_AHORA;
   const firma = crypto.createHmac('sha256', 'clave-webhook').update(`request-id:req-9;ts:${ts};`).digest('hex');
   const r = await worker.fetch(pedido('/mp/aviso', { type: 'payment', data: { id: '555' } }, { origen: '', headers: { 'x-signature': `ts=${ts},v1=${firma}`, 'x-request-id': 'req-9' } }), envWebhook, c);
   assert.equal(r.status, 200);
   await c.esperar();
   assert.equal(ll.apps[0].id, '555');
+});
+
+test('aviso: una firma con más de 5 minutos no se acepta (no sirve reenviar uno capturado)', async () => {
+  const ll = simular({ respuestas: [{ ok: true }] });
+  const c = ctx();
+  const viejo = String(Date.now() - 10 * 60 * 1000);
+  const r = await worker.fetch(avisoFirmado('/mp/aviso?type=payment&data.id=555', { ts: viejo }), envWebhook, c);
+  assert.equal(r.status, 401);
+  await c.esperar();
+  assert.equal(ll.apps.length, 0);
 });
 
 test('aviso: tras 20 firmas falsas desde la misma IP se corta (429), incluso con una firma buena', async () => {

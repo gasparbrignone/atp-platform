@@ -235,6 +235,11 @@ async function firmaMercadoPagoValida(request: Request, dataId: string, secreto:
   const requestId = request.headers.get('x-request-id') || '';
   const partes = Object.fromEntries(firma.split(',').map((p) => p.trim().split('=') as [string, string]));
   if (!partes.ts || !partes.v1) return false;
+  // Ventana de 5 minutos: un aviso firmado capturado no sirve para reenviarlo después.
+  // El ts viene en milisegundos; por las dudas, si es de 10 dígitos se toma como segundos.
+  const tsNum = Number(partes.ts);
+  const tsMs = tsNum < 1e12 ? tsNum * 1000 : tsNum;
+  if (!Number.isFinite(tsMs) || Math.abs(Date.now() - tsMs) > 5 * 60 * 1000) return false;
   let manifiesto = '';
   if (dataId) manifiesto += `id:${/^[a-z0-9]+$/i.test(dataId) ? dataId.toLowerCase() : dataId};`;
   if (requestId) manifiesto += `request-id:${requestId};`;
