@@ -108,9 +108,11 @@ Implementación:
 Commits: `f98725f` (web atp, `efs-2026`); `c54c633` y `b97c94e` (repo EFS, `main`).
 
 **Lecciones del despliegue (2026-10-07), para no repetirlas:**
-- `C:\Users\gaspar\Desktop\ATP\Diseño EFS\backend\EFS.gs` es una **copia vieja**
-  (del 1/10). El `EFS.gs` vigente es el de `web atp/apps-script/`. Se pegó la
-  copia vieja y Apps Script respondía `accion_desconocida`.
+- `C:\Users\gaspar\Desktop\ATP\Diseño EFS\backend\EFS.gs` es una **copia manual**
+  que se desactualiza. Se pegó una versión vieja de ahí (del 1/10) y Apps Script
+  respondía `accion_desconocida`. Se resincronizó el mismo día. La fuente de
+  verdad es `web atp/apps-script/EFS.gs`; cada vez que cambie, hay que volver a
+  copiarlo a `backend/`.
 - Guardar en el editor de Apps Script NO actualiza el Web App: hay que hacer
   Implementar → Administrar implementaciones → editar → "Nueva versión".
 - Diagnóstico sin efectos: un POST a `/admin` del Worker con
