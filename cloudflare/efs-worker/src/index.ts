@@ -29,11 +29,12 @@ import { cookieMeta, enviarConversiones } from './meta.ts';
 export { EventoDO } from './evento.ts';
 export type { Env } from './apps.ts';
 
-const ADMIN_ACCIONES = new Set(['admin_resumen', 'admin_buscar', 'admin_procesar', 'admin_reenviar', 'admin_conciliar', 'admin_alta_transferencia']);
+const ADMIN_ACCIONES = new Set(['admin_resumen', 'admin_buscar', 'admin_procesar', 'admin_reenviar', 'admin_conciliar', 'admin_alta_transferencia', 'admin_alta_cortesia']);
 const CAMPOS_INSCRIPCION = ['intento_id', 'nombre', 'apellido', 'dni', 'correo', 'telefono', 'carrera', 'anio', 'universidad'];
-// Alta de transferencia desde el panel (Etapa 2): mismos datos de persona que una inscripción
-// (sin intento_id, que lo arma EFS.gs) + monto/fecha/comprobante, que quedan como nota libre.
-const CAMPOS_TRANSFERENCIA = ['nombre', 'apellido', 'dni', 'correo', 'telefono', 'carrera', 'anio', 'universidad', 'monto', 'fecha', 'comprobante'];
+// Altas desde el panel (Etapa 2): mismos datos de persona que una inscripción (sin intento_id, que
+// lo arma EFS.gs) + monto/fecha/comprobante (transferencia) o motivo (cortesía), que van a la nota.
+const ALTAS_PANEL = new Set(['admin_alta_transferencia', 'admin_alta_cortesia']);
+const CAMPOS_ALTA = ['nombre', 'apellido', 'dni', 'correo', 'telefono', 'carrera', 'anio', 'universidad', 'monto', 'fecha', 'comprobante', 'motivo'];
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -156,8 +157,8 @@ async function admin(cuerpo: Json, ip: string, env: Env): Promise<Json> {
   if (!ADMIN_ACCIONES.has(accion)) return { ok: false, error: 'accion' };
   const params: Record<string, string> = { accion, token: String(cuerpo.token || '') };
   for (const k of ['q', 'pago_id', 'codigo']) if (cuerpo[k] != null) params[k] = String(cuerpo[k]).slice(0, 120);
-  if (accion === 'admin_alta_transferencia') {
-    for (const k of CAMPOS_TRANSFERENCIA) params[k] = String(cuerpo[k] ?? '').slice(0, 200);
+  if (ALTAS_PANEL.has(accion)) {
+    for (const k of CAMPOS_ALTA) params[k] = String(cuerpo[k] ?? '').slice(0, 200);
   }
   return appsScript(params, env, { reintentos: 0 });
 }

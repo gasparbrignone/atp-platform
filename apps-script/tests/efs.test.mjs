@@ -533,6 +533,46 @@ prueba('admin_alta_transferencia: acepta pasaporte igual que la carga por hoja',
   igual(entradas(env)[0][cab.indexOf('DNI')], 'PAS AB123456');
 });
 
+prueba('admin_alta_cortesia: emite con Origen cortesia, manda el mail sin "recibimos tu pago" y anota el motivo', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const r = env.post(transferenciaPanel({ accion: 'admin_alta_cortesia', motivo: 'disertante', monto: '9999' }));
+  si(r.ok, JSON.stringify(r)); si(/^EFS26-/.test(r.codigo), 'formato de código');
+  const cab = env.hojas.get('EFS 2026').datos[0];
+  const e = entradas(env)[0];
+  igual(e[cab.indexOf('Origen')], 'cortesia'); igual(e[cab.indexOf('PagoId')], 'cortesia-panel');
+  si(String(e[cab.indexOf('Referencia')]).startsWith('CORTESIA-PANEL-'));
+  igual(env.mails.length, 1); igual(env.mails[0].to, 'luz@ejemplo.com');
+  si(!env.mails[0].op.htmlBody.includes('recibimos tu pago'), 'el mail de cortesía habla de pago');
+  si(env.mails[0].op.htmlBody.includes('ya estás inscripto/a'));
+  const t = env.hojas.get('EFS · Transferencias'); const colT = t.datos[0]; const fila = t.datos[1];
+  igual(fila[colT.indexOf('nota')], 'Cortesía: disertante', 'la nota no debe llevar el monto');
+  igual(fila[colT.indexOf('estado')], 'ok'); igual(fila[colT.indexOf('entrada')], r.codigo);
+  si(!env.lock(), 'el candado quedó tomado');
+});
+
+prueba('admin_alta_cortesia: sin motivo la nota dice solo "Cortesía"; la conciliación la cuenta como cortesía', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  si(env.post(transferenciaPanel({ accion: 'admin_alta_cortesia' })).ok);
+  const t = env.hojas.get('EFS · Transferencias');
+  igual(t.datos[1][t.datos[0].indexOf('nota')], 'Cortesía');
+  const rep = env.ctx.efsConciliar().reporte;
+  igual(rep.cortesias, 1); igual(rep.transferencias, 0);
+});
+
+prueba('admin_alta_cortesia: sin sesión no responde; DNI con entrada activa se rechaza', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  igual(env.post({ ...transferenciaPanel({ accion: 'admin_alta_cortesia' }), token: '' }).error, 'no_autorizado');
+  si(env.post(transferenciaPanel()).ok);
+  const r = env.post(transferenciaPanel({ accion: 'admin_alta_cortesia', correo: 'otra@ejemplo.com' }));
+  igual(r.error, 'ya_inscripto'); igual(entradas(env).length, 1); igual(env.mails.length, 1);
+});
+
+prueba('las transferencias siguen mandando el mail que dice "recibimos tu pago"', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  si(env.post(transferenciaPanel()).ok);
+  si(env.mails[0].op.htmlBody.includes('recibimos tu pago'));
+});
+
 prueba('admin_alta_transferencia: con el candado tomado devuelve "ocupado" sin crear nada', () => {
   const env = crearEntorno({ mp: crearMp() });
   const l = env.ctx.LockService.getDocumentLock();

@@ -228,6 +228,17 @@ test('admin: solo acciones admin_* conocidas, con el token de sesión', async ()
   assert.equal(ll.apps.length, 1); assert.equal(ll.apps[0].token, 'tok-admin'); assert.equal(ll.apps[0].efs_secreto, 'secreto-worker');
 });
 
+test('admin: las altas del panel reenvían los datos de la persona y la nota; las demás acciones no', async () => {
+  const ll = simular({ respuestas: [{ ok: true }] });
+  const datos = { nombre: 'Luz', dni: '31222333', correo: 'luz@ejemplo.com', monto: '5000', motivo: 'disertante' };
+  await worker.fetch(pedido('/admin', { accion: 'admin_alta_transferencia', token: 't', ...datos }), baseEnv, ctx());
+  await worker.fetch(pedido('/admin', { accion: 'admin_alta_cortesia', token: 't', ...datos }), baseEnv, ctx());
+  await worker.fetch(pedido('/admin', { accion: 'admin_resumen', token: 't', ...datos }), baseEnv, ctx());
+  assert.equal(ll.apps[0].accion, 'admin_alta_transferencia'); assert.equal(ll.apps[0].dni, '31222333'); assert.equal(ll.apps[0].monto, '5000');
+  assert.equal(ll.apps[1].accion, 'admin_alta_cortesia'); assert.equal(ll.apps[1].motivo, 'disertante'); assert.equal(ll.apps[1].correo, 'luz@ejemplo.com');
+  assert.equal(ll.apps[2].dni, undefined, 'admin_resumen no debe recibir datos personales');
+});
+
 test('rutas desconocidas y métodos no permitidos', async () => {
   simular();
   assert.equal((await worker.fetch(pedido('/otra', {}), baseEnv, ctx())).status, 404);

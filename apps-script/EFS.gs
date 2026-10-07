@@ -48,9 +48,10 @@ var EFS_COL_PAGOS = [
   'fecha', 'pago_id', 'referencia', 'status', 'status_detail', 'monto_bruto', 'moneda', 'collector_id',
   'live_mode', 'origen', 'accion', 'detalle',
 ];
-// Registro de transferencias: filas cargadas a mano (se completa A:H y se corre
-// efsProcesarTransferencias) o emitidas directo desde el panel (efsAdminAltaTransferencia_), que
-// agrega su propia fila ya con estado y entrada. Un solo lugar para ver el historial completo.
+// Registro de altas manuales: transferencias cargadas a mano (se completa A:H y se corre
+// efsProcesarTransferencias), o transferencias y cortesías emitidas desde el panel
+// (efsAltaDesdePanel_), que agrega su propia fila ya con estado y entrada. La nota de una cortesía
+// empieza con "Cortesía". Un solo lugar para ver el historial completo.
 var EFS_COL_TRANSFERENCIAS = [
   'nombre', 'apellido', 'dni', 'correo', 'telefono', 'carrera', 'anio', 'universidad', 'nota', 'estado', 'entrada',
 ];
@@ -100,6 +101,7 @@ function efsRouter(e) {
       case 'admin_procesar': return efsJson_(efsAdmin_(p, efsAdminProcesar_));
       case 'admin_reenviar': return efsJson_(efsAdmin_(p, efsAdminReenviar_));
       case 'admin_alta_transferencia': return efsJson_(efsAdmin_(p, efsAdminAltaTransferencia_));
+      case 'admin_alta_cortesia': return efsJson_(efsAdmin_(p, efsAdminAltaCortesia_));
       case 'staff_lista': return efsJson_(efsStaffLista_());
       case 'staff_sync': return efsJson_(efsStaffSync_(p.lote));
       case 'meta_pendientes': return efsJson_(efsMetaPendientes_());
@@ -876,6 +878,7 @@ function efsArmarMailEntrada_(fila, e, c) {
   var dni = esPasaporte ? String(fila[e.DNI]).slice(4) : String(fila[e.DNI]).replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   var html = efsHtmlMailEntrada_({
     nombre: nombre, titular: titular, dni: dni, documento: documento, codigo: codigo, link: link, sitio: sitio, qr: imagen !== '',
+    cortesia: String(fila[e.Origen]) === 'cortesia',
     fecha: String(c.evento_fecha || ''), lugar: String(c.evento_lugar || ''), evento: String(c.evento_nombre),
     whatsapp: String(c.whatsapp || '').replace(/\D/g, ''), acreditacion: String(c.acreditacion || ''),
   });
@@ -935,7 +938,7 @@ function efsHtmlMailEntrada_(d) {
     // Cuerpo
     '<tr><td style="background:#ffffff;padding:30px 28px 8px">' +
       '<h1 style="' + f + 'margin:0;font-size:32px;line-height:1.05;color:' + NAVY + ';font-weight:900">Tu entrada</h1>' +
-      '<p style="' + f + 'margin:12px 0 0;font-size:16px;line-height:1.5;color:' + NAVY + '">Hola ' + h(d.nombre) + ', recibimos tu pago y ya estás inscripto/a al ' + h(d.evento) + '.</p>' +
+      '<p style="' + f + 'margin:12px 0 0;font-size:16px;line-height:1.5;color:' + NAVY + '">Hola ' + h(d.nombre) + (d.cortesia ? ', ya estás inscripto/a al ' : ', recibimos tu pago y ya estás inscripto/a al ') + h(d.evento) + '.</p>' +
     '</td></tr>' +
 
     // QR
@@ -1082,15 +1085,24 @@ function efsAdminReenviar_(p) {
   return { ok: enviado, error: enviado ? undefined : 'no_enviado' };
 }
 
-// Alta directa de una transferencia desde el panel (Etapa 2), con los mismos datos y la misma
-// validación que efsProcesarTransferencias (incluido permitir pasaporte), pero de a una persona
-// por vez y confirmada por quien la carga. Deja una fila en "EFS · Transferencias" (estado "ok",
-// con el código) para que esa hoja siga siendo el registro único de transferencias, se hayan
-// cargado a mano o desde acá. El lock serializa dos altas del mismo DNI en simultáneo: la segunda,
-// al tomar el lock después, ya encuentra la entrada activa de la primera y se rechaza sola.
 function efsAdminAltaTransferencia_(p) {
+  return efsAltaDesdePanel_(p, 'transferencia');
+}
+
+function efsAdminAltaCortesia_(p) {
+  return efsAltaDesdePanel_(p, 'cortesia');
+}
+
+// Alta directa desde el panel (Etapa 2) de una transferencia o una cortesía, con los mismos datos y
+// la misma validación que efsProcesarTransferencias (incluido permitir pasaporte), pero de a una
+// persona por vez y confirmada por quien la carga. Las dos dejan una fila en "EFS · Transferencias"
+// (estado "ok", con el código), que es el registro único de altas manuales. En esa hoja, la nota de
+// una cortesía empieza con "Cortesía"; en "EFS 2026" se distinguen por Origen. El lock serializa
+// dos altas del mismo DNI en simultáneo: la segunda ya encuentra la entrada activa de la primera.
+function efsAltaDesdePanel_(p, origen) {
+  var cortesia = origen === 'cortesia';
   var datos = {
-    intento_id: 'transferencia-panel-' + Utilities.getUuid(), nombre: p.nombre, apellido: p.apellido, dni: p.dni,
+    intento_id: origen + '-panel-' + Utilities.getUuid(), nombre: p.nombre, apellido: p.apellido, dni: p.dni,
     correo: p.correo, telefono: p.telefono, carrera: p.carrera, anio: p.anio, universidad: p.universidad,
   };
   var d = efsValidarDatos_(datos, true);
@@ -1106,12 +1118,14 @@ function efsAdminAltaTransferencia_(p) {
     var col = efsIndices_(EFS_COL_PENDIENTES);
     var pend = efsFilaVacia_(EFS_COL_PENDIENTES);
     efsAsignar_(pend, col, {
-      referencia: 'TRANSF-PANEL-' + Utilities.getUuid().slice(0, 8).toUpperCase(), nombre: d.nombre, apellido: d.apellido,
-      dni: d.dni, correo: d.correo, telefono: d.telefono, carrera: d.carrera, anio: d.anio, universidad: d.universidad,
+      referencia: (cortesia ? 'CORTESIA-PANEL-' : 'TRANSF-PANEL-') + Utilities.getUuid().slice(0, 8).toUpperCase(),
+      nombre: d.nombre, apellido: d.apellido, dni: d.dni, correo: d.correo, telefono: d.telefono, carrera: d.carrera,
+      anio: d.anio, universidad: d.universidad,
     });
-    codigo = efsEmitirEntrada_(pend, col, 'transferencia-panel', 'transferencia');
+    codigo = efsEmitirEntrada_(pend, col, origen + '-panel', origen);
 
-    var nota = [
+    var motivo = String(p.motivo || '').trim().slice(0, 80);
+    var nota = cortesia ? 'Cortesía' + (motivo ? ': ' + motivo : '') : [
       p.monto ? 'Monto: ' + String(p.monto).trim().slice(0, 40) : '',
       p.fecha ? 'Fecha: ' + String(p.fecha).trim().slice(0, 40) : '',
       p.comprobante ? 'Comprobante: ' + String(p.comprobante).trim().slice(0, 80) : '',
