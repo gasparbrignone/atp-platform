@@ -120,6 +120,29 @@ Commits: `f98725f` (web atp, `efs-2026`); `c54c633` y `b97c94e` (repo EFS, `main
   Worker está viejo. Si responde `accion_desconocida`, Apps Script está viejo.
   Si responde `no_autorizado`, los dos están al día.
 
+### Etapa 2b — Cortesías (2026-10-07, en producción)
+
+Decisiones del dueño: llega el mismo mail con el QR, el motivo es opcional y
+quedan registradas en "EFS · Transferencias" (sin hoja propia).
+
+- `EFS.gs`: acción `admin_alta_cortesia`. Transferencias y cortesías comparten
+  `efsAltaDesdePanel_(p, origen)`. La cortesía queda con `Origen = cortesia`,
+  `PagoId = cortesia-panel` y `Referencia = CORTESIA-PANEL-…`. En la hoja de
+  transferencias, la nota es "Cortesía" o "Cortesía: <motivo>"; no guarda
+  monto aunque llegue uno.
+- Mail: en una cortesía dice "ya estás inscripto/a" en vez de "recibimos tu
+  pago" (`d.cortesia` en `efsHtmlMailEntrada_`).
+- Worker: `admin_alta_cortesia` en `ADMIN_ACCIONES`. Las dos altas reenvían
+  `CAMPOS_ALTA` (incluye `motivo`); las demás acciones no reciben datos
+  personales.
+- Panel: selector Transferencia / Cortesía en el mismo formulario. La vista
+  previa muestra el tipo.
+- Pruebas: 4 casos nuevos en `efs.test.mjs` (79/79) y 1 en `worker.test.mjs`
+  (22/22). Commits `3e33c34` (web atp) y `93daed2` (repo EFS).
+- Aplica todo lo verificado en la auditoría de abajo, porque usa el mismo
+  código. El riesgo del login compartido pesa más ahora: con esa clave se
+  pueden emitir entradas gratis sin más registro que el motivo (opcional).
+
 ### Auditoría de seguridad (2026-10-07) — Etapa 2 CERRADA
 
 Se revisaron `efsAdminAltaTransferencia_`, la ruta `/admin` del Worker y la
