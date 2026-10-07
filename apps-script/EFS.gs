@@ -48,7 +48,9 @@ var EFS_COL_PAGOS = [
   'fecha', 'pago_id', 'referencia', 'status', 'status_detail', 'monto_bruto', 'moneda', 'collector_id',
   'live_mode', 'origen', 'accion', 'detalle',
 ];
-// Altas a mano de quien pagó por transferencia: se completa A:H y se corre efsProcesarTransferencias.
+// Registro de transferencias: filas cargadas a mano (se completa A:H y se corre
+// efsProcesarTransferencias) o emitidas directo desde el panel (efsAdminAltaTransferencia_), que
+// agrega su propia fila ya con estado y entrada. Un solo lugar para ver el historial completo.
 var EFS_COL_TRANSFERENCIAS = [
   'nombre', 'apellido', 'dni', 'correo', 'telefono', 'carrera', 'anio', 'universidad', 'nota', 'estado', 'entrada',
 ];
@@ -97,6 +99,7 @@ function efsRouter(e) {
       case 'admin_buscar': return efsJson_(efsAdmin_(p, efsAdminBuscar_));
       case 'admin_procesar': return efsJson_(efsAdmin_(p, efsAdminProcesar_));
       case 'admin_reenviar': return efsJson_(efsAdmin_(p, efsAdminReenviar_));
+      case 'admin_alta_transferencia': return efsJson_(efsAdmin_(p, efsAdminAltaTransferencia_));
       case 'staff_lista': return efsJson_(efsStaffLista_());
       case 'staff_sync': return efsJson_(efsStaffSync_(p.lote));
       case 'meta_pendientes': return efsJson_(efsMetaPendientes_());
@@ -1077,6 +1080,55 @@ function efsAdminProcesar_(p) {
 function efsAdminReenviar_(p) {
   var enviado = efsEnviarEntrada_(String(p.codigo || ''));
   return { ok: enviado, error: enviado ? undefined : 'no_enviado' };
+}
+
+// Alta directa de una transferencia desde el panel (Etapa 2), con los mismos datos y la misma
+// validación que efsProcesarTransferencias (incluido permitir pasaporte), pero de a una persona
+// por vez y confirmada por quien la carga. Deja una fila en "EFS · Transferencias" (estado "ok",
+// con el código) para que esa hoja siga siendo el registro único de transferencias, se hayan
+// cargado a mano o desde acá. El lock serializa dos altas del mismo DNI en simultáneo: la segunda,
+// al tomar el lock después, ya encuentra la entrada activa de la primera y se rechaza sola.
+function efsAdminAltaTransferencia_(p) {
+  var datos = {
+    intento_id: 'transferencia-panel-' + Utilities.getUuid(), nombre: p.nombre, apellido: p.apellido, dni: p.dni,
+    correo: p.correo, telefono: p.telefono, carrera: p.carrera, anio: p.anio, universidad: p.universidad,
+  };
+  var d = efsValidarDatos_(datos, true);
+  if (d.error) return { ok: false, error: 'datos', campo: d.error };
+
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(10000)) return { ok: false, error: 'ocupado' };
+  var codigo;
+  try {
+    var previa = efsBuscarEntradaActivaPorDni_(d.dni);
+    if (previa) return { ok: false, error: 'ya_inscripto', entrada: previa[efsIndices_(EFS_COL_ENTRADAS).RegistrationId] };
+
+    var col = efsIndices_(EFS_COL_PENDIENTES);
+    var pend = efsFilaVacia_(EFS_COL_PENDIENTES);
+    efsAsignar_(pend, col, {
+      referencia: 'TRANSF-PANEL-' + Utilities.getUuid().slice(0, 8).toUpperCase(), nombre: d.nombre, apellido: d.apellido,
+      dni: d.dni, correo: d.correo, telefono: d.telefono, carrera: d.carrera, anio: d.anio, universidad: d.universidad,
+    });
+    codigo = efsEmitirEntrada_(pend, col, 'transferencia-panel', 'transferencia');
+
+    var nota = [
+      p.monto ? 'Monto: ' + String(p.monto).trim().slice(0, 40) : '',
+      p.fecha ? 'Fecha: ' + String(p.fecha).trim().slice(0, 40) : '',
+      p.comprobante ? 'Comprobante: ' + String(p.comprobante).trim().slice(0, 80) : '',
+    ].filter(Boolean).join(' · ');
+    var colT = efsIndices_(EFS_COL_TRANSFERENCIAS);
+    var filaT = efsFilaVacia_(EFS_COL_TRANSFERENCIAS);
+    efsAsignar_(filaT, colT, {
+      nombre: d.nombre, apellido: d.apellido, dni: d.dni, correo: d.correo, telefono: d.telefono, carrera: d.carrera,
+      anio: d.anio, universidad: d.universidad, nota: nota, estado: 'ok', entrada: codigo,
+    });
+    efsHoja_(EFS_HOJA_TRANSFERENCIAS).appendRow(efsComoTexto_(filaT, colT));
+    SpreadsheetApp.flush();
+  } finally {
+    lock.releaseLock();
+  }
+  efsEnviarEntrada_(codigo);
+  return { ok: true, codigo: codigo };
 }
 
 // ─────────────────────────── día del evento (Worker → planilla) ───────────────────────────

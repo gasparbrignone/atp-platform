@@ -479,6 +479,69 @@ prueba('transferencia: acepta pasaporte con "PAS", lo guarda normalizado y el ma
   igual(env.ctx.efsValidarDatos_({ intento_id: 'abcdefgh1', nombre: 'a', apellido: 'b', dni: 'PAS AB123456', correo: 'a@b.com', telefono: '34155599999', carrera: 'm', anio: '1', universidad: 'u' }).error, 'dni');
 });
 
+// ─────────────────────────── panel: alta de transferencia (Etapa 2) ───────────────────────────
+
+const transferenciaPanel = (extra = {}) => ({
+  accion: 'admin_alta_transferencia', token: 'sesion-ok', nombre: 'Luz', apellido: 'Gómez', dni: '31.222.333',
+  correo: 'luz@ejemplo.com', telefono: '341 555-9999', carrera: 'Medicina', anio: '2.º', universidad: 'UNR', ...extra,
+});
+
+prueba('admin_alta_transferencia: sin sesión de admin no responde', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const r = env.post({ ...transferenciaPanel(), token: '' });
+  igual(r.error, 'no_autorizado'); igual(entradas(env).length, 0);
+});
+
+prueba('admin_alta_transferencia: emite la entrada, manda el mail y deja fila "ok" con el código en "EFS · Transferencias"', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const r = env.post(transferenciaPanel({ monto: '5000', fecha: '10/04/2026', comprobante: 'COMP-001' }));
+  si(r.ok, JSON.stringify(r)); si(/^EFS26-/.test(r.codigo), 'formato de código');
+  igual(entradas(env).length, 1);
+  const cab = env.hojas.get('EFS 2026').datos[0];
+  igual(entradas(env)[0][cab.indexOf('Origen')], 'transferencia');
+  igual(entradas(env)[0][cab.indexOf('DNI')], '31222333');
+  igual(env.mails.length, 1); igual(env.mails[0].to, 'luz@ejemplo.com');
+  const t = env.hojas.get('EFS · Transferencias'); const colT = t.datos[0]; const fila = t.datos[1];
+  igual(fila[colT.indexOf('estado')], 'ok'); igual(fila[colT.indexOf('entrada')], r.codigo);
+  const nota = String(fila[colT.indexOf('nota')]);
+  si(nota.includes('5000') && nota.includes('10/04/2026') && nota.includes('COMP-001'), 'nota incompleta: ' + nota);
+  si(!env.lock(), 'el candado quedó tomado');
+});
+
+prueba('admin_alta_transferencia: datos inválidos no emiten nada ni tocan ninguna hoja', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const r = env.post(transferenciaPanel({ dni: '12' }));
+  igual(r.error, 'datos'); igual(r.campo, 'dni');
+  igual(entradas(env).length, 0); igual(pendientes(env).length, 0);
+  si(!env.hojas.get('EFS · Transferencias'), 'no debería haber creado la hoja');
+});
+
+prueba('admin_alta_transferencia: DNI con entrada activa se rechaza y no duplica ni repite el mail', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  env.ctx.efsProcesarPago(mp.pagar(env.post(datos({ dni: '31555666' })).referencia).id, 'webhook');
+  igual(entradas(env).length, 1); igual(env.mails.length, 1);
+  const r = env.post(transferenciaPanel({ dni: '31.555.666', correo: 'otra@ejemplo.com' }));
+  igual(r.error, 'ya_inscripto'); si(/^EFS26-/.test(r.entrada), 'sin código de la entrada existente');
+  igual(entradas(env).length, 1); igual(env.mails.length, 1);
+});
+
+prueba('admin_alta_transferencia: acepta pasaporte igual que la carga por hoja', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const r = env.post(transferenciaPanel({ dni: 'pas AB123456', correo: 'lucia@ejemplo.com', telefono: '+598 99 123 456', universidad: 'UdelaR' }));
+  si(r.ok, JSON.stringify(r));
+  const cab = env.hojas.get('EFS 2026').datos[0];
+  igual(entradas(env)[0][cab.indexOf('DNI')], 'PAS AB123456');
+});
+
+prueba('admin_alta_transferencia: con el candado tomado devuelve "ocupado" sin crear nada', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const l = env.ctx.LockService.getDocumentLock();
+  si(l.tryLock());
+  const r = env.post(transferenciaPanel());
+  igual(r.error, 'ocupado'); igual(entradas(env).length, 0);
+  l.releaseLock();
+});
+
 const hace = (horas) => new Date(Date.now() - horas * 3600 * 1000).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour12: false }).replace(',', '');
 function envejecer(env, horas) {
   const h = env.hojas.get('EFS · Pendientes'); const cab = h.datos[0];
