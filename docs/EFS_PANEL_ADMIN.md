@@ -77,7 +77,7 @@ respecto del script realmente pegado en producción — el propio archivo lo
 advierte en su encabezado. No asumir que coincide sin confirmar con el
 dueño.
 
-## Etapa 2 — Alta de transferencias desde el panel (HECHA, en producción; falta auditoría de cierre)
+## Etapa 2 — Alta de transferencias desde el panel (HECHA, en producción, auditada)
 
 Construida y probada en producción el 2026-10-07. Decisiones del dueño en la
 ronda de preguntas:
@@ -120,8 +120,57 @@ Commits: `f98725f` (web atp, `efs-2026`); `c54c633` y `b97c94e` (repo EFS, `main
   Worker está viejo. Si responde `accion_desconocida`, Apps Script está viejo.
   Si responde `no_autorizado`, los dos están al día.
 
-Pendiente para cerrar la etapa: auditoría de seguridad e informe técnico, como
-en la Etapa 1.
+### Auditoría de seguridad (2026-10-07) — Etapa 2 CERRADA
+
+Se revisaron `efsAdminAltaTransferencia_`, la ruta `/admin` del Worker y la
+sección nueva del panel. Veredicto: **aceptable**. El backend estaba bien;
+los problemas estaban en el panel y ya se corrigieron.
+
+**Verificado sin cambios:**
+- Autorización: `efsAdmin_` valida la sesión antes de ejecutar la acción. Sin
+  token válido, la acción no corre.
+- Validación del lado del servidor con `efsValidarDatos_`, la misma que la hoja.
+  El Worker además recorta cada campo a 200 caracteres.
+- Inyección de fórmulas en Sheets: los datos de la persona pasan por
+  `efsComoTexto_` (apóstrofo adelante). La `nota` siempre empieza con una
+  etiqueta fija ("Monto: ..."), así que nunca puede empezar con "=".
+- Mail: todos los datos cargados se escapan con `escapeHtml` antes de armar el
+  HTML (`efsHtmlMailEntrada_`).
+- Duplicados: el lock documental más el chequeo de DNI activo hacen que una
+  doble carga se rechace con `ya_inscripto`. Reintentar después de un timeout
+  es seguro.
+- `PagoId = 'transferencia-panel'`: ningún código lo interpreta (la conciliación
+  cuenta por `Origen`). La `Referencia` `TRANSF-PANEL-…` no va a Pendientes,
+  igual que en el flujo por hoja.
+- La respuesta al panel solo devuelve el código de la entrada, sin datos
+  personales.
+
+**Corregido (commit `8040b0a`, repo EFS):**
+- **Media.** La vista previa armaba el HTML con `innerHTML` usando los datos
+  tipeados. Si se pegaba un nombre con HTML (por ejemplo copiado de un mensaje),
+  se ejecutaba dentro del panel, que es donde vive el token de sesión. Ahora se
+  arma con `textContent`.
+- **Baja.** "Editar" seguía habilitado durante los hasta 35s de emisión. Se
+  podía cambiar el DNI y confirmar de nuevo, y salían dos altas. Ahora se
+  bloquea mientras se emite.
+- **Baja.** Si no llegaba la respuesta, el panel decía "No pudimos conectar",
+  pero la entrada podía haberse emitido igual (pasó en las pruebas del día).
+  Ahora avisa eso y pide revisar la tabla antes de reintentar.
+- **Baja.** El mensaje genérico ocultaba el código de error. Por eso tardamos
+  en ver el `accion_desconocida` del despliegue. Ahora lo muestra.
+
+**Riesgos aceptados / pendientes:**
+- **Sube la prioridad de la decisión diferida sobre el login compartido.**
+  Desde esta etapa, quien tenga la contraseña + TOTP de ATP puede emitir
+  entradas sin pago. Además, al ser un login compartido, no queda registrado
+  quién cargó cada alta. Conviene resolverlo antes de dar acceso al panel a
+  una segunda persona (ya estaba anotado) y antes de sumar cortesías (Etapa 2b).
+- `efsParaLog_` omite DNI y correo, pero si hay un error interno guarda nombre,
+  teléfono y comprobante en el registro de errores. Ya pasaba antes con
+  `iniciar`. Bajo impacto; se puede sumar `telefono` a la lista de omitidos en
+  una próxima pasada.
+- El rate limit del Worker (60 pedidos `/admin` cada 10 min por IP) es por
+  instancia de Cloudflare, como ya se anotó en la Etapa 1.
 
 ## Etapa 3 — Corregir datos de una entrada ya emitida (NO EMPEZADA)
 
