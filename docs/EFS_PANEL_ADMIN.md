@@ -77,14 +77,49 @@ respecto del script realmente pegado en producción — el propio archivo lo
 advierte en su encabezado. No asumir que coincide sin confirmar con el
 dueño.
 
-## Etapa 2 — Cargar cortesías y transferencias desde el panel (NO EMPEZADA)
+## Etapa 2 — Alta de transferencias desde el panel (HECHA, en producción; falta auditoría de cierre)
 
-Hoy se hace editando a mano la hoja "EFS · Transferencias" y corriendo
-`efsProcesarTransferencias()` desde el editor. Requiere una acción nueva de
-backend (no existe todavía ningún `admin_*` para esto). Antes de arrancar:
-ronda de preguntas con el dueño (qué datos pide el panel, si hace falta
-aprobar/confirmar antes de emitir, etc.), siguiendo el mismo proceso que la
-Etapa 1.
+Construida y probada en producción el 2026-10-07. Decisiones del dueño en la
+ronda de preguntas:
+- Primero **solo transferencias**. Cortesías queda como Etapa 2b, con su propia
+  ronda de preguntas: hoy no existe ningún flujo real de cortesías, solo las
+  entradas `EFS26-TEST000x` usan `Origen: cortesia`.
+- **Alta directa** desde un formulario en el panel. No es un botón que corra
+  `efsProcesarTransferencias()` sobre la hoja.
+- **Vista previa + "Confirmar y emitir"** antes de emitir, porque esto no pasa
+  por Mercado Pago y manda un mail real.
+- Mismos campos que la hoja: datos de la persona + monto, fecha y comprobante
+  (los tres opcionales; se juntan en la columna `nota`).
+- El alta deja también una fila en "EFS · Transferencias" (estado `ok` + código)
+  para que esa hoja siga siendo el registro único de transferencias.
+
+Implementación:
+- `EFS.gs`: `efsAdminAltaTransferencia_` (acción `admin_alta_transferencia`).
+  Usa la misma validación que la hoja (`efsValidarDatos_`, acepta pasaporte) y
+  el mismo lock documental. Una doble carga del mismo DNI se rechaza sola: la
+  segunda encuentra la entrada activa de la primera (`ya_inscripto`).
+- Worker (`index.ts`): la acción está en `ADMIN_ACCIONES` y reenvía
+  `CAMPOS_TRANSFERENCIA`.
+- Panel: sección "Cargar transferencia". El timeout de esta llamada es de 35s,
+  no los 15s por defecto de `api()`, porque emitir + mandar el mail con QR
+  puede tardar ~20-30s bajo tráfico real.
+- Pruebas: 6 casos nuevos en `apps-script/tests/efs.test.mjs` (75/75 en verde).
+
+Commits: `f98725f` (web atp, `efs-2026`); `c54c633` y `b97c94e` (repo EFS, `main`).
+
+**Lecciones del despliegue (2026-10-07), para no repetirlas:**
+- `C:\Users\gaspar\Desktop\ATP\Diseño EFS\backend\EFS.gs` es una **copia vieja**
+  (del 1/10). El `EFS.gs` vigente es el de `web atp/apps-script/`. Se pegó la
+  copia vieja y Apps Script respondía `accion_desconocida`.
+- Guardar en el editor de Apps Script NO actualiza el Web App: hay que hacer
+  Implementar → Administrar implementaciones → editar → "Nueva versión".
+- Diagnóstico sin efectos: un POST a `/admin` del Worker con
+  `{"accion":"admin_alta_transferencia","token":"x"}`. Si responde `accion`, el
+  Worker está viejo. Si responde `accion_desconocida`, Apps Script está viejo.
+  Si responde `no_autorizado`, los dos están al día.
+
+Pendiente para cerrar la etapa: auditoría de seguridad e informe técnico, como
+en la Etapa 1.
 
 ## Etapa 3 — Corregir datos de una entrada ya emitida (NO EMPEZADA)
 
