@@ -703,7 +703,18 @@ function efsBuscarPagos_(filtro, alVisitar) {
 
 // ─────────────────────────── mails ───────────────────────────
 
+// Si ya se mandó el mismo código en los últimos 60s, no lo repite (evita el
+// mail duplicado de un doble clic o dos pedidos del panel al mismo tiempo).
+function efsReenvioReciente_(codigo) {
+  var cache = CacheService.getScriptCache();
+  var clave = 'efs_reenvio_' + codigo;
+  if (cache.get(clave)) return true;
+  cache.put(clave, '1', 60);
+  return false;
+}
+
 function efsEnviarEntrada_(codigo) {
+  if (efsReenvioReciente_(codigo)) return true; // ya se mandó hace instantes: no es un error, no hace falta repetir
   var hoja = efsHoja_(EFS_HOJA_ENTRADAS);
   var filas = hoja.getDataRange().getValues();
   var e = efsIndices_(filas[0]);
