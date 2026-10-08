@@ -35,16 +35,18 @@ const CIERRE = '2026-10-15T23:59:00-03:00';
    * sitio bloquea los atributos style inline, asi que un background-image
    * inline no se renderizaria en produccion. Mismo patron que el Hero. La PNG
    * original pesa ~700KB; aca sale reencodeada a avif (decorativa, lazy).
+   * Calidad 40: la trama se ve igual que a 55 y pesa ~40% menos (152KB ->
+   * 89KB a 768px, lo que baja un celular comun).
    */}
   <Image
     class="efs-banner__textura"
     src={efsTextura}
     alt=""
     aria-hidden="true"
-    widths={[768, 1080]}
+    widths={[480, 768, 1080]}
     sizes="100vw"
     format="avif"
-    quality={55}
+    quality={40}
     loading="lazy"
     decoding="async"
   />
@@ -56,12 +58,14 @@ const CIERRE = '2026-10-15T23:59:00-03:00';
     </div>
 
     <div class="efs-banner__texto">
-      <img
+      {/* Se ve a 2.75rem de alto (~125px de ancho): la PNG original de 900px pesaba 34KB. */}
+      <Image
         class="efs-banner__logo"
-        src={efsLogo.src}
-        width={efsLogo.width}
-        height={efsLogo.height}
+        src={efsLogo}
         alt=""
+        widths={[128, 256, 384]}
+        sizes="125px"
+        format="webp"
         loading="lazy"
         decoding="async"
       />

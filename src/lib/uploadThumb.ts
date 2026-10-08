@@ -5,7 +5,7 @@
  * path unchanged for remote covers (e.g. covers.openlibrary.org), which
  * are already small and never get a local thumbnail generated.
  */
-export type UploadThumbKind = 'cover' | 'activity';
+export type UploadThumbKind = 'cover' | 'activity' | 'activity-card';
 
 export function uploadThumb(uploadPath: string, kind: UploadThumbKind): string {
   if (!uploadPath.startsWith('/uploads/')) return uploadPath;

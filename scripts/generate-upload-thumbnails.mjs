@@ -32,6 +32,9 @@ function uploadThumbPath(uploadPath, kind) {
 const TARGETS = [
   { dir: 'src/content/books', field: 'cover', kind: 'cover', width: 120 },
   { dir: 'src/content/activities', field: 'image', kind: 'activity', width: 1600 },
+  // ActivityCard renders at most ~400px wide — the 1600px version is for the
+  // detail page; phones were downloading it for every card.
+  { dir: 'src/content/activities', field: 'image', kind: 'activity-card', width: 800 },
 ];
 
 async function processEntry(entryPath, field, kind, width) {
