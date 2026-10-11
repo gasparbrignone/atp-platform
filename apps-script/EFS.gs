@@ -209,12 +209,15 @@ function efsCrearPreferencia_(c, ref, d) {
   var local = c.modo !== 'produccion' && /^http:\/\/localhost(:\d+)?$/.test(sitio);
   if (!/^https:\/\//.test(sitio) && !local) throw new Error('sitio_url tiene que empezar con https://');
   if (c.webhook_url && !/^https:\/\//.test(String(c.webhook_url))) throw new Error('webhook_url tiene que empezar con https://');
+  var pagador = { name: d.nombre, surname: d.apellido, email: d.correo };
+  // Con pasaporte no se manda documento: Mercado Pago lo pide en su propia pantalla si lo necesita.
+  if (/^\d+$/.test(d.dni)) pagador.identification = { type: 'DNI', number: d.dni };
   var cuerpo = {
     items: [{
       id: EFS_ACTIVITY_ID, title: String(c.titulo_cobro), description: 'Entrada personal al ' + c.evento_nombre,
       category_id: 'tickets', quantity: 1, unit_price: Number(c.precio), currency_id: 'ARS',
     }],
-    payer: { name: d.nombre, surname: d.apellido, email: d.correo, identification: { type: 'DNI', number: d.dni } },
+    payer: pagador,
     external_reference: ref,
     // Aprobado o rechazado en el momento, sin pagos "en revisión" que se
     // resuelven horas después (recomendación de la lista de calidad de MP).
@@ -1113,7 +1116,7 @@ function efsAltaDesdePanel_(p, origen) {
     intento_id: origen + '-panel-' + Utilities.getUuid(), nombre: p.nombre, apellido: p.apellido, dni: p.dni,
     correo: p.correo, telefono: p.telefono, carrera: p.carrera, anio: p.anio, universidad: p.universidad,
   };
-  var d = efsValidarDatos_(datos, true);
+  var d = efsValidarDatos_(datos);
   if (d.error) return { ok: false, error: 'datos', campo: d.error };
 
   var lock = LockService.getDocumentLock();
@@ -1484,7 +1487,7 @@ function efsProcesarTransferencias() {
       var d = efsValidarDatos_({
         intento_id: 'transferencia-' + (i + 1), nombre: f[t.nombre], apellido: f[t.apellido], dni: f[t.dni], correo: f[t.correo],
         telefono: f[t.telefono], carrera: f[t.carrera], anio: f[t.anio], universidad: f[t.universidad],
-      }, true);
+      });
       var estado, codigo = '';
       if (d.error) {
         estado = 'falta o está mal: ' + d.error;
@@ -1685,11 +1688,11 @@ function efsInscripcionAbierta_(c) {
   return !cierre || Date.now() < cierre.getTime();
 }
 
-// permitirPasaporte: solo para las altas por transferencia (la web exige DNI). Un pasaporte se escribe en la
-// columna dni como "PAS AB123456" (o "Pasaporte AB123456") y se guarda como "PAS AB123456".
-function efsValidarDatos_(p, permitirPasaporte) {
+// Quien no tiene DNI argentino se inscribe con pasaporte: llega como "PAS AB123456" (o "Pasaporte AB123456";
+// así lo manda la web y así se escribe en la hoja de transferencias y en el panel) y se guarda como "PAS AB123456".
+function efsValidarDatos_(p) {
   var t = function (v, max) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max); };
-  var pasaporte = permitirPasaporte ? /^\s*pas(aporte)?\b[\s.:-]*(.*)$/i.exec(String(p.dni || '')) : null;
+  var pasaporte = /^\s*pas(aporte)?\b[\s.:-]*(.*)$/i.exec(String(p.dni || ''));
   var d = {
     intento_id: t(p.intento_id, 64), nombre: t(p.nombre, 60), apellido: t(p.apellido, 60),
     dni: pasaporte ? 'PAS ' + pasaporte[2].replace(/[\s.-]/g, '').toUpperCase() : String(p.dni || '').replace(/[\s.]/g, ''),

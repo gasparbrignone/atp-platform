@@ -461,7 +461,19 @@ prueba('transferencia: la hoja carga la entrada, manda mail, rechaza DNI repetid
   const r2 = env.ctx.efsProcesarTransferencias(); igual(r2.emitidas, 0); igual(entradas(env).length, 1);
 });
 
-prueba('transferencia: acepta pasaporte con "PAS", lo guarda normalizado y el mail dice Pasaporte; la web sigue exigiendo DNI', () => {
+prueba('iniciar con pasaporte: lo guarda como "PAS ...", no manda documento a Mercado Pago y no deja repetirlo', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const r = env.post(datos({ dni: 'PAS ab 123.456' }));
+  si(r.ok, JSON.stringify(r));
+  const pref = [...mp.preferencias.values()][0].cuerpo;
+  igual(pref.payer.identification, undefined);
+  const cab = env.hojas.get('EFS · Pendientes').datos[0];
+  igual(String(pendientes(env)[0][cab.indexOf('dni')]).replace(/^'/, ''), 'PAS AB123456');
+  igual(env.post(datos({ dni: 'PAS 12' })).campo, 'dni');
+  igual(env.post(datos({ dni: 'AB123456' })).campo, 'dni');
+});
+
+prueba('transferencia: acepta pasaporte con "PAS", lo guarda normalizado y el mail dice Pasaporte', () => {
   const mp = crearMp(); const env = crearEntorno({ mp });
   const h = env.hojas.get('EFS · Transferencias') || (env.ctx.efsHoja_('EFS · Transferencias'), env.hojas.get('EFS · Transferencias'));
   h.datos.push(['Lucía', 'Silva', 'Pasaporte: ab 123.456', 'lucia@ejemplo.com', '+598 99 123 456', 'Medicina', '3.º', 'UdelaR', '', '', '']);
@@ -476,7 +488,6 @@ prueba('transferencia: acepta pasaporte con "PAS", lo guarda normalizado y el ma
   si(String(h.datos[3][9]).includes('dni') && String(h.datos[4][9]).includes('dni'), 'pasaporte sin PAS o corto no rechazado');
   const m = env.mails.find((x) => x.to === 'lucia@ejemplo.com');
   si(m && m.plano.includes('Pasaporte AB123456') && m.op.htmlBody.includes('Pasaporte'), 'el mail no muestra el pasaporte');
-  igual(env.ctx.efsValidarDatos_({ intento_id: 'abcdefgh1', nombre: 'a', apellido: 'b', dni: 'PAS AB123456', correo: 'a@b.com', telefono: '34155599999', carrera: 'm', anio: '1', universidad: 'u' }).error, 'dni');
 });
 
 // ─────────────────────────── panel: alta de transferencia (Etapa 2) ───────────────────────────
