@@ -33,6 +33,7 @@ var EFS_HOJA_PENDIENTES = 'EFS · Pendientes';
 var EFS_HOJA_PAGOS = 'EFS · Pagos';
 var EFS_HOJA_ENTRADAS = 'EFS 2026';
 var EFS_HOJA_TRANSFERENCIAS = 'EFS · Transferencias';
+var EFS_HOJA_INVITACIONES = 'EFS · Invitaciones';
 var EFS_ACTIVITY_ID = 'efs-2026';
 var EFS_ZONA = 'America/Argentina/Buenos_Aires';
 var EFS_ALFABETO = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'; // base32 Crockford: sin I, L, O, U
@@ -55,6 +56,10 @@ var EFS_COL_PAGOS = [
 var EFS_COL_TRANSFERENCIAS = [
   'nombre', 'apellido', 'dni', 'correo', 'telefono', 'carrera', 'anio', 'universidad', 'nota', 'estado', 'entrada',
 ];
+// Links de invitación (ver "invitaciones"): una fila por link. El dueño escribe solo "titular" (y, si
+// quiere, otro "cupo"); el resto lo completa efsGenerarInvitaciones. La columna E es texto (regla 1).
+var EFS_COL_INVITACIONES = ['codigo', 'titular', 'cupo', 'usadas', 'link', 'nota'];
+var EFS_INVITACION_CUPO = 5;
 // Las 14 primeras son exactamente las de una hoja charla (mismo orden): así el
 // panel y /staff/certificados/ la reconocen sin cambios.
 var EFS_COL_ENTRADAS = [
@@ -84,6 +89,7 @@ var EFS_CONFIG_INICIAL = [
   ['acreditacion', '', 'Horario de la acreditación, para el mail. Ej.: Desde las 9 h'],
   ['recordatorio_horas', 24, 'Horas desde que alguien empezó la inscripción sin pagar para mandarle UN mail de ayuda. 0 = no mandar'],
   ['whatsapp', '5493415845571', 'WhatsApp de consultas que aparece en el mail (solo números, con 549)'],
+  ['invitaciones_cierre', '', 'Hasta cuándo sirven los links de invitación (ej. 16/10/2026 23:59). Vacío = cierran junto con la inscripción'],
 ];
 
 // ─────────────────────────── entrada desde doPost ───────────────────────────
@@ -96,6 +102,8 @@ function efsRouter(e) {
       case 'iniciar': return efsJson_(efsIniciar_(p));
       case 'verificar': return efsJson_(efsVerificar_(p.pago_id, p.referencia));
       case 'aviso': return efsJson_(efsAviso_(p.tipo, p.id));
+      case 'invitacion_ver': return efsJson_(efsInvitacionVer_(p));
+      case 'invitar': return efsJson_(efsInvitar_(p));
       case 'admin_resumen': return efsJson_(efsAdmin_(p, efsAdminResumen_));
       case 'admin_buscar': return efsJson_(efsAdmin_(p, efsAdminBuscar_));
       case 'admin_procesar': return efsJson_(efsAdmin_(p, efsAdminProcesar_));
@@ -1145,6 +1153,152 @@ function efsAltaDesdePanel_(p, origen) {
   return { ok: true, codigo: codigo };
 }
 
+// ─────────────────────────── invitaciones ───────────────────────────
+// Cada compañero de ATP tiene un link personal (efsarg.com.ar/?inv=INV-XXXXXXXX) con un cupo de
+// entradas gratis para regalar. Quien abre el link completa el mismo formulario que una inscripción
+// paga, pero no pasa por Mercado Pago: la entrada se emite en el momento, como una cortesía
+// (Origen = cortesia, PagoId = invitacion-<código del link>), y queda anotada en "EFS · Transferencias"
+// igual que las cortesías del panel. Los usos de un link se cuentan sobre las entradas ACTIVAS de
+// "EFS 2026", con el candado tomado: la columna "usadas" de la hoja es solo informativa.
+// Para cortar un link: poner su cupo en 0 o borrar la fila.
+
+function efsCodigoInvitacion_(v) {
+  var codigo = String(v == null ? '' : v).trim().toUpperCase();
+  return /^INV-[0-9A-Z]{8}$/.test(codigo) ? codigo : '';
+}
+
+function efsInvitacionesAbiertas_(c) {
+  var propio = efsFecha_(c.invitaciones_cierre);
+  if (propio) return Date.now() < propio.getTime();
+  return efsInscripcionAbierta_(c);
+}
+
+// El link con sus usos al día, o null si el código no existe.
+function efsInvitacion_(codigo) {
+  var hoja = efsHoja_(EFS_HOJA_INVITACIONES);
+  var filas = hoja.getDataRange().getValues();
+  var col = efsIndices_(filas[0]);
+  var i = efsBuscarFila_(filas, col.codigo, codigo);
+  if (i < 0) return null;
+  var cupo = String(filas[i][col.cupo]).trim() === '' ? EFS_INVITACION_CUPO : Number(filas[i][col.cupo]);
+  return {
+    hoja: hoja, fila: i + 1, col: col, codigo: codigo, titular: String(filas[i][col.titular]).trim(),
+    cupo: cupo > 0 ? Math.floor(cupo) : 0, usadas: efsInvitacionesUsadas_()[codigo] || 0,
+  };
+}
+
+// Entradas activas por código de link: { 'INV-XXXXXXXX': 3, ... }
+function efsInvitacionesUsadas_() {
+  var filas = efsHoja_(EFS_HOJA_ENTRADAS).getDataRange().getValues();
+  var e = efsIndices_(filas[0]);
+  var usadas = {};
+  filas.slice(1).forEach(function (f) {
+    var m = /^invitacion-(INV-[0-9A-Z]{8})$/.exec(String(f[e.PagoId]));
+    if (m && f[e.EstadoEntrada] === 'activa') usadas[m[1]] = (usadas[m[1]] || 0) + 1;
+  });
+  return usadas;
+}
+
+// Lo que el sitio muestra al abrir el link, antes de que la persona complete nada.
+function efsInvitacionVer_(p) {
+  var codigo = efsCodigoInvitacion_(p.invitacion);
+  var inv = codigo ? efsInvitacion_(codigo) : null;
+  if (!inv) return { ok: false, error: 'invitacion' };
+  if (!efsInvitacionesAbiertas_(efsConfig_())) return { ok: false, error: 'cerrada' };
+  if (inv.usadas >= inv.cupo) return { ok: false, error: 'invitacion_agotada', titular: inv.titular };
+  return { ok: true, titular: inv.titular, libres: inv.cupo - inv.usadas };
+}
+
+function efsInvitar_(p) {
+  if (!efsInvitacionesAbiertas_(efsConfig_())) return { ok: false, error: 'cerrada' };
+  var codigoInv = efsCodigoInvitacion_(p.invitacion);
+  if (!codigoInv) return { ok: false, error: 'invitacion' };
+  var d = efsValidarDatos_(p);
+  if (d.error) return { ok: false, error: 'datos', campo: d.error };
+
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(10000)) return { ok: false, error: 'ocupado' };
+  var codigo;
+  try {
+    var inv = efsInvitacion_(codigoInv);
+    if (!inv) return { ok: false, error: 'invitacion' };
+    var e = efsIndices_(EFS_COL_ENTRADAS);
+    var referencia = 'INVIT-' + d.intento_id;
+    var previa = efsBuscarEntradaActivaPorDni_(d.dni);
+    if (previa) {
+      // Reintento del mismo pedido (el Worker repite con el mismo intento_id si no le llegó la
+      // respuesta): se devuelve la entrada ya emitida. Cualquier otra entrada activa es "ya inscripto".
+      if (String(previa[e.Referencia]) !== referencia || String(previa[e.PagoId]) !== 'invitacion-' + inv.codigo) {
+        return { ok: false, error: 'ya_inscripto' };
+      }
+      codigo = String(previa[e.RegistrationId]);
+    } else {
+      if (inv.usadas >= inv.cupo) return { ok: false, error: 'invitacion_agotada' };
+      var col = efsIndices_(EFS_COL_PENDIENTES);
+      var pend = efsFilaVacia_(EFS_COL_PENDIENTES);
+      efsAsignar_(pend, col, {
+        referencia: referencia, nombre: d.nombre, apellido: d.apellido, dni: d.dni, correo: d.correo, telefono: d.telefono,
+        carrera: d.carrera, anio: d.anio, universidad: d.universidad,
+      });
+      codigo = efsEmitirEntrada_(pend, col, 'invitacion-' + inv.codigo, 'cortesia');
+
+      var colT = efsIndices_(EFS_COL_TRANSFERENCIAS);
+      var filaT = efsFilaVacia_(EFS_COL_TRANSFERENCIAS);
+      efsAsignar_(filaT, colT, {
+        nombre: d.nombre, apellido: d.apellido, dni: d.dni, correo: d.correo, telefono: d.telefono, carrera: d.carrera,
+        anio: d.anio, universidad: d.universidad, estado: 'ok', entrada: codigo,
+        nota: 'Cortesía: invitación de ' + (inv.titular || 'sin titular') + ' (' + inv.codigo + ')',
+      });
+      efsHoja_(EFS_HOJA_TRANSFERENCIAS).appendRow(efsComoTexto_(filaT, colT));
+      if (inv.col.usadas !== undefined) inv.hoja.getRange(inv.fila, inv.col.usadas + 1).setValue(inv.usadas + 1);
+      SpreadsheetApp.flush();
+    }
+  } finally {
+    lock.releaseLock();
+  }
+  efsEnviarEntrada_(codigo);
+  return { ok: true, codigo: codigo, nombre: d.nombre };
+}
+
+// Se corre a mano desde el editor. La primera vez crea la hoja "EFS · Invitaciones". Después: escribir
+// en la columna "titular" el nombre de cada compañero (una fila por persona) y volver a correrla.
+// A cada fila con titular y sin código le pone un código, el cupo (5 si está vacío) y el link para
+// mandar. También pone al día la columna "usadas" de todas. Se puede correr las veces que haga falta:
+// un link ya generado no cambia.
+function efsGenerarInvitaciones() {
+  var sitio = String(efsConfig_().sitio_url).replace(/\/$/, '');
+  var lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  var nuevas = 0;
+  try {
+    var hoja = efsHoja_(EFS_HOJA_INVITACIONES);
+    var filas = hoja.getDataRange().getValues();
+    var col = efsIndices_(filas[0]);
+    var usadas = efsInvitacionesUsadas_();
+    var existentes = filas.slice(1).map(function (f) { return String(f[col.codigo]).trim().toUpperCase(); });
+    for (var i = 1; i < filas.length; i++) {
+      var f = filas[i].slice();
+      if (String(f[col.titular]).trim() === '') continue;
+      var codigo = String(f[col.codigo]).trim().toUpperCase();
+      if (!codigo) {
+        do { codigo = 'INV-' + efsAleatorio_(8); } while (existentes.indexOf(codigo) !== -1);
+        existentes.push(codigo);
+        nuevas++;
+      }
+      efsAsignar_(f, col, {
+        codigo: codigo, cupo: String(f[col.cupo]).trim() === '' ? EFS_INVITACION_CUPO : f[col.cupo],
+        usadas: usadas[codigo] || 0, link: sitio + '/?inv=' + codigo,
+      });
+      hoja.getRange(i + 1, 1, 1, f.length).setValues([f]);
+    }
+    SpreadsheetApp.flush();
+  } finally {
+    lock.releaseLock();
+  }
+  Logger.log('Invitaciones: ' + nuevas + ' links nuevos. Están en la columna "link" de la hoja "' + EFS_HOJA_INVITACIONES + '".');
+  return nuevas;
+}
+
 // ─────────────────────────── día del evento (Worker → planilla) ───────────────────────────
 
 var EFS_SESION_ASISTENCIA = 'EFS 2026';
@@ -1615,7 +1769,8 @@ function efsHoja_(nombre) {
     return hoja;
   }
   var columnas = nombre === EFS_HOJA_PENDIENTES ? EFS_COL_PENDIENTES : nombre === EFS_HOJA_PAGOS ? EFS_COL_PAGOS
-    : nombre === EFS_HOJA_TRANSFERENCIAS ? EFS_COL_TRANSFERENCIAS : EFS_COL_ENTRADAS;
+    : nombre === EFS_HOJA_TRANSFERENCIAS ? EFS_COL_TRANSFERENCIAS
+    : nombre === EFS_HOJA_INVITACIONES ? EFS_COL_INVITACIONES : EFS_COL_ENTRADAS;
   hoja.appendRow(columnas);
   hoja.getRange(2, 1, hoja.getMaxRows() - 1, columnas.length).setNumberFormat('@');
   hoja.setFrozenRows(1);

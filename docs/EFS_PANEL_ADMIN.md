@@ -213,3 +213,35 @@ Backend ya existe (`admin_procesar`, `admin_conciliar`), falta pantalla.
 `/staff/certificados/` (el sistema general de ATP) ya funciona para "EFS
 2026" sin cambios, porque la hoja respeta el formato "hoja charla". Evaluar
 si alcanza con eso o si hace falta algo específico del EFS.
+
+## Links de invitación (2026-10-10) — fuera del panel
+
+Pedido del dueño: cada compañero de ATP tiene 5 entradas gratis para regalar,
+con un link personal que manda a quien quiera.
+
+- Hoja nueva "EFS · Invitaciones" (`codigo`, `titular`, `cupo`, `usadas`,
+  `link`, `nota`). El dueño escribe solo `titular` y corre
+  `efsGenerarInvitaciones` desde el editor: completa código (`INV-` + 8),
+  cupo (5 si está vacío) y link (`https://efsarg.com.ar/?inv=INV-…`).
+- `EFS.gs`: acciones `invitacion_ver` (quién invita, lugares libres) e
+  `invitar` (emite la entrada). La entrada queda con `Origen = cortesia`,
+  `PagoId = invitacion-<código>`, `Referencia = INVIT-<intento_id>`, y una
+  fila en "EFS · Transferencias" con nota "Cortesía: invitación de <titular>
+  (<código>)". Mismo mail que una cortesía del panel.
+- El cupo se cuenta sobre las entradas ACTIVAS de "EFS 2026" con el candado
+  tomado; `usadas` en la hoja es informativa. Revocar una entrada devuelve el
+  lugar. Cortar un link: cupo 0 o borrar la fila.
+- Sigue valiendo una entrada por DNI. Repetir el mismo pedido (mismo
+  `intento_id`, mismo link) devuelve la entrada ya emitida.
+- Vigencia: la de la inscripción general, salvo que "EFS · Config" tenga
+  `invitaciones_cierre` (fecha propia; no hace falta agregar la fila si no
+  se usa).
+- Worker: `POST /invitacion/ver` (sin Turnstile, 30 cada 10 min por IP) y
+  `POST /invitacion` (Turnstile, chequeo del dominio del correo, 8 cada 10
+  min por IP). 10 códigos inexistentes desde una IP cortan las dos rutas.
+- Sitio: con `?inv=` el formulario es el mismo, sin precio ni Mercado Pago,
+  y muestra el QR en la misma página. No dispara eventos del píxel de Meta.
+- Pruebas: `efs.test.mjs` 91/91 (12 nuevas), `worker.test.mjs` 5 nuevas,
+  29 comprobaciones del formulario en Chrome contra un Worker simulado.
+- No probado contra el Apps Script ni el Worker reales: falta el despliegue
+  del dueño y una prueba con un link verdadero.

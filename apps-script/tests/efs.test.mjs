@@ -1060,5 +1060,148 @@ prueba('un pago sin inscripción DISTINTO sí se avisa', () => {
   igual(avisos(), 2);
 });
 
+// ─────────── invitaciones: links personales con cupo ───────────
+
+console.log('\nEFS.gs · invitaciones');
+
+// Como lo hace el dueño: corre la función (crea la hoja), escribe los titulares y la vuelve a correr.
+function conLinks(env, titulares = ['Juan Pérez'], cupo = '') {
+  env.ctx.efsGenerarInvitaciones();
+  const hoja = env.hojas.get('EFS · Invitaciones');
+  titulares.forEach((t) => hoja.datos.push(['', t, cupo, '', '', '']));
+  env.ctx.efsGenerarInvitaciones();
+  const cab = hoja.datos[0];
+  return { hoja, cab, codigos: filas(hoja).map((f) => f[cab.indexOf('codigo')]), celda: (i, n) => filas(hoja)[i][cab.indexOf(n)] };
+}
+const invitado = (invitacion, n = 1, extra = {}) => datos({
+  accion: 'invitar', invitacion, dni: String(40000000 + n), correo: 'invitado' + n + '@ejemplo.com', nombre: 'Invitado' + n, ...extra,
+});
+
+prueba('efsGenerarInvitaciones: crea la hoja, pone código, cupo 5 y link; al repetir no cambia los links', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const l = conLinks(env, ['Juan Pérez', 'Mara Díaz']);
+  igual(l.cab, ['codigo', 'titular', 'cupo', 'usadas', 'link', 'nota']);
+  si(l.codigos.every((c) => /^INV-[0-9A-Z]{8}$/.test(c)), 'formato: ' + l.codigos); si(l.codigos[0] !== l.codigos[1]);
+  igual(l.celda(0, 'cupo'), 5); igual(l.celda(0, 'usadas'), 0);
+  igual(l.celda(0, 'link'), 'https://efsarg.com.ar/?inv=' + l.codigos[0]);
+  igual(env.ctx.efsGenerarInvitaciones(), 0);
+  igual(filas(l.hoja).map((f) => f[0]), l.codigos);
+  si(!env.lock(), 'el candado quedó tomado');
+});
+
+prueba('invitar: emite la entrada sin pago, como cortesía, con mail y registro de quién invitó', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const l = conLinks(env);
+  const r = env.post(invitado(l.codigos[0]));
+  si(r.ok, JSON.stringify(r)); si(/^EFS26-/.test(r.codigo)); igual(r.nombre, 'Invitado1');
+  const cab = env.hojas.get('EFS 2026').datos[0]; const e = entradas(env)[0];
+  igual(e[cab.indexOf('Origen')], 'cortesia'); igual(e[cab.indexOf('PagoId')], 'invitacion-' + l.codigos[0]);
+  igual(e[cab.indexOf('EstadoEntrada')], 'activa'); igual(e[cab.indexOf('DNI')], '40000001');
+  igual(env.mails.length, 1); igual(env.mails[0].to, 'invitado1@ejemplo.com');
+  si(!env.mails[0].op.htmlBody.includes('recibimos tu pago'), 'el mail de una invitación habla de pago');
+  const t = env.hojas.get('EFS · Transferencias'); const colT = t.datos[0];
+  igual(t.datos[1][colT.indexOf('nota')], 'Cortesía: invitación de Juan Pérez (' + l.codigos[0] + ')');
+  igual(t.datos[1][colT.indexOf('entrada')], r.codigo);
+  igual(l.celda(0, 'usadas'), 1);
+  igual(pendientes(env).length, 0, 'una invitación no deja nada en Pendientes');
+  igual(env.ctx.efsConciliar().reporte.cortesias, 1);
+  si(!env.lock(), 'el candado quedó tomado');
+});
+
+prueba('invitar: el link sirve 5 veces; la sexta persona recibe "invitacion_agotada" y no se emite nada', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const l = conLinks(env, ['Juan Pérez', 'Mara Díaz']);
+  for (let n = 1; n <= 5; n++) si(env.post(invitado(l.codigos[0], n)).ok, 'falló la ' + n);
+  igual(env.post(invitado(l.codigos[0], 6)).error, 'invitacion_agotada');
+  igual(entradas(env).length, 5); igual(env.mails.length, 5); igual(l.celda(0, 'usadas'), 5);
+  si(env.post(invitado(l.codigos[1], 6)).ok, 'el link de otro compañero no se ve afectado');
+});
+
+prueba('invitar: código inexistente o mal escrito se rechaza; datos inválidos también', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const l = conLinks(env);
+  igual(env.post(invitado('INV-AAAAAAAA')).error, 'invitacion');
+  igual(env.post(invitado('cualquiera')).error, 'invitacion');
+  igual(env.post(invitado('')).error, 'invitacion');
+  const r = env.post(invitado(l.codigos[0], 1, { dni: '12' }));
+  igual(r.error, 'datos'); igual(r.campo, 'dni');
+  igual(entradas(env).length, 0); igual(env.mails.length, 0);
+});
+
+prueba('invitar: acepta el código en minúsculas (como puede llegar pegado en un link)', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const l = conLinks(env);
+  si(env.post(invitado(l.codigos[0].toLowerCase())).ok);
+});
+
+prueba('invitar: un DNI que ya tiene entrada (paga o de otra invitación) no gasta un lugar', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  const l = conLinks(env);
+  pagarUna(env, mp, { dni: '31555666' });
+  igual(env.post(invitado(l.codigos[0], 1, { dni: '31.555.666' })).error, 'ya_inscripto');
+  si(env.post(invitado(l.codigos[0], 2)).ok);
+  igual(env.post(invitado(l.codigos[0], 2)).error, 'ya_inscripto', 'el mismo DNI con otro intento');
+  igual(entradas(env).length, 2); igual(l.celda(0, 'usadas'), 1);
+});
+
+prueba('invitar: el reintento del mismo pedido devuelve la misma entrada, sin duplicar ni gastar otro lugar', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const l = conLinks(env);
+  const pedido = invitado(l.codigos[0]);
+  const a = env.post(pedido), b = env.post(pedido);
+  si(a.ok && b.ok, JSON.stringify(b)); igual(b.codigo, a.codigo);
+  igual(entradas(env).length, 1); igual(env.mails.length, 1); igual(l.celda(0, 'usadas'), 1);
+  // Con el mismo intento pero por OTRO link no se entrega la entrada.
+  const otro = conLinks(env, ['Mara Díaz']).codigos[1];
+  igual(env.post({ ...pedido, invitacion: otro }).error, 'ya_inscripto');
+});
+
+prueba('invitar: una entrada revocada devuelve el lugar al link', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const l = conLinks(env, ['Juan Pérez'], '1');
+  const r = env.post(invitado(l.codigos[0], 1));
+  igual(env.post(invitado(l.codigos[0], 2)).error, 'invitacion_agotada');
+  env.ctx.efsRevocarEntrada_(r.codigo);
+  si(env.post(invitado(l.codigos[0], 2)).ok);
+});
+
+prueba('invitar: cupo 0 corta el link; un cupo distinto de 5 se respeta', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const l = conLinks(env, ['Juan Pérez'], '2');
+  si(env.post(invitado(l.codigos[0], 1)).ok); si(env.post(invitado(l.codigos[0], 2)).ok);
+  igual(env.post(invitado(l.codigos[0], 3)).error, 'invitacion_agotada');
+  filas(l.hoja)[0][l.cab.indexOf('cupo')] = 0;
+  igual(env.post({ accion: 'invitacion_ver', invitacion: l.codigos[0] }).error, 'invitacion_agotada');
+});
+
+prueba('invitar: con la inscripción cerrada no funciona, salvo que "invitaciones_cierre" siga vigente', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const l = conLinks(env);
+  env.poner('inscripcion_abierta', 'NO');
+  igual(env.post(invitado(l.codigos[0], 1)).error, 'cerrada');
+  igual(env.post({ accion: 'invitacion_ver', invitacion: l.codigos[0] }).error, 'cerrada');
+  env.poner('invitaciones_cierre', '31/12/2099 23:59');
+  si(env.post(invitado(l.codigos[0], 1)).ok);
+  env.poner('invitaciones_cierre', '01/01/2020 00:00');
+  igual(env.post(invitado(l.codigos[0], 2)).error, 'cerrada');
+  igual(env.post(datos()).error, 'cerrada', 'la inscripción paga sigue cerrada');
+});
+
+prueba('invitacion_ver: dice quién invita y cuántos lugares quedan, sin datos de los invitados', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const l = conLinks(env);
+  igual(env.post({ accion: 'invitacion_ver', invitacion: l.codigos[0] }), { ok: true, titular: 'Juan Pérez', libres: 5 });
+  env.post(invitado(l.codigos[0], 1));
+  igual(env.post({ accion: 'invitacion_ver', invitacion: l.codigos[0] }).libres, 4);
+  igual(env.post({ accion: 'invitacion_ver', invitacion: 'INV-AAAAAAAA' }), { ok: false, error: 'invitacion' });
+});
+
+prueba('invitar: sin el secreto del Worker no responde', () => {
+  const env = crearEntorno({ mp: crearMp() });
+  const l = conLinks(env);
+  igual(env.post({ ...invitado(l.codigos[0]), efs_secreto: 'otro' }).error, 'no_autorizado');
+  igual(entradas(env).length, 0);
+});
+
 console.log(`\n${ok} bien, ${fallas} mal\n`);
 process.exit(fallas ? 1 : 0);

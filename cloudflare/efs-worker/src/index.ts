@@ -14,6 +14,8 @@
  * Rutas:
  *   POST /inscribir   formulario del sitio → link de pago
  *   POST /verificar   vuelta desde Mercado Pago → QR en pantalla
+ *   POST /invitacion/ver  link de invitación → quién invita y cuántos lugares quedan
+ *   POST /invitacion  formulario del sitio con un link de invitación → entrada sin pago
  *   POST /mp/aviso    webhook de Mercado Pago → procesar el pago
  *   POST /admin       panel del EFS (con la sesión de admin de la plataforma)
  *   POST /staff       celulares del día del evento: acreditación, credencial, taller (Durable Object)
@@ -55,6 +57,8 @@ export default {
       switch (url.pathname) {
         case '/inscribir': return json(await inscribir(cuerpo, ip, env, request.headers.get('User-Agent') || ''), env, origen);
         case '/verificar': return json(await verificar(cuerpo, ip, env), env, origen);
+        case '/invitacion/ver': return json(await verInvitacion(cuerpo, ip, env), env, origen);
+        case '/invitacion': return json(await invitar(cuerpo, ip, env), env, origen);
         case '/admin': return json(await admin(cuerpo, ip, env), env, origen);
         case '/staff': return json(await staff(cuerpo, ip, env), env, origen);
         default: return json({ ok: false, error: 'ruta' }, env, origen, 404);
@@ -92,6 +96,45 @@ async function inscribir(cuerpo: Json, ip: string, env: Env, navegador: string):
   // Si el Apps Script está saturado ("ocupado", timeout o error de red), se
   // reintenta con el MISMO intento_id: del otro lado es idempotente.
   return appsScript(params, env, { reintentos: 2 });
+}
+
+// ─────────────────────────── invitaciones ───────────────────────────
+// Links personales con cupo (ver "invitaciones" en EFS.gs). El cupo y el control por DNI los lleva
+// el Apps Script; acá van Turnstile, el freno por IP y el corte a quien prueba códigos al azar.
+
+function codigoInvitacion(v: unknown): string {
+  const codigo = String(v ?? '').trim().toUpperCase();
+  return /^INV-[0-9A-Z]{8}$/.test(codigo) ? codigo : '';
+}
+
+async function verInvitacion(cuerpo: Json, ip: string, env: Env): Promise<Json> {
+  if (excedido('inv-mal:' + ip, 10) || frenado('inv-ver:' + ip, 30, 600)) return { ok: false, error: 'demasiados_intentos' };
+  const invitacion = codigoInvitacion(cuerpo.invitacion);
+  if (!invitacion) return { ok: false, error: 'invitacion' };
+  const r = await appsScript({ accion: 'invitacion_ver', invitacion }, env, { reintentos: 1 });
+  if (r.error === 'invitacion') frenado('inv-mal:' + ip, 10, 600);
+  return r;
+}
+
+async function invitar(cuerpo: Json, ip: string, env: Env): Promise<Json> {
+  if (excedido('inv-mal:' + ip, 10) || frenado('inv:' + ip, 8, 600)) return { ok: false, error: 'demasiados_intentos' };
+  const invitacion = codigoInvitacion(cuerpo.invitacion);
+  if (!invitacion) return { ok: false, error: 'invitacion' };
+
+  const turnstile = await verificarTurnstile(String(cuerpo.turnstile || ''), ip, env);
+  if (!turnstile) return { ok: false, error: 'turnstile' };
+
+  // Igual que en una inscripción paga: sin un correo que reciba mail la persona se queda sin QR.
+  const mal = await problemaDelCorreo(String(cuerpo.correo || ''));
+  if (mal) return { ok: false, ...mal };
+
+  const params: Record<string, string> = { accion: 'invitar', invitacion };
+  for (const campo of CAMPOS_INSCRIPCION) params[campo] = String(cuerpo[campo] ?? '').slice(0, 200);
+
+  // Con el MISMO intento_id el Apps Script devuelve la entrada ya emitida: reintentar es seguro.
+  const r = await appsScript(params, env, { reintentos: 2 });
+  if (r.error === 'invitacion') frenado('inv-mal:' + ip, 10, 600);
+  return r;
 }
 
 // ─────────────────────────── correo ───────────────────────────

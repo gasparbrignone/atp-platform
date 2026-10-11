@@ -239,6 +239,61 @@ test('admin: las altas del panel reenvían los datos de la persona y la nota; la
   assert.equal(ll.apps[2].dni, undefined, 'admin_resumen no debe recibir datos personales');
 });
 
+test('invitacion: con Turnstile válido reenvía los datos y el código (en mayúsculas), sin campos de más', async () => {
+  const ll = simular({ respuestas: [{ ok: true, codigo: 'EFS26-ABCDEFGH', nombre: 'Ana' }] });
+  const r = await (await worker.fetch(pedido('/invitacion', formulario({ invitacion: ' inv-abcd2345 ', precio: '1', fbp: 'fb.1.2.3' })), baseEnv, ctx())).json();
+  assert.equal(r.codigo, 'EFS26-ABCDEFGH');
+  const p = ll.apps[0];
+  assert.equal(p.accion, 'invitar'); assert.equal(p.invitacion, 'INV-ABCD2345'); assert.equal(p.formType, 'efs');
+  assert.equal(p.efs_secreto, 'secreto-worker'); assert.equal(p.dni, '30123456');
+  assert.equal(p.precio, undefined); assert.equal(p.meta_fbp, undefined);
+  assert.equal(ll.turnstile.length, 1);
+});
+
+test('invitacion: sin Turnstile, con código mal formado o con correo imposible no llega al Apps Script', async () => {
+  let ll = simular({ turnstile: { success: false } });
+  assert.equal((await (await worker.fetch(pedido('/invitacion', formulario({ invitacion: 'INV-ABCD2345' })), baseEnv, ctx())).json()).error, 'turnstile');
+  assert.equal(ll.apps.length, 0);
+  ll = simular();
+  for (const invitacion of ['', 'INV-123', 'EFS26-ABCDEFGH', 'INV-ABCD234!']) {
+    assert.equal((await (await worker.fetch(pedido('/invitacion', formulario({ invitacion })), baseEnv, ctx())).json()).error, 'invitacion', invitacion);
+  }
+  assert.equal(ll.apps.length, 0); assert.equal(ll.turnstile.length, 0);
+  const r = await (await worker.fetch(pedido('/invitacion', formulario({ invitacion: 'INV-ABCD2345', correo: 'ana@gmial.com' })), baseEnv, ctx())).json();
+  assert.equal(r.error, 'correo_dominio'); assert.equal(ll.apps.length, 0);
+});
+
+test('invitacion: si el Apps Script está ocupado reintenta con el mismo intento; un link agotado no se reintenta', async () => {
+  let ll = simular({ respuestas: [{ ok: false, error: 'ocupado' }, { ok: true, codigo: 'EFS26-ABCDEFGH' }] });
+  const r = await (await worker.fetch(pedido('/invitacion', formulario({ invitacion: 'INV-ABCD2345' })), baseEnv, ctx())).json();
+  assert.equal(r.ok, true); assert.equal(ll.apps.length, 2);
+  assert.equal(new Set(ll.apps.map((a) => a.intento_id)).size, 1);
+  ll = simular({ respuestas: [{ ok: false, error: 'invitacion_agotada' }] });
+  assert.equal((await (await worker.fetch(pedido('/invitacion', formulario({ invitacion: 'INV-ABCD2345' })), baseEnv, ctx())).json()).error, 'invitacion_agotada');
+  assert.equal(ll.apps.length, 1);
+});
+
+test('invitacion/ver: consulta sin Turnstile y solo manda el código', async () => {
+  const ll = simular({ respuestas: [{ ok: true, titular: 'Juan Pérez', libres: 3 }] });
+  const r = await (await worker.fetch(pedido('/invitacion/ver', { invitacion: 'inv-abcd2345', dni: '30123456' }), baseEnv, ctx())).json();
+  assert.deepEqual(r, { ok: true, titular: 'Juan Pérez', libres: 3 });
+  assert.equal(ll.apps[0].accion, 'invitacion_ver'); assert.equal(ll.apps[0].invitacion, 'INV-ABCD2345'); assert.equal(ll.apps[0].dni, undefined);
+  assert.equal(ll.turnstile.length, 0);
+  assert.equal((await (await worker.fetch(pedido('/invitacion/ver', { invitacion: 'nada' }), baseEnv, ctx())).json()).error, 'invitacion');
+  assert.equal(ll.apps.length, 1);
+});
+
+test('invitacion: tras 10 códigos inexistentes desde la misma IP se corta, también para un código bueno', async () => {
+  const ll = simular({ respuestas: [{ ok: false, error: 'invitacion' }] });
+  const ip = '10.9.9.9';
+  for (let n = 0; n < 10; n++) {
+    assert.equal((await (await worker.fetch(pedido('/invitacion/ver', { invitacion: 'INV-AAAAAAA' + n }, { ip }), baseEnv, ctx())).json()).error, 'invitacion');
+  }
+  assert.equal((await (await worker.fetch(pedido('/invitacion/ver', { invitacion: 'INV-ABCD2345' }, { ip }), baseEnv, ctx())).json()).error, 'demasiados_intentos');
+  assert.equal((await (await worker.fetch(pedido('/invitacion', formulario({ invitacion: 'INV-ABCD2345' }), { ip }), baseEnv, ctx())).json()).error, 'demasiados_intentos');
+  assert.equal(ll.apps.length, 10);
+});
+
 test('rutas desconocidas y métodos no permitidos', async () => {
   simular();
   assert.equal((await worker.fetch(pedido('/otra', {}), baseEnv, ctx())).status, 404);
