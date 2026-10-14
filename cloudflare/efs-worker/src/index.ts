@@ -33,6 +33,8 @@ export type { Env } from './apps.ts';
 
 const ADMIN_ACCIONES = new Set(['admin_resumen', 'admin_buscar', 'admin_procesar', 'admin_reenviar', 'admin_conciliar', 'admin_alta_transferencia', 'admin_alta_cortesia']);
 const CAMPOS_INSCRIPCION = ['intento_id', 'nombre', 'apellido', 'dni', 'correo', 'telefono', 'carrera', 'anio', 'universidad'];
+// Promo 2x1: quien paga carga también los datos de un acompañante (mismos campos con "acomp_"). Ver "promo 2x1" en EFS.gs.
+const CAMPOS_ACOMP = ['nombre', 'apellido', 'dni', 'correo', 'telefono', 'carrera', 'anio', 'universidad'].map((k) => 'acomp_' + k);
 // Altas desde el panel (Etapa 2): mismos datos de persona que una inscripción (sin intento_id, que
 // lo arma EFS.gs) + monto/fecha/comprobante (transferencia) o motivo (cortesía), que van a la nota.
 const ALTAS_PANEL = new Set(['admin_alta_transferencia', 'admin_alta_cortesia']);
@@ -85,9 +87,18 @@ async function inscribir(cuerpo: Json, ip: string, env: Env, navegador: string):
   // Antes de cobrar: el dominio del correo tiene que existir y poder recibir mail (los rebotes dejan a la persona sin QR).
   const mal = await problemaDelCorreo(String(cuerpo.correo || ''));
   if (mal) return { ok: false, ...mal };
+  const promo = cuerpo.promo === '2x1';
+  if (promo) {
+    const malAcomp = await problemaDelCorreo(String(cuerpo.acomp_correo || ''));
+    if (malAcomp) return { ok: false, ...malAcomp, campo: 'acomp_correo' };
+  }
 
   const params: Record<string, string> = { accion: 'iniciar' };
   for (const campo of CAMPOS_INSCRIPCION) params[campo] = String(cuerpo[campo] ?? '').slice(0, 200);
+  if (promo) {
+    params.promo = '2x1';
+    for (const campo of CAMPOS_ACOMP) params[campo] = String(cuerpo[campo] ?? '').slice(0, 200);
+  }
   // Para la API de Conversiones de Meta: cookies del píxel (si las hay) y el navegador.
   params.meta_fbp = cookieMeta(cuerpo.fbp);
   params.meta_fbc = cookieMeta(cuerpo.fbc);

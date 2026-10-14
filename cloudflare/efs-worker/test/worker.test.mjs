@@ -319,3 +319,35 @@ test('correo: dominio con solo registro A, o con DNS caído, deja pasar', async 
     assert.equal(r.ok, true, dns); assert.equal(llamadas.apps.length, 1, dns);
   }
 });
+
+// ─────────────────────────── promo 2x1 ───────────────────────────
+
+const conAcomp = (extra = {}) => formulario({
+  promo: '2x1', acomp_nombre: 'Beto', acomp_apellido: 'Gómez', acomp_dni: '40111222', acomp_correo: 'beto@ejemplo.com',
+  acomp_telefono: '341 666-7777', acomp_carrera: 'Enfermería', acomp_anio: '1.º', acomp_universidad: 'UNR', ...extra,
+});
+
+test('2x1: pasa promo y los datos del acompañante al Apps Script', async () => {
+  const ll = simular({ respuestas: [{ ok: true, pago_url: 'https://mp/checkout/1', referencia: 'EFSP-ABCDEFGHJK', promo: '2x1' }] });
+  const r = await (await worker.fetch(pedido('/inscribir', conAcomp({ acomp_extra: 'no' })), baseEnv, ctx())).json();
+  assert.equal(r.promo, '2x1');
+  const p = ll.apps[0];
+  assert.equal(p.promo, '2x1'); assert.equal(p.acomp_dni, '40111222'); assert.equal(p.acomp_correo, 'beto@ejemplo.com');
+  assert.equal(p.acomp_universidad, 'UNR'); assert.equal(p.acomp_extra, undefined);
+});
+
+test('2x1: sin promo no pasa ningún campo del acompañante aunque vengan', async () => {
+  const ll = simular();
+  await worker.fetch(pedido('/inscribir', conAcomp({ promo: 'otra' })), baseEnv, ctx());
+  const p = ll.apps[0];
+  assert.equal(p.promo, undefined); assert.equal(p.acomp_dni, undefined);
+});
+
+test('2x1: correo del acompañante con dominio mal escrito → correo_dominio con campo acomp_correo, sin llegar al Apps Script', async () => {
+  const ll = simular();
+  const r = await (await worker.fetch(pedido('/inscribir', conAcomp({ acomp_correo: 'beto@gmial.com' })), baseEnv, ctx())).json();
+  assert.equal(r.error, 'correo_dominio'); assert.equal(r.campo, 'acomp_correo'); assert.equal(r.sugerencia, 'beto@gmail.com');
+  assert.equal(ll.apps.length, 0);
+  const r2 = await (await worker.fetch(pedido('/inscribir', conAcomp({ acomp_correo: 'sin-arroba' })), baseEnv, ctx())).json();
+  assert.equal(r2.error, 'datos'); assert.equal(r2.campo, 'acomp_correo');
+});

@@ -45,6 +45,9 @@ var EFS_COL_PENDIENTES = [
 ];
 // Columnas de la API de Conversiones de Meta (ver "Meta · API de Conversiones"). Se agregan solas a una hoja existente.
 var EFS_META_COLS = ['meta_fbp', 'meta_fbc', 'meta_ua', 'meta_evento', 'meta_tiempo', 'meta_estado'];
+// Promo 2x1 (ver "promo 2x1"): quien paga carga también los datos de un acompañante. Se agregan solas a una hoja existente.
+var EFS_ACOMP_CAMPOS = ['nombre', 'apellido', 'dni', 'correo', 'telefono', 'carrera', 'anio', 'universidad'];
+var EFS_PROMO_COLS = ['promo'].concat(EFS_ACOMP_CAMPOS.map(function (k) { return 'acomp_' + k; }), ['entrada2']);
 var EFS_COL_PAGOS = [
   'fecha', 'pago_id', 'referencia', 'status', 'status_detail', 'monto_bruto', 'moneda', 'collector_id',
   'live_mode', 'origen', 'accion', 'detalle',
@@ -90,6 +93,9 @@ var EFS_CONFIG_INICIAL = [
   ['recordatorio_horas', 24, 'Horas desde que alguien empezó la inscripción sin pagar para mandarle UN mail de ayuda. 0 = no mandar'],
   ['whatsapp', '5493415845571', 'WhatsApp de consultas que aparece en el mail (solo números, con 549)'],
   ['invitaciones_cierre', '', 'Hasta cuándo sirven los links de invitación (ej. 16/10/2026 23:59). Vacío = cierran junto con la inscripción'],
+  ['promo_2x1', 'NO', 'SI / NO: 2x1 (una persona paga el precio y entran dos)'],
+  ['promo_2x1_desde', '', 'Desde cuándo vale el 2x1 (ej. 14/10/2026 17:00). Vacío = desde que se pone SI'],
+  ['promo_2x1_hasta', '', 'Hasta cuándo vale el 2x1. Vacío = hasta el cierre de la inscripción'],
 ];
 
 // ─────────────────────────── entrada desde doPost ───────────────────────────
@@ -132,15 +138,29 @@ function efsIniciar_(p) {
   var d = efsValidarDatos_(p);
   if (d.error) return { ok: false, error: 'datos', campo: d.error };
 
+  // 2x1: los datos del acompañante pasan por la misma validación que los de quien paga.
+  var a = null;
+  if (String(p.promo || '') === '2x1') {
+    if (!efsPromo2x1Abierta_(c)) return { ok: false, error: 'promo_cerrada' };
+    var datosAcomp = { intento_id: d.intento_id };
+    EFS_ACOMP_CAMPOS.forEach(function (k) { datosAcomp[k] = p['acomp_' + k]; });
+    a = efsValidarDatos_(datosAcomp);
+    if (a.error) return { ok: false, error: 'datos', campo: 'acomp_' + a.error };
+    if (a.dni === d.dni) return { ok: false, error: 'acomp_mismo_dni' };
+  }
+
   var lock = LockService.getDocumentLock();
   if (!lock.tryLock(10000)) return { ok: false, error: 'ocupado' };
   var ref;
+  var promo = a ? '2x1' : '';
   try {
     var entrada = efsBuscarEntradaActivaPorDni_(d.dni);
     if (entrada) return { ok: false, error: 'ya_inscripto' };
+    if (a && efsBuscarEntradaActivaPorDni_(a.dni)) return { ok: false, error: 'acomp_ya_inscripto' };
 
     var hoja = efsHoja_(EFS_HOJA_PENDIENTES);
     efsAsegurarColumnas_(hoja, EFS_META_COLS);
+    efsAsegurarColumnas_(hoja, EFS_PROMO_COLS);
     var filas = hoja.getDataRange().getValues();
     var col = efsIndices_(filas[0]);
     var nav = efsMetaNavegador_(p);
@@ -153,6 +173,9 @@ function efsIniciar_(p) {
       porDni = i >= 0;
     }
     var ahora = new Date();
+    // Datos del acompañante (vacíos si no es 2x1: un reintento sin 2x1 borra los de un intento anterior).
+    var acomp = { promo: promo };
+    EFS_ACOMP_CAMPOS.forEach(function (k) { acomp['acomp_' + k] = a ? a[k] : ''; });
     if (i >= 0) {
       ref = String(filas[i][col.referencia]);
       var fila = filas[i].slice();
@@ -164,12 +187,14 @@ function efsIniciar_(p) {
         d.nombre = String(fila[col.nombre]).replace(/^'/, '');
         d.apellido = String(fila[col.apellido]).replace(/^'/, '');
         d.correo = String(fila[col.correo]).replace(/^'/, '');
+        promo = String(fila[col.promo] || '');
       } else {
         efsAsignar_(fila, col, {
           intento_id: d.intento_id, nombre: d.nombre, apellido: d.apellido, correo: d.correo, telefono: d.telefono,
           carrera: d.carrera, anio: d.anio, universidad: d.universidad, precio: c.precio, estado: 'pendiente',
           motivo: '', actualizado: ahora, meta_fbp: nav.fbp, meta_fbc: nav.fbc, meta_ua: nav.ua,
         });
+        efsAsignar_(fila, col, acomp);
         hoja.getRange(i + 1, 1, 1, fila.length).setValues([efsComoTexto_(fila, col)]);
       }
     } else {
@@ -180,6 +205,7 @@ function efsIniciar_(p) {
         correo: d.correo, telefono: d.telefono, carrera: d.carrera, anio: d.anio, universidad: d.universidad,
         precio: c.precio, estado: 'pendiente', actualizado: ahora, meta_fbp: nav.fbp, meta_fbc: nav.fbc, meta_ua: nav.ua,
       });
+      efsAsignar_(nueva, col, acomp);
       hoja.appendRow(efsComoTexto_(nueva, col));
     }
     SpreadsheetApp.flush();
@@ -191,7 +217,7 @@ function efsIniciar_(p) {
   // tiene por qué frenar a las demás inscripciones.
   var preferencia;
   try {
-    preferencia = efsCrearPreferencia_(c, ref, d);
+    preferencia = efsCrearPreferencia_(c, ref, d, promo);
   } catch (err) {
     logError('efs-preferencia', err, { referencia: ref });
     return { ok: false, error: 'mp' };
@@ -200,10 +226,12 @@ function efsIniciar_(p) {
   // Siempre init_point: Mercado Pago ya no tiene sandbox. Las pruebas se hacen
   // con las credenciales del usuario de prueba vendedor y pagando con el
   // usuario de prueba comprador, sobre el mismo init_point.
-  return { ok: true, pago_url: preferencia.init_point, referencia: ref };
+  // "promo" confirma al sitio que el 2x1 quedó registrado: sin esto, el sitio no manda a pagar
+  // (protege de un sitio nuevo hablando con un Apps Script viejo, que ignoraría al acompañante).
+  return { ok: true, pago_url: preferencia.init_point, referencia: ref, promo: promo };
 }
 
-function efsCrearPreferencia_(c, ref, d) {
+function efsCrearPreferencia_(c, ref, d, promo) {
   var sitio = String(c.sitio_url).replace(/\/$/, '');
   // En modo prueba se permite volver a la vista previa local (http://localhost).
   var local = c.modo !== 'produccion' && /^http:\/\/localhost(:\d+)?$/.test(sitio);
@@ -214,7 +242,8 @@ function efsCrearPreferencia_(c, ref, d) {
   if (/^\d+$/.test(d.dni)) pagador.identification = { type: 'DNI', number: d.dni };
   var cuerpo = {
     items: [{
-      id: EFS_ACTIVITY_ID, title: String(c.titulo_cobro), description: 'Entrada personal al ' + c.evento_nombre,
+      id: EFS_ACTIVITY_ID, title: String(c.titulo_cobro) + (promo ? ' (2x1)' : ''),
+      description: (promo ? 'Dos entradas personales (2x1) al ' : 'Entrada personal al ') + c.evento_nombre,
       category_id: 'tickets', quantity: 1, unit_price: Number(c.precio), currency_id: 'ARS',
     }],
     payer: pagador,
@@ -242,7 +271,7 @@ function efsCrearPreferencia_(c, ref, d) {
     cuerpo.expires = true;
     cuerpo.expiration_date_to = efsIsoMp_(cierre);
   }
-  return efsMp_('post', '/checkout/preferences', cuerpo, ref + '-' + d.intento_id);
+  return efsMp_('post', '/checkout/preferences', cuerpo, ref + '-' + d.intento_id + (promo ? '-2x1' : ''));
 }
 
 // ─────────────────────────── Meta · API de Conversiones ───────────────────────────
@@ -391,12 +420,12 @@ function efsProcesarPagoObtenido_(pago, origen) {
   }
 
   var resultado;
-  var aEnviar = null;
+  var aEnviar = [];
   var lock = LockService.getDocumentLock();
   lock.waitLock(30000);
   try {
     resultado = efsAplicarPago_(pago, c);
-    if (resultado.emitida) aEnviar = resultado.codigo;
+    if (resultado.emitida) aEnviar = [resultado.codigo, resultado.codigo2].filter(Boolean);
     SpreadsheetApp.flush();
   } finally {
     lock.releaseLock();
@@ -407,11 +436,14 @@ function efsProcesarPagoObtenido_(pago, origen) {
   efsRegistrarPago_(pago, origen, resultado.accion, resultado.detalle);
 
   if (resultado.aviso && !yaAvisado) efsAvisar_(resultado.aviso, resultado.detalle + '\n\nPago ' + pago.id + ' · referencia ' + ref);
-  if (aEnviar) {
+  if (aEnviar.length) {
     efsVencerPreferencia_(resultado.preferencia_id);
-    efsEnviarEntrada_(aEnviar);
+    aEnviar.forEach(function (codigo) { efsEnviarEntrada_(codigo); });
   }
-  return { estado: resultado.estado, referencia: ref, codigo: resultado.codigo || '', nombre: resultado.nombre || '' };
+  return {
+    estado: resultado.estado, referencia: ref, codigo: resultado.codigo || '', nombre: resultado.nombre || '',
+    codigo2: resultado.codigo2 || '', nombre2: resultado.nombre2 || '',
+  };
 }
 
 // Decide qué hacer con un pago. Se llama SIEMPRE con el candado tomado.
@@ -420,6 +452,7 @@ function efsAplicarPago_(pago, c) {
   var pagoId = String(pago.id);
   var hoja = efsHoja_(EFS_HOJA_PENDIENTES);
   efsAsegurarColumnas_(hoja, EFS_META_COLS);
+  efsAsegurarColumnas_(hoja, EFS_PROMO_COLS);
   var filas = hoja.getDataRange().getValues();
   var col = efsIndices_(filas[0]);
   var i = efsBuscarFila_(filas, col.referencia, ref);
@@ -430,7 +463,10 @@ function efsAplicarPago_(pago, c) {
   var r = {
     estado: String(fila[col.estado]), preferencia_id: String(fila[col.preferencia_id] || ''),
     nombre: fila[col.nombre] + ' ' + fila[col.apellido], codigo: String(fila[col.entrada] || ''),
+    codigo2: efsCodigoEntrada_(fila[col.entrada2]), nombre2: '',
   };
+  var es2x1 = String(fila[col.promo] || '') === '2x1';
+  if (es2x1) r.nombre2 = String(fila[col.acomp_nombre]) + ' ' + String(fila[col.acomp_apellido]);
   var cambios = { actualizado: new Date() };
   var status = String(pago.status);
 
@@ -454,15 +490,30 @@ function efsAplicarPago_(pago, c) {
       // Un pago combinado (dos medios) guarda los ids de todos sus pagos, separados por coma.
       r.codigo = efsEmitirEntrada_(fila, col, idsPago.join(','), 'pago');
       cambios.estado = 'pagado'; cambios.motivo = ''; cambios.pago_id = idsPago.join(','); cambios.entrada = r.codigo;
+      if (es2x1) {
+        // Segunda entrada del 2x1, con los datos del acompañante. Si mientras tanto esa persona ya sacó su
+        // propia entrada, no se duplica: queda anotado y se avisa para resolverlo a mano.
+        var previaAcomp = efsBuscarEntradaActivaPorDni_(String(fila[col.acomp_dni]));
+        if (previaAcomp) {
+          cambios.motivo = '2x1: el acompañante ya tenía la entrada ' + previaAcomp[efsIndices_(EFS_COL_ENTRADAS).RegistrationId];
+          r.aviso = 'EFS: 2x1 sin segunda entrada';
+        } else {
+          r.codigo2 = efsEmitirEntrada_(efsFilaAcompanante_(fila, col), col, idsPago.join(','), '2x1');
+          cambios.entrada2 = r.codigo2;
+        }
+      }
       // Conversión para Meta: mismo eventID que el píxel del navegador (efs26-<n.º de pago>), para que Meta deduplique.
       cambios.meta_evento = 'efs26-' + pagoId; cambios.meta_tiempo = String(Math.floor(Date.now() / 1000)); cambios.meta_estado = 'pendiente';
-      r.estado = 'pagado'; r.accion = 'entrada_emitida'; r.detalle = r.codigo; r.emitida = true;
+      r.estado = 'pagado'; r.accion = 'entrada_emitida'; r.emitida = true;
+      r.detalle = r.codigo + (r.codigo2 ? ',' + r.codigo2 : '') + (cambios.motivo ? ' · ' + cambios.motivo : '');
     }
   } else if (status === 'refunded' || status === 'charged_back') {
     if (r.codigo && efsIdsGuardados_(fila[col.pago_id]).indexOf(pagoId) !== -1) {
       var acreditado = efsRevocarEntrada_(r.codigo);
+      var acreditado2 = r.codigo2 ? efsRevocarEntrada_(r.codigo2) : false;
       cambios.estado = 'devuelto'; cambios.motivo = status;
-      r.estado = 'devuelto'; r.accion = 'entrada_revocada'; r.detalle = r.codigo + (acreditado ? ' (YA ESTABA ACREDITADO)' : '');
+      r.estado = 'devuelto'; r.accion = 'entrada_revocada';
+      r.detalle = r.codigo + (acreditado ? ' (YA ESTABA ACREDITADO)' : '') + (r.codigo2 ? ', ' + r.codigo2 + (acreditado2 ? ' (YA ESTABA ACREDITADO)' : '') : '');
       r.aviso = 'EFS: entrada revocada por ' + (status === 'refunded' ? 'devolución' : 'contracargo');
     } else {
       r.accion = 'sin_cambios'; r.detalle = 'Devolución de un pago que no generó entrada';
@@ -557,6 +608,18 @@ function efsEmitirEntrada_(filaPendiente, col, pagoId, origen) {
   return codigo;
 }
 
+// Fila de Pendientes con los datos del acompañante en lugar de los de quien paga (misma referencia).
+function efsFilaAcompanante_(fila, col) {
+  var copia = fila.slice();
+  EFS_ACOMP_CAMPOS.forEach(function (k) { copia[col[k]] = fila[col['acomp_' + k]]; });
+  return copia;
+}
+
+function efsCodigoEntrada_(v) {
+  var t = String(v == null ? '' : v).trim();
+  return /^EFS26-[0-9A-Z]{8}$/.test(t) ? t : '';
+}
+
 function efsRevocarEntrada_(codigo) {
   var hoja = efsHoja_(EFS_HOJA_ENTRADAS);
   var filas = hoja.getDataRange().getValues();
@@ -584,7 +647,9 @@ function efsVerificar_(pagoId, referencia) {
     return { ok: false, error: 'no_coincide' };
   }
   if (r.estado !== 'pagado') return { ok: true, estado: r.estado };
-  return { ok: true, estado: 'pagado', codigo: r.codigo, nombre: r.nombre };
+  var res = { ok: true, estado: 'pagado', codigo: r.codigo, nombre: r.nombre };
+  if (r.codigo2) { res.codigo2 = r.codigo2; res.nombre2 = r.nombre2; }
+  return res;
 }
 
 // Aviso de Mercado Pago reenviado por el Worker (tipo payment o merchant_order).
@@ -664,21 +729,24 @@ function efsConciliar() {
 
   var entradas = efsHoja_(EFS_HOJA_ENTRADAS).getDataRange().getValues();
   var e = efsIndices_(entradas[0]);
-  var pagas = 0, cortesias = 0, transferencias = 0, sinMail = 0;
+  var pagas = 0, cortesias = 0, transferencias = 0, acompanantes = 0, sinMail = 0;
   entradas.slice(1).forEach(function (f) {
     if (f[e.EstadoEntrada] !== 'activa') return;
-    if (f[e.Origen] === 'cortesia') cortesias++; else if (f[e.Origen] === 'transferencia') transferencias++; else pagas++;
+    if (f[e.Origen] === 'cortesia') cortesias++; else if (f[e.Origen] === 'transferencia') transferencias++;
+    else if (f[e.Origen] === '2x1') acompanantes++; else pagas++;
     if (!efsMailEnviado_(f[e.MailEntrada])) sinMail++;
   });
   reporte.emitidas = pagas;
   reporte.cortesias = cortesias;
   reporte.transferencias = transferencias;
+  reporte.acompanantes_2x1 = acompanantes;
   reporte.sin_mail = sinMail;
   reporte.cuadra = reporte.aprobados === pagas + reporte.devueltos || reporte.aprobados === pagas;
 
   var texto = [
     'Pagos aprobados en Mercado Pago: ' + reporte.aprobados + ' (bruto $' + reporte.bruto + ')',
     'Entradas pagas activas: ' + pagas,
+    'Acompañantes 2x1 (segunda entrada de un pago): ' + acompanantes,
     'Cortesías: ' + cortesias,
     'Transferencias (cargadas a mano): ' + transferencias,
     'Devoluciones / contracargos: ' + reporte.devueltos,
@@ -889,7 +957,7 @@ function efsArmarMailEntrada_(fila, e, c) {
   var dni = esPasaporte ? String(fila[e.DNI]).slice(4) : String(fila[e.DNI]).replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   var html = efsHtmlMailEntrada_({
     nombre: nombre, titular: titular, dni: dni, documento: documento, codigo: codigo, link: link, sitio: sitio, qr: imagen !== '',
-    cortesia: String(fila[e.Origen]) === 'cortesia',
+    cortesia: String(fila[e.Origen]) === 'cortesia', promo2x1: String(fila[e.Origen]) === '2x1',
     fecha: String(c.evento_fecha || ''), lugar: String(c.evento_lugar || ''), evento: String(c.evento_nombre),
     whatsapp: String(c.whatsapp || '').replace(/\D/g, ''), acreditacion: String(c.acreditacion || ''),
   });
@@ -949,7 +1017,7 @@ function efsHtmlMailEntrada_(d) {
     // Cuerpo
     '<tr><td style="background:#ffffff;padding:30px 28px 8px">' +
       '<h1 style="' + f + 'margin:0;font-size:32px;line-height:1.05;color:' + NAVY + ';font-weight:900">Tu entrada</h1>' +
-      '<p style="' + f + 'margin:12px 0 0;font-size:16px;line-height:1.5;color:' + NAVY + '">Hola ' + h(d.nombre) + (d.cortesia ? ', ya estás inscripto/a al ' : ', recibimos tu pago y ya estás inscripto/a al ') + h(d.evento) + '.</p>' +
+      '<p style="' + f + 'margin:12px 0 0;font-size:16px;line-height:1.5;color:' + NAVY + '">Hola ' + h(d.nombre) + (d.promo2x1 ? ', te inscribieron con la promo 2x1 y ya estás inscripto/a al ' : d.cortesia ? ', ya estás inscripto/a al ' : ', recibimos tu pago y ya estás inscripto/a al ') + h(d.evento) + '.</p>' +
     '</td></tr>' +
 
     // QR
@@ -1067,7 +1135,9 @@ function efsAdminBuscar_(p) {
   var pend = efsHoja_(EFS_HOJA_PENDIENTES).getDataRange().getValues();
   var col = efsIndices_(pend[0]);
   var encontrados = pend.slice(1).filter(function (f) {
-    return String(f[col.dni]) === q || String(f[col.correo]).toLowerCase() === q;
+    if (String(f[col.dni]) === q || String(f[col.correo]).toLowerCase() === q) return true;
+    // 2x1: también por el DNI o el correo del acompañante.
+    return col.acomp_dni !== undefined && (String(f[col.acomp_dni]) === q || String(f[col.acomp_correo]).toLowerCase() === q);
   }).map(function (f) {
     var pagos = [];
     try {
@@ -1081,6 +1151,9 @@ function efsAdminBuscar_(p) {
     return {
       referencia: f[col.referencia], nombre: f[col.nombre] + ' ' + f[col.apellido], dni: String(f[col.dni]),
       correo: f[col.correo], estado: f[col.estado], motivo: f[col.motivo], entrada: f[col.entrada], pagos: pagos,
+      acompanante: col.promo !== undefined && String(f[col.promo]) === '2x1'
+        ? { nombre: f[col.acomp_nombre] + ' ' + f[col.acomp_apellido], dni: String(f[col.acomp_dni]), correo: f[col.acomp_correo], entrada: f[col.entrada2] }
+        : undefined,
     };
   });
   return { ok: true, resultados: encontrados };
@@ -1688,6 +1761,19 @@ function efsInscripcionAbierta_(c) {
   return !cierre || Date.now() < cierre.getTime();
 }
 
+// ─────────────────────────── promo 2x1 ───────────────────────────
+// Una persona paga el precio de siempre y carga también los datos de un acompañante: el pago aprobado emite
+// dos entradas (la segunda con Origen = 2x1, mismo PagoId y Referencia). Se prende con promo_2x1 = SI en
+// "EFS · Config" y vale entre promo_2x1_desde y promo_2x1_hasta (o el cierre), siempre con la inscripción abierta.
+function efsPromo2x1Abierta_(c) {
+  if (String(c.promo_2x1 || '').trim().toUpperCase() !== 'SI') return false;
+  if (!efsInscripcionAbierta_(c)) return false;
+  var desde = efsFecha_(c.promo_2x1_desde);
+  var hasta = efsFecha_(c.promo_2x1_hasta);
+  if (desde && Date.now() < desde.getTime()) return false;
+  return !hasta || Date.now() < hasta.getTime();
+}
+
 // Quien no tiene DNI argentino se inscribe con pasaporte: llega como "PAS AB123456" (o "Pasaporte AB123456";
 // así lo manda la web y así se escribe en la hoja de transferencias y en el panel) y se guarda como "PAS AB123456".
 function efsValidarDatos_(p) {
@@ -1786,7 +1872,7 @@ function efsHoja_(nombre) {
 function efsComoTexto_(fila, col) {
   var libres = ['nombre', 'apellido', 'dni', 'correo', 'telefono', 'carrera', 'anio', 'universidad',
     'Nombres', 'Apellidos', 'DNI', 'Teléfono', 'Email', 'Carrera', 'Año', 'Universidad', 'detalle', 'motivo',
-    'meta_fbp', 'meta_fbc', 'meta_ua'];
+    'meta_fbp', 'meta_fbc', 'meta_ua'].concat(EFS_ACOMP_CAMPOS.map(function (k) { return 'acomp_' + k; }));
   var salida = fila.slice();
   libres.forEach(function (k) {
     var i = col[k];

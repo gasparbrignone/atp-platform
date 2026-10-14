@@ -1214,5 +1214,190 @@ prueba('invitar: sin el secreto del Worker no responde', () => {
   igual(entradas(env).length, 0);
 });
 
+// ─────────────────────────── promo 2x1 ───────────────────────────
+
+console.log('\nEFS.gs · promo 2x1');
+
+const acomp = (extra = {}) => ({
+  promo: '2x1', acomp_nombre: 'Beto', acomp_apellido: 'Gómez', acomp_dni: '40.111.222', acomp_correo: 'Beto@Ejemplo.com',
+  acomp_telefono: '341 666-7777', acomp_carrera: 'Enfermería', acomp_anio: '1.º', acomp_universidad: 'UNR', ...extra,
+});
+const con2x1 = (env) => { env.poner('promo_2x1', 'SI'); return env; };
+const colEnt = (env, nombre) => env.hojas.get('EFS 2026').datos[0].indexOf(nombre);
+const valEnt = (env, fila, nombre) => String(fila[colEnt(env, nombre)]).replace(/^'/, '');
+
+prueba('2x1 apagado (promo_2x1 = NO): rechaza con promo_cerrada sin crear nada; sin promo funciona igual que siempre', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  igual(env.post(datos(acomp())).error, 'promo_cerrada');
+  igual(pendientes(env).length, 0); igual(mp.preferencias.size, 0);
+  const r = env.post(datos());
+  si(r.ok); igual(r.promo, '');
+});
+
+prueba('2x1 fuera de fecha (desde futuro / hasta pasado) → promo_cerrada', () => {
+  const env = con2x1(crearEntorno({ mp: crearMp() }));
+  env.poner('promo_2x1_desde', '31/12/2099 23:59');
+  igual(env.post(datos(acomp())).error, 'promo_cerrada');
+  env.poner('promo_2x1_desde', '01/01/2020 00:00');
+  env.poner('promo_2x1_hasta', '01/01/2021 00:00');
+  igual(env.post(datos(acomp())).error, 'promo_cerrada');
+  env.poner('promo_2x1_hasta', '31/12/2099 23:59');
+  si(env.post(datos(acomp())).ok);
+});
+
+prueba('2x1 con la inscripción cerrada → cerrada (la promo nunca abre la inscripción)', () => {
+  const env = con2x1(crearEntorno({ mp: crearMp() }));
+  env.poner('inscripcion_abierta', 'NO');
+  igual(env.post(datos(acomp())).error, 'cerrada');
+});
+
+prueba('2x1 iniciar: un pendiente con los datos del acompañante normalizados, mismo precio, confirma promo', () => {
+  const mp = crearMp(); const env = con2x1(crearEntorno({ mp }));
+  const r = env.post(datos(acomp()));
+  si(r.ok, JSON.stringify(r)); igual(r.promo, '2x1');
+  igual(pendientes(env).length, 1);
+  const f = pendientes(env)[0];
+  igual(celda(env, f, 'promo'), '2x1'); igual(celda(env, f, 'acomp_dni'), '40111222');
+  igual(celda(env, f, 'acomp_correo'), 'beto@ejemplo.com'); igual(celda(env, f, 'acomp_nombre'), 'Beto');
+  const pref = [...mp.preferencias.values()][0].cuerpo;
+  igual(pref.items[0].unit_price, 5000); igual(pref.items[0].quantity, 1);
+  si(pref.items[0].title.includes('2x1'));
+});
+
+prueba('2x1 datos del acompañante inválidos → error con campo acomp_*', () => {
+  const env = con2x1(crearEntorno({ mp: crearMp() }));
+  igual(env.post(datos(acomp({ acomp_dni: '12' }))).campo, 'acomp_dni');
+  igual(env.post(datos(acomp({ acomp_correo: 'sin-arroba' }))).campo, 'acomp_correo');
+  igual(env.post(datos(acomp({ acomp_nombre: '' }))).campo, 'acomp_nombre');
+  igual(env.post(datos(acomp({ acomp_telefono: '12' }))).campo, 'acomp_telefono');
+  igual(pendientes(env).length, 0);
+});
+
+prueba('2x1 mismo DNI para las dos personas → acomp_mismo_dni', () => {
+  const env = con2x1(crearEntorno({ mp: crearMp() }));
+  igual(env.post(datos(acomp({ acomp_dni: '30123456' }))).error, 'acomp_mismo_dni');
+});
+
+prueba('2x1 acompañante que ya tiene entrada → acomp_ya_inscripto, sin crear pago', () => {
+  const mp = crearMp(); const env = con2x1(crearEntorno({ mp }));
+  env.ctx.efsProcesarPago(mp.pagar(env.post(datos({ dni: '40111222', correo: 'beto@ejemplo.com' })).referencia).id, 'webhook');
+  const antes = mp.preferencias.size;
+  igual(env.post(datos(acomp())).error, 'acomp_ya_inscripto');
+  igual(mp.preferencias.size, antes);
+});
+
+prueba('2x1 pago aprobado: dos entradas (pago + 2x1), mismo PagoId y Referencia, un mail a cada correo', () => {
+  const mp = crearMp(); const env = con2x1(crearEntorno({ mp }));
+  const r = env.post(datos(acomp()));
+  const pago = mp.pagar(r.referencia);
+  igual(env.post({ accion: 'aviso', tipo: 'payment', id: String(pago.id) }).estado, 'pagado');
+  const e = entradas(env); igual(e.length, 2);
+  igual(valEnt(env, e[0], 'Origen'), 'pago'); igual(valEnt(env, e[1], 'Origen'), '2x1');
+  igual(valEnt(env, e[1], 'Nombres'), 'Beto'); igual(valEnt(env, e[1], 'DNI'), '40111222'); igual(valEnt(env, e[1], 'Email'), 'beto@ejemplo.com');
+  igual(valEnt(env, e[1], 'Carrera'), 'Enfermería'); igual(valEnt(env, e[1], 'Universidad'), 'UNR');
+  igual(valEnt(env, e[0], 'PagoId'), String(pago.id)); igual(valEnt(env, e[1], 'PagoId'), String(pago.id));
+  igual(valEnt(env, e[1], 'Referencia'), r.referencia);
+  si(valEnt(env, e[0], 'RegistrationId') !== valEnt(env, e[1], 'RegistrationId'));
+  const f = pendientes(env)[0];
+  igual(celda(env, f, 'entrada'), valEnt(env, e[0], 'RegistrationId'));
+  igual(celda(env, f, 'entrada2'), valEnt(env, e[1], 'RegistrationId'));
+  const entradasMail = env.mails.filter((m) => m.asunto === 'Tu entrada al EFS 2026');
+  igual(entradasMail.map((m) => m.to).sort(), ['ana@ejemplo.com', 'beto@ejemplo.com']);
+  const mailBeto = entradasMail.find((m) => m.to === 'beto@ejemplo.com');
+  si(mailBeto.op.htmlBody.includes('promo 2x1') && !mailBeto.op.htmlBody.includes('recibimos tu pago'), 'texto del mail del acompañante');
+  si(entradasMail.find((m) => m.to === 'ana@ejemplo.com').op.htmlBody.includes('recibimos tu pago'));
+  si(!env.mails.some((m) => /anomal|duplicado|no cumple/i.test(m.asunto)), 'avisó de más');
+});
+
+prueba('2x1 el mismo pago avisado 5 veces (webhook, barrido, vuelta) sigue dando dos entradas y dos mails', () => {
+  const mp = crearMp(); const env = con2x1(crearEntorno({ mp }));
+  const r = env.post(datos(acomp()));
+  const pago = mp.pagar(r.referencia);
+  for (let i = 0; i < 3; i++) env.post({ accion: 'aviso', tipo: 'payment', id: String(pago.id) });
+  env.ctx.efsBarrido();
+  env.post({ accion: 'verificar', pago_id: String(pago.id), referencia: r.referencia });
+  igual(entradas(env).length, 2);
+  igual(env.mails.filter((m) => m.asunto === 'Tu entrada al EFS 2026').length, 2);
+});
+
+prueba('2x1 vuelta del pago: devuelve los dos códigos y nombres', () => {
+  const mp = crearMp(); const env = con2x1(crearEntorno({ mp }));
+  const r = env.post(datos(acomp())); const pago = mp.pagar(r.referencia);
+  const v = env.post({ accion: 'verificar', pago_id: String(pago.id), referencia: r.referencia });
+  si(v.ok && v.codigo && v.codigo2, JSON.stringify(v)); igual(v.nombre, 'Ana Pérez'); igual(v.nombre2, 'Beto Gómez');
+  // una segunda consulta (recarga de la página) devuelve lo mismo
+  const v2 = env.post({ accion: 'verificar', pago_id: String(pago.id), referencia: r.referencia });
+  igual([v2.codigo, v2.codigo2], [v.codigo, v.codigo2]);
+  // sin 2x1 no aparece codigo2
+  const s = env.post(datos({ dni: '33000000', correo: 'otra@ejemplo.com' }));
+  const vs = env.post({ accion: 'verificar', pago_id: String(mp.pagar(s.referencia).id), referencia: s.referencia });
+  igual(vs.codigo2, undefined);
+});
+
+prueba('2x1 devolución → se revocan las dos entradas', () => {
+  const mp = crearMp(); const env = con2x1(crearEntorno({ mp }));
+  const pago = mp.pagar(env.post(datos(acomp())).referencia);
+  env.ctx.efsProcesarPago(pago.id, 'webhook');
+  pago.status = 'refunded'; env.ctx.efsProcesarPago(pago.id, 'barrido');
+  igual(entradas(env).map((e) => valEnt(env, e, 'EstadoEntrada')), ['revocada', 'revocada']);
+  // y con las dos revocadas, las dos personas pueden volver a inscribirse
+  si(env.post(datos(acomp())).ok);
+});
+
+prueba('2x1 el acompañante sacó su propia entrada mientras tanto → sale solo la de quien paga + aviso', () => {
+  const mp = crearMp(); const env = con2x1(crearEntorno({ mp }));
+  const r = env.post(datos(acomp()));
+  env.ctx.efsProcesarPago(mp.pagar(env.post(datos({ dni: '40111222', correo: 'beto@ejemplo.com' })).referencia).id, 'webhook');
+  const v = env.ctx.efsProcesarPago(mp.pagar(r.referencia).id, 'webhook');
+  igual(v.estado, 'pagado'); igual(v.codigo2, '');
+  igual(entradas(env).length, 2, 'la propia de Beto + la de Ana');
+  igual(entradas(env).filter((e) => valEnt(env, e, 'DNI') === '40111222').length, 1);
+  const f = pendientes(env).find((x) => celda(env, x, 'referencia') === r.referencia);
+  si(celda(env, f, 'motivo').startsWith('2x1:'));
+  si(env.mails.some((m) => m.asunto === 'EFS: 2x1 sin segunda entrada'));
+});
+
+prueba('2x1 reintento sin 2x1 (misma persona, otro intento) borra al acompañante: sale una sola entrada', () => {
+  const mp = crearMp(); const env = con2x1(crearEntorno({ mp }));
+  env.post(datos(acomp()));
+  const r = env.post(datos());
+  igual(r.promo, ''); igual(pendientes(env).length, 1);
+  igual(celda(env, pendientes(env)[0], 'acomp_dni'), '');
+  env.ctx.efsProcesarPago(mp.pagar(r.referencia).id, 'webhook');
+  igual(entradas(env).length, 1);
+});
+
+prueba('2x1 conciliación: el acompañante se cuenta aparte y la cuenta de pagos cuadra', () => {
+  const mp = crearMp(); const env = con2x1(crearEntorno({ mp }));
+  mp.pagar(env.post(datos(acomp())).referencia);
+  mp.pagar(env.post(datos({ dni: '33000000', correo: 'otra@ejemplo.com' })).referencia);
+  const r = env.ctx.efsConciliar();
+  igual(r.reporte.aprobados, 2); igual(r.reporte.emitidas, 2); igual(r.reporte.acompanantes_2x1, 1); igual(r.reporte.cuadra, true);
+});
+
+prueba('2x1 panel: se encuentra por el DNI del acompañante y muestra sus datos', () => {
+  const mp = crearMp(); const env = con2x1(crearEntorno({ mp }));
+  env.ctx.efsProcesarPago(mp.pagar(env.post(datos(acomp())).referencia).id, 'webhook');
+  const r = env.post({ accion: 'admin_buscar', q: '40111222', token: 'sesion-ok' });
+  igual(r.resultados.length, 1); igual(r.resultados[0].acompanante.dni, '40111222');
+  si(String(r.resultados[0].acompanante.entrada).startsWith('EFS26-'));
+});
+
+prueba('2x1 un nombre de acompañante que empieza con "=" se guarda como texto', () => {
+  const env = con2x1(crearEntorno({ mp: crearMp() }));
+  let enviado;
+  const h = env.hojas.get('EFS · Pendientes'); const orig = h.appendRow;
+  h.appendRow = (f) => { enviado = f; return orig.call(h, f); };
+  env.post(datos(acomp({ acomp_nombre: '=HYPERLINK("x")' })));
+  si(enviado[h.datos[0].indexOf('acomp_nombre')].startsWith("'="), 'no se antepuso el apóstrofo');
+});
+
+prueba('2x1 staff_lista incluye las dos entradas', () => {
+  const mp = crearMp(); const env = con2x1(crearEntorno({ mp }));
+  env.ctx.efsProcesarPago(mp.pagar(env.post(datos(acomp())).referencia).id, 'webhook');
+  const l = env.post({ accion: 'staff_lista' });
+  igual(l.entradas.map((x) => x.dni).sort(), ['30123456', '40111222']);
+});
+
 console.log(`\n${ok} bien, ${fallas} mal\n`);
 process.exit(fallas ? 1 : 0);
