@@ -262,10 +262,10 @@ test('/staff: sin claves configuradas en el Worker todo queda cerrado', async ()
   assert.equal((await pedir(env, { op: 'coord_resumen', clave_coord: '' })).error, 'clave');
 });
 
-test('/staff: tras 15 intentos fallidos desde una IP se bloquea aunque después acierte la clave', async () => {
+test('/staff: tras 60 intentos fallidos desde una IP se bloquea aunque después acierte la clave', async () => {
   const { env } = entorno();
   const ip = '99.9.9.9';
-  for (let i = 0; i < 15; i++) assert.equal((await pedir(env, { op: 'lista', clave: 'x' + i }, ip)).error, 'clave');
+  for (let i = 0; i < 60; i++) assert.equal((await pedir(env, { op: 'lista', clave: 'x' + i }, ip)).error, 'clave');
   assert.equal((await pedir(env, { op: 'lista', clave: env.EFS_STAFF_KEY }, ip)).error, 'demasiados_intentos');
   assert.equal((await pedir(env, { op: 'lista', clave: env.EFS_STAFF_KEY }, '99.9.9.10')).ok, true); // otra IP no se ve afectada
 });

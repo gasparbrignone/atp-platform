@@ -221,6 +221,9 @@ async function admin(cuerpo: Json, ip: string, env: Env): Promise<Json> {
 // (uno solo para todo el EFS), que es quien evita duplicados y respeta los cupos.
 // Dos claves: la del staff (escanear) y la de coordinación (talleres, credenciales).
 const OPS_STAFF = new Set(['lista', 'talleres', 'buscar', 'acreditar', 'vincular', 'taller', 'puerta']);
+// Intentos fallidos de clave tolerados por IP cada 10 min. En el evento, la computadora del sorteo y los
+// celulares del staff suelen salir por la misma IP (wifi de la facultad), así que comparten este cupo.
+const MAX_FALLOS_CLAVE = 60;
 const OPS_COORD = new Set(['coord_resumen', 'coord_taller', 'coord_taller_borrar', 'coord_credenciales', 'coord_desvincular', 'coord_desacreditar', 'coord_despues', 'coord_sincronizar']);
 
 async function staff(cuerpo: Json, ip: string, env: Env): Promise<Json> {
@@ -230,11 +233,11 @@ async function staff(cuerpo: Json, ip: string, env: Env): Promise<Json> {
 
   // Con demasiados intentos fallidos desde una IP se corta ANTES de comparar la
   // clave: así no sirve adivinarla, ni siquiera acertando después.
-  if (excedido('clave:' + ip, 15)) return { ok: false, error: 'demasiados_intentos' };
+  if (excedido('clave:' + ip, MAX_FALLOS_CLAVE)) return { ok: false, error: 'demasiados_intentos' };
   const esperada = coord ? env.EFS_COORD_KEY : env.EFS_STAFF_KEY;
   const recibida = String((coord ? cuerpo.clave_coord : cuerpo.clave) || '');
   if (!esperada || !igualesSeguro(recibida, esperada)) {
-    frenado('clave:' + ip, 15, 600);
+    frenado('clave:' + ip, MAX_FALLOS_CLAVE, 600);
     await esperar(300);
     return { ok: false, error: 'clave' };
   }
