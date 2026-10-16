@@ -248,20 +248,60 @@ con un link personal que manda a quien quiera.
 
 ## Sorteo en vivo (2026-10-16) — efsarg.com.ar/panel/sorteo/
 
-Pedido del dueño para el 17/10: sortear los premios de los sponsors en vivo, proyectado,
-entre quienes se acreditaron ese día.
+Pedido del dueño para el 17/10: sortear en vivo, proyectado, los premios de los sponsors entre
+quienes se acreditaron ese día. Publicado el 16/10 (repo EFS, commits `d8fd16f`, `88b0cf6`, `84a15c5`).
 
-- Archivos: `EFS/panel/sorteo/` (index.html, sorteo.css, sorteo.js, img/). Enlace "Sorteo en
-  vivo" en la barra del panel.
-- Sin cambios de backend ni despliegue: lee `POST /staff` con `op: "lista"` y la **clave del
-  staff** (no el login de ATP). Participan las entradas `activa` que están en `acred` del
-  Durable Object, o sea, acreditadas hoy y al segundo (no espera la sincronización a la hoja).
-  Solo lee; no cambia nada del evento.
-- La lista solo trae los últimos 3 dígitos del DNI (`d3`): en pantalla sale "DNI terminado en
-  123". Mostrar el DNI completo exigiría una acción nueva en el Worker y proyectaría datos
-  personales.
-- Azar con `crypto.getRandomValues` sin sesgo. El ganador sale antes de la animación.
-- Ganadores y ausentes ("No está: sortear de nuevo") quedan afuera de los sorteos siguientes.
-  Todo se guarda en `localStorage` del navegador que proyecta (`efs-sorteo-2026`), así que
-  sobrevive a una recarga, pero no se comparte entre computadoras.
-- `?demo` ensaya con 160 nombres de ejemplo, sin clave.
+**Cómo está hecho**
+- Archivos: `EFS/panel/sorteo/` (index.html, sorteo.css, sorteo.js, img/, audio/). Enlace
+  "Sorteo en vivo" en la barra del panel.
+- No toca el backend: lee `POST /staff` con `op: "lista"` y la **clave del staff** (no el login
+  de ATP). Participan las entradas `activa` que están en `acred` del Durable Object, o sea,
+  acreditadas hoy y al instante (no espera la sincronización a la hoja). Solo lee.
+- Premios precargados: 6 libros de Corpus (uno por título), ambo modelo Nube (Holy) y kit de
+  enfermería (Cirugía Rex), con foto y logo. En "Más" se puede agregar un premio sin foto.
+- Antes de cada sorteo vuelve a pedir la lista con un tope de 6 s; si no llega, sortea con la
+  última que llegó (se actualiza sola cada 30 s).
+- Azar: `crypto.getRandomValues` sin sesgo. El ganador se elige antes de la animación.
+- Animación: los nombres pasan cada vez más lento durante unos 8 s y frenan en el ganador
+  (golpe, campanita, papelitos). El dueño pidió sacar el tramo de suspenso ("Y se lo lleva…" y
+  tres nombres lentos antes): no volver a ponerlo.
+- Debajo del nombre: "DNI terminado en 123". La lista del staff solo trae los últimos 3 dígitos;
+  el DNI completo exigiría una acción nueva en el Worker y lo proyectaría en pantalla.
+- Botones: **Siguiente** (confirma y pasa al premio siguiente) y **Repetir** (deja afuera a esa
+  persona, por ejemplo si no está, y vuelve a sortear el mismo premio). Texto del dueño.
+  Ganadores y ausentes no vuelven a participar. Errores: "Anular y volver a sortear" en el premio,
+  y "Más → Ver ausentes → Vuelve a participar".
+- Música: "Wallpaper", Kevin MacLeod, CC BY 4.0, la misma de las historias. El crédito es
+  obligatorio y está visible abajo. Efectos: tick, whoosh, impacto y campanita de
+  `_historia-charla/public/sfx`. Botones "Música" (M) y "Efectos" (S).
+- Teclas: espacio, flecha derecha o AvPág = Sortear / Siguiente (sirve un control de
+  presentaciones). R = ganadores, F = pantalla completa. Si la tecla queda apretada no confirma.
+- Estado (ganadores, ausentes, premios agregados, ganador en pantalla) en `localStorage` del
+  navegador que proyecta (`efs-sorteo-2026`). Sobrevive a una recarga, pero no se comparte
+  entre computadoras. La clave queda en `sessionStorage` de esa pestaña.
+- `?demo`: 160 nombres de ejemplo, sin clave, con su propio guardado (`efs-sorteo-demo`).
+  `?servicio=` apunta a otro Worker, para las pruebas.
+
+**Límite de claves mal puestas (Worker)**
+- `MAX_FALLOS_CLAVE = 60` intentos fallidos por IP cada 10 min, en `/staff` (antes 15). Commit
+  `868b760` (web atp). El dueño lo desplegó el 16/10 a la 1:31. Pasaron las 68 pruebas.
+- Es por IP, no por equipo: la computadora del sorteo y los celulares en el wifi de la facultad
+  comparten el cupo. Los 10 min corren desde el primer fallo y un acierto no lo reinicia.
+- Salida si se alcanza: pasar el equipo al hotspot de un celular.
+
+**Pruebas**
+- `scripts/efs-sorteo-prueba/`: `mock.cjs` es un Worker falso en :8766 que responde como
+  `op: "lista"` real (clave `buena`; modos caído, lento y vacío). `prueba3.cjs` usa Playwright de
+  `crm atp/node_modules/playwright-core` contra el sitio servido en :8765
+  (`python -m http.server 8765` en `EFS/`), con `bypassCSP` porque el falso es http.
+- 15 de 15 en verde el 16/10: clave mala, cuenta correcta, recarga, alguien acreditado a último
+  momento, ganador después de recargar, tecla sostenida, red caída, red lenta, 8 premios con
+  Repetir (sin repetidos, sin ausentes, todos acreditados) y sin acreditados.
+
+**Sin verificar al 16/10, lo hace el dueño**
+- Entrar con la clave real del staff; con nadie acreditado tiene que decir "Todavía no hay nadie
+  acreditado".
+- Escuchar el audio en los parlantes del aula.
+- Si confirma algún ganador en esa prueba real: "Más → Borrar todo y empezar de nuevo".
+- El día del sorteo: una sola computadora, enchufada, sin apagado de pantalla; entrar con la
+  clave antes del acto y dejar la página abierta.
