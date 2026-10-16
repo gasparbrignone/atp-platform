@@ -1399,5 +1399,21 @@ prueba('2x1 staff_lista incluye las dos entradas', () => {
   igual(l.entradas.map((x) => x.dni).sort(), ['30123456', '40111222']);
 });
 
+console.log('\nEFS.gs · cupo');
+prueba('cupo: al llegar al tope de entradas activas rechaza con cupo_completo (también invitaciones); una revocada libera lugar', () => {
+  const mp = crearMp(); const env = crearEntorno({ mp });
+  env.poner('cupo', '2');
+  pagarUna(env, mp, { dni: '30111111' });
+  pagarUna(env, mp, { dni: '30222222' });
+  igual(entradas(env).length, 2);
+  igual(env.post(datos({ dni: '30333333' })).error, 'cupo_completo');
+  const l = conLinks(env);
+  igual(env.post(invitado(l.codigos[0], 1, { dni: '30444444' })).error, 'cerrada');
+  const cab = env.hojas.get('EFS 2026').datos[0];
+  entradas(env)[0][cab.indexOf('EstadoEntrada')] = 'revocada';
+  si(env.post(datos({ dni: '30333333' })).ok, 'con un lugar libre vuelve a abrir');
+  env.poner('cupo', ''); si(env.post(datos({ dni: '30555555' })).ok, 'vacío = sin tope');
+});
+
 console.log(`\n${ok} bien, ${fallas} mal\n`);
 process.exit(fallas ? 1 : 0);

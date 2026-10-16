@@ -77,6 +77,7 @@ var EFS_CONFIG_INICIAL = [
   ['modo', 'prueba', '"prueba" (usuarios de prueba de Mercado Pago) o "produccion"'],
   ['inscripcion_abierta', 'NO', 'SI / NO'],
   ['cierre', '', 'Fecha y hora de cierre (ej. 16/10/2026 23:59). Vacío = sin cierre automático'],
+  ['cupo', '', 'Tope de entradas activas (pagas, transferencias, cortesías e invitaciones). Al llegar, la inscripción web e invitaciones se cierran solas. Vacío = sin tope'],
   ['precio', 5000, 'En pesos. Se congela al abrir la inscripción'],
   ['collector_id', '', 'User ID de la cuenta de Mercado Pago que cobra'],
   ['titulo_cobro', 'Inscripción EFS 2026', 'Lo que ve la persona en Mercado Pago'],
@@ -133,7 +134,7 @@ function efsRouter(e) {
 
 function efsIniciar_(p) {
   var c = efsConfig_();
-  if (!efsInscripcionAbierta_(c)) return { ok: false, error: 'cerrada' };
+  if (!efsInscripcionAbierta_(c)) return { ok: false, error: efsCupoCompleto_(c) ? 'cupo_completo' : 'cerrada' };
 
   var d = efsValidarDatos_(p);
   if (d.error) return { ok: false, error: 'datos', campo: d.error };
@@ -1758,7 +1759,25 @@ function efsInscripcionAbierta_(c) {
   if (String(c.inscripcion_abierta).trim().toUpperCase() !== 'SI') return false;
   if (!(c.precio > 0)) return false;
   var cierre = efsFecha_(c.cierre);
-  return !cierre || Date.now() < cierre.getTime();
+  if (cierre && Date.now() >= cierre.getTime()) return false;
+  return !efsCupoCompleto_(c);
+}
+
+// Tope de anotados ("cupo" en Config): cuenta las entradas activas de cualquier origen. Solo frena inscripciones
+// nuevas (web e invitaciones); un pago que ya estaba en curso se emite igual, así que puede pasarse por poco.
+// El panel (transferencias y cortesías) no se frena: es carga manual del dueño.
+function efsCupoCompleto_(c) {
+  var cupo = Number(String(c.cupo == null ? '' : c.cupo).trim());
+  if (!(cupo > 0)) return false;
+  return efsEntradasActivas_() >= cupo;
+}
+
+function efsEntradasActivas_() {
+  var filas = efsHoja_(EFS_HOJA_ENTRADAS).getDataRange().getValues();
+  var e = efsIndices_(filas[0]);
+  var n = 0;
+  for (var i = 1; i < filas.length; i++) if (filas[i][e.EstadoEntrada] === 'activa') n++;
+  return n;
 }
 
 // ─────────────────────────── promo 2x1 ───────────────────────────
