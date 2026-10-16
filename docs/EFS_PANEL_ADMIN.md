@@ -245,3 +245,23 @@ con un link personal que manda a quien quiera.
   29 comprobaciones del formulario en Chrome contra un Worker simulado.
 - No probado contra el Apps Script ni el Worker reales: falta el despliegue
   del dueño y una prueba con un link verdadero.
+
+## Sorteo en vivo (2026-10-16) — efsarg.com.ar/panel/sorteo/
+
+Pedido del dueño para el 17/10: sortear los premios de los sponsors en vivo, proyectado,
+entre quienes se acreditaron ese día.
+
+- Archivos: `EFS/panel/sorteo/` (index.html, sorteo.css, sorteo.js, img/). Enlace "Sorteo en
+  vivo" en la barra del panel.
+- Sin cambios de backend ni despliegue: lee `POST /staff` con `op: "lista"` y la **clave del
+  staff** (no el login de ATP). Participan las entradas `activa` que están en `acred` del
+  Durable Object, o sea, acreditadas hoy y al segundo (no espera la sincronización a la hoja).
+  Solo lee; no cambia nada del evento.
+- La lista solo trae los últimos 3 dígitos del DNI (`d3`): en pantalla sale "DNI terminado en
+  123". Mostrar el DNI completo exigiría una acción nueva en el Worker y proyectaría datos
+  personales.
+- Azar con `crypto.getRandomValues` sin sesgo. El ganador sale antes de la animación.
+- Ganadores y ausentes ("No está: sortear de nuevo") quedan afuera de los sorteos siguientes.
+  Todo se guarda en `localStorage` del navegador que proyecta (`efs-sorteo-2026`), así que
+  sobrevive a una recarga, pero no se comparte entre computadoras.
+- `?demo` ensaya con 160 nombres de ejemplo, sin clave.
