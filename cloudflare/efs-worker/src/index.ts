@@ -17,6 +17,7 @@
  *   POST /invitacion/ver  link de invitación → quién invita y cuántos lugares quedan
  *   POST /invitacion  formulario del sitio con un link de invitación → entrada sin pago
  *   POST /mp/aviso    webhook de Mercado Pago → procesar el pago
+ *   POST /encuesta    encuesta anónima de después del evento (sin datos personales, sin IP hacia el Apps Script)
  *   POST /admin       panel del EFS (con la sesión de admin de la plataforma)
  *   POST /staff       celulares del día del evento: acreditación, credencial, taller (Durable Object)
  *   GET  /salud       chequeo simple
@@ -61,6 +62,7 @@ export default {
         case '/verificar': return json(await verificar(cuerpo, ip, env), env, origen);
         case '/invitacion/ver': return json(await verInvitacion(cuerpo, ip, env), env, origen);
         case '/invitacion': return json(await invitar(cuerpo, ip, env), env, origen);
+        case '/encuesta': return json(await encuesta(cuerpo, ip, env), env, origen);
         case '/admin': return json(await admin(cuerpo, ip, env), env, origen);
         case '/staff': return json(await staff(cuerpo, ip, env), env, origen);
         default: return json({ ok: false, error: 'ruta' }, env, origen, 404);
@@ -146,6 +148,28 @@ async function invitar(cuerpo: Json, ip: string, env: Env): Promise<Json> {
   const r = await appsScript(params, env, { reintentos: 2 });
   if (r.error === 'invitacion') frenado('inv-mal:' + ip, 10, 600);
   return r;
+}
+
+// ─────────────────────────── encuesta anónima ───────────────────────────
+// Después del evento: una nota de 1 a 5 (un toque desde el mail) y tres respuestas abiertas opcionales.
+// Es anónima de verdad: el link del mail es el mismo para todos, la respuesta se identifica con un id al
+// azar que arma el navegador (para poder completar la nota después) y la IP se queda acá: no viaja al Apps Script.
+// Sin Turnstile a propósito: la nota se manda con un toque desde el mail.
+
+async function encuesta(cuerpo: Json, ip: string, env: Env): Promise<Json> {
+  if (frenado('enc:' + ip, 60, 600)) return { ok: false, error: 'demasiados_intentos' };
+  const id = String(cuerpo.id ?? '');
+  if (!/^[0-9a-z]{16,32}$/.test(id)) return { ok: false, error: 'formato' };
+  const params: Record<string, string> = { accion: 'encuesta', id };
+  if (cuerpo.nota != null) {
+    const nota = Number(cuerpo.nota);
+    if (!Number.isInteger(nota) || nota < 1 || nota > 5) return { ok: false, error: 'formato' };
+    params.nota = String(nota);
+  }
+  for (const k of ['gusto', 'mejorar', 'proxima']) if (cuerpo[k] != null) params[k] = String(cuerpo[k]).slice(0, 1500);
+  if (!params.nota && !params.gusto && !params.mejorar && !params.proxima) return { ok: false, error: 'formato' };
+  // El Apps Script guarda por id (si ya existe, completa la fila): reintentar es seguro.
+  return appsScript(params, env, { reintentos: 2 });
 }
 
 // ─────────────────────────── correo ───────────────────────────

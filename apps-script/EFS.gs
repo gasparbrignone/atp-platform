@@ -34,6 +34,7 @@ var EFS_HOJA_PAGOS = 'EFS · Pagos';
 var EFS_HOJA_ENTRADAS = 'EFS 2026';
 var EFS_HOJA_TRANSFERENCIAS = 'EFS · Transferencias';
 var EFS_HOJA_INVITACIONES = 'EFS · Invitaciones';
+var EFS_HOJA_ENCUESTA = 'EFS · Encuesta';
 var EFS_ACTIVITY_ID = 'efs-2026';
 var EFS_ZONA = 'America/Argentina/Buenos_Aires';
 var EFS_ALFABETO = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'; // base32 Crockford: sin I, L, O, U
@@ -63,6 +64,9 @@ var EFS_COL_TRANSFERENCIAS = [
 // quiere, otro "cupo"); el resto lo completa efsGenerarInvitaciones. La columna E es texto (regla 1).
 var EFS_COL_INVITACIONES = ['codigo', 'titular', 'cupo', 'usadas', 'link', 'nota'];
 var EFS_INVITACION_CUPO = 5;
+// Encuesta anónima de después del evento (ver "encuesta"). Una fila por respuesta, identificada por un id al
+// azar que arma el navegador. NO lleva nombre, correo, IP ni nada que identifique a la persona.
+var EFS_COL_ENCUESTA = ['id', 'primera', 'actualizada', 'nota', 'gusto', 'mejorar', 'proxima'];
 // Las 14 primeras son exactamente las de una hoja charla (mismo orden): así el
 // panel y /staff/certificados/ la reconocen sin cambios.
 var EFS_COL_ENTRADAS = [
@@ -111,6 +115,7 @@ function efsRouter(e) {
       case 'aviso': return efsJson_(efsAviso_(p.tipo, p.id));
       case 'invitacion_ver': return efsJson_(efsInvitacionVer_(p));
       case 'invitar': return efsJson_(efsInvitar_(p));
+      case 'encuesta': return efsJson_(efsEncuesta_(p));
       case 'admin_resumen': return efsJson_(efsAdmin_(p, efsAdminResumen_));
       case 'admin_buscar': return efsJson_(efsAdmin_(p, efsAdminBuscar_));
       case 'admin_procesar': return efsJson_(efsAdmin_(p, efsAdminProcesar_));
@@ -1864,6 +1869,48 @@ function efsRegistrarPago_(pago, origen, accion, detalle) {
   efsHoja_(EFS_HOJA_PAGOS).appendRow(efsComoTexto_(fila, efsIndices_(EFS_COL_PAGOS)));
 }
 
+// ─────────────────────────── encuesta anónima ───────────────────────────
+// Llega del Worker (POST /encuesta) con un id al azar del navegador y una nota 1-5 y/o tres textos.
+// Si el id ya existe se completa esa fila (la nota llega con un toque desde el mail y los textos después):
+// por eso reintentar es seguro. Los textos son libres: las columnas están en formato texto, así que un "=..."
+// queda como texto y no como fórmula.
+function efsEncuesta_(p) {
+  var id = String(p.id || '');
+  if (!/^[0-9a-z]{16,32}$/.test(id)) return { ok: false, error: 'formato' };
+  var nota = p.nota === undefined || p.nota === '' ? '' : Number(p.nota);
+  if (nota !== '' && (!(nota >= 1 && nota <= 5) || nota % 1 !== 0)) return { ok: false, error: 'formato' };
+  var textos = {};
+  ['gusto', 'mejorar', 'proxima'].forEach(function (k) {
+    var v = String(p[k] === undefined ? '' : p[k]).replace(/\s+/g, ' ').trim().slice(0, 1500);
+    if (v) textos[k] = v;
+  });
+  if (nota === '' && !Object.keys(textos).length) return { ok: false, error: 'formato' };
+
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(10000)) return { ok: false, error: 'ocupado' };
+  try {
+    var hoja = efsHoja_(EFS_HOJA_ENCUESTA);
+    var col = efsIndices_(EFS_COL_ENCUESTA);
+    var ahora = efsTextoFecha_(new Date());
+    var ids = efsColumna_(hoja, 'id');
+    var i = ids.indexOf(id);
+    if (i < 0) {
+      var fila = efsFilaVacia_(EFS_COL_ENCUESTA);
+      efsAsignar_(fila, col, { id: id, primera: ahora, actualizada: ahora, nota: nota });
+      efsAsignar_(fila, col, textos);
+      hoja.appendRow(fila);
+    } else {
+      var nro = i + 2;
+      if (nota !== '') hoja.getRange(nro, col.nota + 1).setValue(nota);
+      Object.keys(textos).forEach(function (k) { hoja.getRange(nro, col[k] + 1).setValue(textos[k]); });
+      hoja.getRange(nro, col.actualizada + 1).setValue(ahora);
+    }
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // Crea la hoja con sus encabezados si no existe, con todas las columnas en
 // formato texto (así un DNI no se convierte en número ni un "=..." en fórmula).
 function efsHoja_(nombre) {
@@ -1878,9 +1925,11 @@ function efsHoja_(nombre) {
   }
   var columnas = nombre === EFS_HOJA_PENDIENTES ? EFS_COL_PENDIENTES : nombre === EFS_HOJA_PAGOS ? EFS_COL_PAGOS
     : nombre === EFS_HOJA_TRANSFERENCIAS ? EFS_COL_TRANSFERENCIAS
-    : nombre === EFS_HOJA_INVITACIONES ? EFS_COL_INVITACIONES : EFS_COL_ENTRADAS;
+    : nombre === EFS_HOJA_INVITACIONES ? EFS_COL_INVITACIONES
+    : nombre === EFS_HOJA_ENCUESTA ? EFS_COL_ENCUESTA : EFS_COL_ENTRADAS;
   hoja.appendRow(columnas);
   hoja.getRange(2, 1, hoja.getMaxRows() - 1, columnas.length).setNumberFormat('@');
+  if (nombre === EFS_HOJA_ENCUESTA) hoja.getRange(2, 4, hoja.getMaxRows() - 1, 1).setNumberFormat('0'); // nota: número, para promediar
   hoja.setFrozenRows(1);
   return hoja;
 }

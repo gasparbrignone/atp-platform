@@ -351,3 +351,66 @@ test('2x1: correo del acompañante con dominio mal escrito → correo_dominio co
   const r2 = await (await worker.fetch(pedido('/inscribir', conAcomp({ acomp_correo: 'sin-arroba' })), baseEnv, ctx())).json();
   assert.equal(r2.error, 'datos'); assert.equal(r2.campo, 'acomp_correo');
 });
+
+// ─────────────────────────── encuesta anónima ───────────────────────────
+
+const ID_ENCUESTA = 'a1b2c3d4e5f6a7b8c9d0';
+
+test('encuesta: reenvía id, nota y textos al Apps Script sin IP ni datos de la persona', async () => {
+  const ll = simular({ respuestas: [{ ok: true }] });
+  const r = await (await worker.fetch(pedido('/encuesta', { id: ID_ENCUESTA, nota: 4, gusto: 'Los talleres', mejorar: 'La fila', proxima: 'Más ECG', correo: 'ana@ejemplo.com', ip: '1.2.3.4' }, { ip: '9.9.9.9' }), baseEnv, ctx())).json();
+  assert.equal(r.ok, true);
+  assert.equal(ll.apps.length, 1);
+  const p = ll.apps[0];
+  assert.equal(p.accion, 'encuesta');
+  assert.equal(p.formType, 'efs');
+  assert.equal(p.id, ID_ENCUESTA);
+  assert.equal(p.nota, '4');
+  assert.equal(p.gusto, 'Los talleres');
+  assert.equal(p.mejorar, 'La fila');
+  assert.equal(p.proxima, 'Más ECG');
+  assert.deepEqual(Object.keys(p).sort(), ['accion', 'efs_secreto', 'formType', 'gusto', 'id', 'mejorar', 'nota', 'proxima']);
+  assert.ok(!JSON.stringify(p).includes('9.9.9.9'));
+});
+
+test('encuesta: solo la nota (el toque desde el mail) alcanza', async () => {
+  const ll = simular({ respuestas: [{ ok: true }] });
+  const r = await (await worker.fetch(pedido('/encuesta', { id: ID_ENCUESTA, nota: 5 }), baseEnv, ctx())).json();
+  assert.equal(r.ok, true);
+  assert.equal(ll.apps[0].nota, '5');
+  assert.equal(ll.apps[0].gusto, undefined);
+});
+
+test('encuesta: id mal formado, nota fuera de rango o pedido vacío no llegan al Apps Script', async () => {
+  const ll = simular();
+  for (const cuerpo of [
+    { id: 'corto', nota: 3 }, { id: 'A'.repeat(20), nota: 3 }, { nota: 3 },
+    { id: ID_ENCUESTA, nota: 0 }, { id: ID_ENCUESTA, nota: 6 }, { id: ID_ENCUESTA, nota: 3.5 }, { id: ID_ENCUESTA, nota: 'x' },
+    { id: ID_ENCUESTA }, { id: ID_ENCUESTA, gusto: null },
+  ]) {
+    const r = await (await worker.fetch(pedido('/encuesta', cuerpo), baseEnv, ctx())).json();
+    assert.equal(r.error, 'formato', JSON.stringify(cuerpo));
+  }
+  assert.equal(ll.apps.length, 0);
+});
+
+test('encuesta: los textos se cortan a 1500 caracteres', async () => {
+  const ll = simular({ respuestas: [{ ok: true }] });
+  await worker.fetch(pedido('/encuesta', { id: ID_ENCUESTA, gusto: 'x'.repeat(5000) }), baseEnv, ctx());
+  assert.equal(ll.apps[0].gusto.length, 1500);
+});
+
+test('encuesta: si el Apps Script está ocupado reintenta con el mismo id', async () => {
+  const ll = simular({ respuestas: [{ ok: false, error: 'ocupado' }, { ok: true }] });
+  const r = await (await worker.fetch(pedido('/encuesta', { id: ID_ENCUESTA, nota: 2 }), baseEnv, ctx())).json();
+  assert.equal(r.ok, true);
+  assert.equal(ll.apps.length, 2);
+  assert.equal(ll.apps[0].id, ll.apps[1].id);
+});
+
+test('encuesta: freno por IP después de 60 pedidos en 10 minutos', async () => {
+  simular({ respuestas: [{ ok: true }] });
+  let ultimo;
+  for (let i = 0; i < 62; i++) ultimo = await (await worker.fetch(pedido('/encuesta', { id: ID_ENCUESTA, nota: 3 }, { ip: '7.7.7.7' }), baseEnv, ctx())).json();
+  assert.equal(ultimo.error, 'demasiados_intentos');
+});
