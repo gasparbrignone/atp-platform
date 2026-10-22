@@ -21,11 +21,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install, build, and upload the site
-        # package.json requires Node >=22.12.0 (see "engines"); this action
-        # defaults to Node 20 otherwise, which doesn't satisfy that.
+        # package.json requires Node >=22.23.4 (see "engines", Astro 7.4 lo
+        # exige); this action defaults to Node 20 otherwise. "22" a secas
+        # resolvió a 22.23.3 en el runner y rompió el build, por eso 24.
         uses: withastro/action@56781b97402ce0487b7e61ce2cb960c0e2cc5289 # v3
         with:
-          node-version: 22
+          node-version: 24
         env:
           # Server-only en Astro (sin prefijo PUBLIC_, ver src/env.d.ts):
           # se usa en build time para pedir los últimos videos del canal
