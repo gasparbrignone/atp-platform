@@ -106,7 +106,7 @@ function drawIconBadge(page, icon, x, yCenter, radius, bg) {
 // Rasteriza el logo a PNG en memoria (no depende de que exista un PNG ya
 // generado en el repo) — 'white' para la franja de color de la cabecera,
 // no hace falta la versión azul en este diseño.
-async function getLogoPngBytes(variant = 'white') {
+export async function getLogoPngBytes(variant = 'white') {
   const file = variant === 'white' ? 'logo-white.svg' : 'logo.svg';
   return sharp(path.join(ROOT, 'public/branding', file))
     .resize({ width: 900 })
@@ -545,25 +545,23 @@ async function runUpload() {
   console.log(`OK: ${done} | Errores: ${failed}`);
 }
 
-const args = process.argv.slice(2);
-if (args.includes('--preview')) {
-  await runPreview();
-} else if (args.includes('--all')) {
-  await runAll();
-} else if (args.includes('--retry-failed')) {
-  await runRetryFailed();
-} else if (args.includes('--upload')) {
-  await runUpload();
-} else {
+// Solo corre la CLI cuando se ejecuta este archivo directo — importarlo
+// para reusar drawPromoPage/getLogoPngBytes (ej. al sumar libros nuevos
+// desde otra fuente) no debe disparar nada.
+async function runCli(args) {
+  if (args.includes('--preview')) return runPreview();
+  if (args.includes('--all')) return runAll();
+  if (args.includes('--retry-failed')) return runRetryFailed();
+  if (args.includes('--upload')) return runUpload();
   const testOneArg = args.find((a) => a.startsWith('--test-one='));
-  if (testOneArg) {
-    await runTestOne(testOneArg.split('=')[1]);
-  } else {
-    console.log('Uso:');
-    console.log('  node scripts/add-library-promo-page.mjs --preview');
-    console.log('  node scripts/add-library-promo-page.mjs --test-one=<slug-del-libro>');
-    console.log('  node scripts/add-library-promo-page.mjs --all           (procesa los 69, LOCAL, no sube nada)');
-    console.log('  node scripts/add-library-promo-page.mjs --retry-failed  (reintenta solo los que quedaron en error)');
-    console.log('  node scripts/add-library-promo-page.mjs --upload        (sube a R2 lo que dejó --all/--retry-failed)');
-  }
+  if (testOneArg) return runTestOne(testOneArg.split('=')[1]);
+  console.log('Uso:');
+  console.log('  node scripts/add-library-promo-page.mjs --preview');
+  console.log('  node scripts/add-library-promo-page.mjs --test-one=<slug-del-libro>');
+  console.log('  node scripts/add-library-promo-page.mjs --all           (procesa los 69, LOCAL, no sube nada)');
+  console.log('  node scripts/add-library-promo-page.mjs --retry-failed  (reintenta solo los que quedaron en error)');
+  console.log('  node scripts/add-library-promo-page.mjs --upload        (sube a R2 lo que dejó --all/--retry-failed)');
 }
+
+const isCli = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isCli) await runCli(process.argv.slice(2));
