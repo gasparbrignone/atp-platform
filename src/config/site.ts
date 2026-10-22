@@ -3,6 +3,8 @@ export const siteConfig = {
   locale: 'es',
   defaultOgImage: '/branding/logo.svg',
   goatcounterSite: 'atpfcm',
+  // Mail público de contacto de ATP (SocialLinks, avisos legales).
+  contactEmail: 'contacto@atpfcm.com.ar',
   // Microsoft Clarity (grabación de sesiones + mapas de calor — ver
   // docs/ANALYTICS_SETUP.md). Público a propósito, igual que el site code
   // de GoatCounter de arriba: solo identifica a qué proyecto de Clarity

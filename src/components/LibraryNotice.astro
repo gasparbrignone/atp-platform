@@ -1,0 +1,29 @@
+---
+/**
+ * Aviso al pie de la Biblioteca: aclara que ATP no es titular de los
+ * libros de terceros y ofrece el canal de retiro. Texto deliberadamente
+ * corto y sin afirmaciones sobre el origen de los archivos.
+ */
+import { siteConfig } from '@/config/site';
+
+const { contactEmail } = siteConfig;
+---
+
+<aside
+  aria-label="Aviso sobre los materiales de la biblioteca"
+  class="border-border text-caption text-text-secondary flex flex-col gap-1 border-t pt-6"
+>
+  <p class="text-text font-semibold">Sobre el material de esta biblioteca</p>
+  <p>
+    ATP no es titular de los derechos de los libros y materiales de terceros que se ofrecen acá:
+    pertenecen a sus autores y editoriales. Si sos autor, editor o titular de derechos y querés que
+    retiremos un material, escribinos a
+    <a
+      href={`mailto:${contactEmail}`}
+      class="text-text hover:text-text-secondary underline underline-offset-2"
+    >
+      {contactEmail}
+    </a>
+    indicando el título y lo retiramos a la brevedad, sin trámites ni costo.
+  </p>
+</aside>
