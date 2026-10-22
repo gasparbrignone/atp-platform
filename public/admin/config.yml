@@ -250,6 +250,15 @@ collections:
       - { label: Título, name: title, widget: string }
       - { label: Autor, name: author, widget: string }
       - {
+          label: Edición,
+          name: edition,
+          widget: number,
+          value_type: int,
+          min: 1,
+          required: false,
+          hint: 'Solo el número (ej. 12 para la duodécima edición). Dejalo vacío si no corresponde, como en los resúmenes de ATP.',
+        }
+      - {
           label: Materia,
           name: subject,
           widget: relation,

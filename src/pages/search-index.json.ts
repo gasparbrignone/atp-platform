@@ -15,6 +15,7 @@ import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
 import { getActivityTiming } from '@/lib/activitySchedule';
 import { markdownToPlainText } from '@/lib/markdown';
+import { formatEdition } from '@/lib/bookEdition';
 
 export const prerender = true;
 
@@ -77,13 +78,17 @@ export const GET: APIRoute = async () => {
   );
 
   const books = await getCollection('books', ({ data }) => data.published);
-  const bookItems: SearchItem[] = books.map((book) => ({
-    type: 'libro',
-    title: book.data.title,
-    subtitle: book.data.author,
-    text: `${book.data.title} ${book.data.author}`,
-    url: `/biblioteca/?q=${encodeURIComponent(book.data.title)}`,
-  }));
+  const bookItems: SearchItem[] = books.map((book) => {
+    const editionLabel = formatEdition(book.data.edition);
+    const subtitle = editionLabel ? `${book.data.author} · ${editionLabel}` : book.data.author;
+    return {
+      type: 'libro',
+      title: book.data.title,
+      subtitle,
+      text: `${book.data.title} ${subtitle}`,
+      url: `/biblioteca/?q=${encodeURIComponent(book.data.title)}`,
+    };
+  });
 
   const items = [
     ...activityItems,

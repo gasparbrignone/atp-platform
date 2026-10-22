@@ -33,6 +33,7 @@ import LibraryNotice from '@/components/LibraryNotice.astro';
 import { getCollection } from 'astro:content';
 import { careerLabels, type CareerSlug } from '@/lib/labels';
 import { uploadThumb } from '@/lib/uploadThumb';
+import { formatEdition } from '@/lib/bookEdition';
 import BookOpen from '@lucide/astro/icons/book-open';
 
 const publishedBooks = await getCollection('books', ({ data }) => data.published);
@@ -140,6 +141,7 @@ const filterChips = [
             const subjectName = subjectNames.get(book.data.subject) ?? book.data.subject;
             const typeName =
               resourceTypeNames.get(book.data.resourceType) ?? book.data.resourceType;
+            const editionLabel = formatEdition(book.data.edition);
             return (
               <Card
                 data-reveal
@@ -147,7 +149,7 @@ const filterChips = [
                 data-career={book.data.career.join(' ')}
                 data-subject={book.data.subject}
                 data-resource-type={book.data.resourceType}
-                data-search={`${book.data.author} ${book.data.title} ${subjectName}`}
+                data-search={`${book.data.author} ${book.data.title} ${subjectName} ${editionLabel ?? ''}`}
               >
                 <Badge slot="badge" variant="secondary">
                   {typeName}
@@ -181,7 +183,10 @@ const filterChips = [
                   )}
                   <div class="flex flex-col gap-0.5">
                     <h3 class="text-h4 text-text font-bold">{book.data.title}</h3>
-                    <p class="text-body-sm text-text-secondary">{book.data.author}</p>
+                    <p class="text-body-sm text-text-secondary">
+                      {book.data.author}
+                      {editionLabel && ` · ${editionLabel}`}
+                    </p>
                   </div>
                 </div>
                 <p class="text-body-sm text-text-secondary font-semibold">{subjectName}</p>

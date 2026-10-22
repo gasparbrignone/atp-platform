@@ -164,6 +164,15 @@ const books = defineCollection({
   schema: z.object({
     title: z.string(),
     author: z.string(),
+    // Número de edición (ej. 12), no texto libre: así todas se muestran con
+    // el mismo formato (ver src/lib/bookEdition.ts) y la Biblioteca puede
+    // tener varias ediciones del mismo libro como entradas separadas.
+    // Nullish: los resúmenes/guías propios de ATP no tienen edición. Mismo
+    // preprocess que `optionalUrl`, por si el CMS guarda `""` al vaciarlo.
+    edition: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      z.number().int().positive().nullish(),
+    ),
     // Slug de una entrada de la colección `subjects` (no el nombre libre de
     // antes) — se resuelve contra esa colección al armar la página, igual
     // que `career` se resuelve contra `careerLabels`. Permite crear materias

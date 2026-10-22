@@ -45,9 +45,11 @@ Conceptos clave:
 * `subject` y `resourceType` son **slugs que apuntan a otras colecciones** (`subjects`/`resourceTypes`), no texto libre ni un enum fijo — así se puede crear una materia o un tipo de recurso nuevo desde el CMS sin tocar código.
 * `career` es un array — un libro puede pertenecer a más de una carrera.
 * `downloadUrl` es el link real de descarga (hoy: Cloudflare R2, subido directo desde el CMS). `driveUrl` es un campo alternativo — un link de Google Drive que un workflow migra solo a `downloadUrl` en segundo plano (ver `docs/STACK_DECISIONS.md`, sección Biblioteca). Nunca se usa `driveUrl` como link de descarga directamente.
-* `cover` existe en el esquema pero **todavía no tiene consumidor en ninguna página** — se preparó el campo y el CMS para cuando haya portadas reales cargadas de forma consistente.
+* `edition` (opcional) es el **número** de edición (ej. `12`), no texto libre — se muestra como "12.ª ed." al lado del autor (`src/lib/bookEdition.ts`). Varias ediciones del mismo libro son entradas separadas, cada una con su archivo.
+* `fileSize` (opcional, en bytes) se completa al subir el archivo, nunca a mano.
+* `cover` es una ruta a `public/uploads/` o una URL externa; se muestra como miniatura en la tarjeta del libro.
 
-**No existe**: `academicYear`, `edition`, `publisher`, `language`, `fileSize`, `pages`, `tags`.
+**No existe**: `academicYear`, `publisher`, `language`, `pages`, `tags`.
 
 ## careers
 
