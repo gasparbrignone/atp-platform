@@ -1424,7 +1424,19 @@ actividad solo.
    // de Resend para un adjunto es un string en base64, así que acá no
    // hace falta pasar por Utilities.base64Decode/newBlob como sí hacía
    // falta con GmailApp.
+   //
+   // Cadena de envío (2026-10-21), para no depender de un solo cupo de
+   // 100 por día: 1) relay de Gmail en la cuenta de Workspace de ATP, si
+   // la propiedad CERT_RELAY_URL está cargada (Apps Script aparte, ver
+   // apps-script/RelayCertificados.gs en el repo); 2) Resend; 3) GmailApp
+   // de esta misma cuenta; 4) Brevo. Se pasa a la siguiente solo cuando la anterior
+   // rechazó el mail de forma explícita (no salió), así nunca se duplica.
+   // El cupo de Apps Script en Workspace sube a 1.500 recién cuando el
+   // dominio pagó USD 100 y pasaron 60 días: hasta entonces también es 100.
    function sendCertificateEmailViaResend(recipientEmail, subject, htmlBody, pdfBase64, filename) {
+     var relayUrl = PropertiesService.getScriptProperties().getProperty('CERT_RELAY_URL');
+     if (relayUrl && sendCertificateEmailViaRelay(relayUrl, recipientEmail, subject, htmlBody, pdfBase64, filename)) return;
+
      var response = UrlFetchApp.fetch('https://api.resend.com/emails', {
        method: 'post',
        contentType: 'application/json',
@@ -1442,12 +1454,106 @@ actividad solo.
      var code = response.getResponseCode();
      if (code >= 200 && code < 300) return;
 
+     // Resend lo rechazó (lo normal: cupo diario agotado), así que no salió:
+     // se puede probar con el Gmail de esta cuenta y después con Brevo sin
+     // duplicar.
+     if (MailApp.getRemainingDailyQuota() > 0) {
+       console.warn('Resend (' + code + '), sigue por Gmail: ' + response.getContentText().slice(0, 200));
+       sendCertificateEmailViaGmail(recipientEmail, subject, htmlBody, pdfBase64, filename);
+       return;
+     }
+     if (PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY')) {
+       console.warn('Resend (' + code + ') y Gmail sin cupo, sigue por Brevo: ' + response.getContentText().slice(0, 200));
+       sendCertificateEmailViaBrevo(recipientEmail, subject, htmlBody, pdfBase64, filename);
+       return;
+     }
+
      // Resend siempre devuelve un JSON con el motivo real del error
      // (dominio sin verificar, clave inválida, límite del plan, etc.) —
      // se lo pasamos tal cual a quien llame (termina en CertificadoError
      // y en el cartel del panel) en vez de un "no funcionó" genérico.
      var errorBody = safeParseJson(response.getContentText()) || {};
      throw new Error('Resend (' + code + '): ' + (errorBody.message || response.getContentText()));
+   }
+
+   // true = salió. false = el relay contestó que NO lo mandó (cupo agotado,
+   // clave mal copiada, etc.): se sigue con Resend. Si la respuesta no se
+   // entiende (corte, página de error de Google) no se sabe si salió, así
+   // que se corta con error en vez de arriesgar un duplicado. UrlFetchApp
+   // sigue solo la redirección de la aplicación web.
+   function sendCertificateEmailViaRelay(relayUrl, recipientEmail, subject, htmlBody, pdfBase64, filename) {
+     var response = UrlFetchApp.fetch(relayUrl, {
+       method: 'post',
+       contentType: 'application/json',
+       payload: JSON.stringify({
+         secreto: PropertiesService.getScriptProperties().getProperty('CERT_RELAY_SECRET'),
+         para: recipientEmail,
+         asunto: subject,
+         html: htmlBody,
+         pdfBase64: pdfBase64,
+         nombreArchivo: filename,
+       }),
+       muteHttpExceptions: true,
+     });
+
+     var result = safeParseJson(response.getContentText());
+     if (result && result.ok) return true;
+     if (result) {
+       console.warn('Relay no lo mandó, sigue por Resend: ' + result.error);
+       return false;
+     }
+     throw new Error('Relay (' + response.getResponseCode() + '): ' + response.getContentText().slice(0, 200));
+   }
+
+   function sendCertificateEmailViaGmail(recipientEmail, subject, htmlBody, pdfBase64, filename) {
+     var pdf = Utilities.newBlob(Utilities.base64Decode(pdfBase64), 'application/pdf', filename);
+     GmailApp.sendEmail(recipientEmail, subject, 'Tu certificado va adjunto a este mail, en PDF.', {
+       htmlBody: htmlBody,
+       attachments: [pdf],
+       name: SENDER_NAME,
+     });
+   }
+
+   // Último paso de la cadena: Brevo (300 por día, plan gratis). Usa la
+   // misma clave y remitente que EFS.gs (BREVO_API_KEY y BREVO_FROM_EMAIL
+   // en las propiedades del script).
+   function sendCertificateEmailViaBrevo(recipientEmail, subject, htmlBody, pdfBase64, filename) {
+     var props = PropertiesService.getScriptProperties();
+     var response = UrlFetchApp.fetch('https://api.brevo.com/v3/smtp/email', {
+       method: 'post',
+       contentType: 'application/json',
+       headers: { 'api-key': props.getProperty('BREVO_API_KEY'), accept: 'application/json' },
+       payload: JSON.stringify({
+         sender: { name: SENDER_NAME, email: props.getProperty('BREVO_FROM_EMAIL') || 'efs@atpfcm.com.ar' },
+         to: [{ email: recipientEmail }],
+         replyTo: { email: Session.getEffectiveUser().getEmail() },
+         subject: subject,
+         htmlContent: htmlBody,
+         attachment: [{ name: filename, content: pdfBase64 }],
+       }),
+       muteHttpExceptions: true,
+     });
+     var code = response.getResponseCode();
+     if (code >= 200 && code < 300) return;
+     throw new Error('Brevo (' + code + '): ' + response.getContentText().slice(0, 200));
+   }
+
+   // Para correr a mano desde el editor: confirma que el relay responde y
+   // con qué cuenta y cupo, sin mandar ningún mail.
+   function probarRelayCertificados() {
+     var props = PropertiesService.getScriptProperties();
+     var relayUrl = props.getProperty('CERT_RELAY_URL');
+     if (!relayUrl) {
+       Logger.log('Falta la propiedad CERT_RELAY_URL.');
+       return;
+     }
+     var response = UrlFetchApp.fetch(relayUrl, {
+       method: 'post',
+       contentType: 'application/json',
+       payload: JSON.stringify({ secreto: props.getProperty('CERT_RELAY_SECRET'), accion: 'cupo' }),
+       muteHttpExceptions: true,
+     });
+     Logger.log('Respuesta del relay (' + response.getResponseCode() + '): ' + response.getContentText().slice(0, 300));
    }
 
    function buildCertificateEmailBody(recipientName, activityTitle, testMode) {
