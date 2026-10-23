@@ -9,6 +9,6 @@
   "resourceType": "libro",
   "downloadUrl": "https://archivos.atpfcm.com.ar/atlas-de-histologia-gartner.pdf",
   "published": true,
-  "cover": "https://covers.openlibrary.org/b/id/7900790-M.jpg",
+  "cover": "/uploads/portada-gartner-atlas-de-histologia.webp",
   "fileSize": 352698981
 }
