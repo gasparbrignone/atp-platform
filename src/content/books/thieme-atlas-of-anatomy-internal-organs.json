@@ -9,7 +9,7 @@
   "resourceType": "libro",
   "driveUrl": "https://drive.google.com/file/d/1k4TgKN3p7-BKb9A1FSE4HwYSzDszm7IS/view",
   "downloadUrl": "https://archivos.atpfcm.com.ar/thieme-atlas-of-anatomy-internal-organs.pdf",
-  "published": true,
+  "published": false,
   "cover": "/uploads/portada-thieme-atlas-of-anatomy-internal-organs.webp",
   "order": null,
   "fileSize": 113237935

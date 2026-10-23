@@ -9,7 +9,7 @@
   "resourceType": "libro",
   "driveUrl": "https://drive.google.com/file/d/1cWD94xUWoL7h19E3iXxNlBUV-0TvR9SZ/view",
   "downloadUrl": "https://archivos.atpfcm.com.ar/anatomy-a-photographic-atlas-rohen.pdf",
-  "published": true,
+  "published": false,
   "cover": "/uploads/portada-anatomy-a-photographic-atlas-rohen.webp",
   "order": null,
   "fileSize": 145064390
