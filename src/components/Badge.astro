@@ -16,7 +16,7 @@ interface Props extends HTMLAttributes<'span'> {
 const { variant = 'neutral', class: className, ...rest }: Props = Astro.props;
 
 const variantClasses: Record<BadgeVariant, string> = {
-  neutral: 'bg-gray-100 text-gray-700',
+  neutral: 'bg-surface-alt text-text-secondary border-border border',
   primary: 'bg-primary-fill text-primary-fill-foreground',
   secondary: 'bg-secondary text-secondary-foreground',
   success: 'bg-success text-success-foreground',

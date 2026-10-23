@@ -139,8 +139,6 @@ const filterChips = [
         {
           publishedBooks.map((book) => {
             const subjectName = subjectNames.get(book.data.subject) ?? book.data.subject;
-            const typeName =
-              resourceTypeNames.get(book.data.resourceType) ?? book.data.resourceType;
             const editionLabel = formatEdition(book.data.edition);
             return (
               <Card
@@ -151,8 +149,8 @@ const filterChips = [
                 data-resource-type={book.data.resourceType}
                 data-search={`${book.data.author} ${book.data.title} ${subjectName} ${editionLabel ?? ''}`}
               >
-                <Badge slot="badge" variant="secondary">
-                  {typeName}
+                <Badge slot="badge" variant="secondary" class="self-start">
+                  {subjectName}
                 </Badge>
                 <div slot="title" class="flex items-start gap-3">
                   {book.data.cover && (
@@ -181,15 +179,12 @@ const filterChips = [
                       </div>
                     </div>
                   )}
-                  <div class="flex flex-col gap-0.5">
+                  <div class="flex flex-col items-start gap-1">
                     <h3 class="text-h4 text-text font-bold">{book.data.title}</h3>
-                    <p class="text-body-sm text-text-secondary">
-                      {book.data.author}
-                      {editionLabel && ` · ${editionLabel}`}
-                    </p>
+                    <p class="text-body-sm text-text-secondary">{book.data.author}</p>
+                    {editionLabel && <Badge variant="neutral">{editionLabel}</Badge>}
                   </div>
                 </div>
-                <p class="text-body-sm text-text-secondary font-semibold">{subjectName}</p>
                 <div slot="actions" class="flex items-center justify-between gap-4">
                   <span class="text-caption text-text-secondary">
                     {book.data.career.map((slug) => careerLabels[slug]).join(', ')}
