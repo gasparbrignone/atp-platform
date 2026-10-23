@@ -30,10 +30,13 @@ import FilterPanel from '@/components/FilterPanel.astro';
 import FilterChip from '@/components/FilterChip.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import LibraryNotice from '@/components/LibraryNotice.astro';
+import QuickSearchPills from '@/components/QuickSearchPills.astro';
 import { getCollection } from 'astro:content';
 import { careerLabels, type CareerSlug } from '@/lib/labels';
 import { uploadThumb } from '@/lib/uploadThumb';
 import { formatEdition } from '@/lib/bookEdition';
+import { getRecentLibrarySearches } from '@/lib/goatcounter';
+import { buildFrequentSearches } from '@/lib/frequentSearches';
 import BookOpen from '@lucide/astro/icons/book-open';
 
 const publishedBooks = await getCollection('books', ({ data }) => data.published);
@@ -64,6 +67,24 @@ const usedSubjectSlugs = new Set(publishedBooks.map((book) => book.data.subject)
 const usedResourceTypeSlugs = new Set(publishedBooks.map((book) => book.data.resourceType));
 const subjectOptions = sortedUsedOptions(subjectNames, usedSubjectSlugs);
 const resourceTypeOptions = sortedUsedOptions(resourceTypeNames, usedResourceTypeSlugs);
+
+// "Más buscados": lo que la gente buscó en los últimos 30 días (GoatCounter,
+// se actualiza con el deploy diario). Sin datos, las materias con más libros.
+const subjectBookCounts = new Map<string, number>();
+for (const book of publishedBooks) {
+  subjectBookCounts.set(book.data.subject, (subjectBookCounts.get(book.data.subject) ?? 0) + 1);
+}
+const subjectsByBookCount = [...subjectBookCounts.entries()]
+  .filter(([slug]) => subjectNames.has(slug))
+  .sort((a, b) => b[1] - a[1])
+  .map(([slug]) => ({ label: subjectNames.get(slug)!, query: subjectNames.get(slug)! }));
+const frequentSearches = buildFrequentSearches(
+  await getRecentLibrarySearches(),
+  publishedBooks.map((book) => ({
+    text: `${book.data.author} ${book.data.title} ${subjectNames.get(book.data.subject) ?? ''}`,
+  })),
+  subjectsByBookCount,
+);
 
 // Built as one flat array instead of three separate `.map()` blocks in the
 // template: Astro only kept the *last* of several sibling expressions each
@@ -97,6 +118,8 @@ const filterChips = [
           </span>
           <SearchBar data-library-search label="Buscar por título o autor" />
         </div>
+
+        <QuickSearchPills items={frequentSearches} label="Más buscados" class="basis-full" />
 
         <div class="flex flex-col gap-1">
           <label for="filter-career" class="text-caption text-text-secondary font-semibold">
@@ -224,7 +247,7 @@ const filterChips = [
 </BaseLayout>
 
 <script>
-  import { toSearchWords, matchesQuery } from '@/lib/textSearch';
+  import { toSearchWords, matchesQuery, normalizeText } from '@/lib/textSearch';
 
   // Fase 12 — Analíticas: qué buscan los estudiantes (GoatCounter, ver
   // BaseLayout.astro). Debounced: un evento por búsqueda "asentada", no uno
@@ -243,6 +266,7 @@ const filterChips = [
   const typeSelect = document.querySelector<HTMLSelectElement>('#filter-type');
   const grid = document.querySelector<HTMLElement>('[data-library-grid]');
   const emptyState = document.querySelector<HTMLElement>('[data-library-empty]');
+  const quickSearches = document.querySelectorAll<HTMLButtonElement>('[data-quick-search]');
 
   const cardWords = new Map<HTMLElement, string[]>();
   cards.forEach((card) => {
@@ -278,6 +302,12 @@ const filterChips = [
 
     grid?.classList.toggle('hidden', visibleCount === 0);
     emptyState?.classList.toggle('hidden', visibleCount !== 0);
+
+    const normalizedQuery = normalizeText(query.trim());
+    quickSearches.forEach((button) => {
+      const isActive = normalizeText(button.dataset.quickSearch ?? '') === normalizedQuery;
+      button.setAttribute('aria-pressed', String(isActive && normalizedQuery !== ''));
+    });
   }
 
   careerSelect?.addEventListener('change', applyFilters);
@@ -312,6 +342,22 @@ const filterChips = [
       }
     }, 600);
   });
+
+  // Pills de "Más buscados" (QuickSearchPills.astro): completan el buscador,
+  // o lo vacían si ya estaba activa. Se registran como `busqueda-rapida:` y
+  // no como `busqueda:` — si contaran como búsqueda, las pills que ya se ven
+  // sumarían clics por estar a la vista y nunca bajarían del ranking que las
+  // genera (src/lib/frequentSearches.ts).
+  document.addEventListener('quicksearch:select', ((event: CustomEvent<{ query: string }>) => {
+    if (!searchInput) return;
+    const query = event.detail?.query ?? '';
+    const isActive = normalizeText(searchInput.value.trim()) === normalizeText(query);
+    searchInput.value = isActive ? '' : query;
+    applyFilters();
+    if (!isActive) {
+      window.goatcounter?.count({ path: `busqueda-rapida:${normalizeText(query)}`, event: true });
+    }
+  }) as EventListener);
 
   document.addEventListener('filterchip:remove', ((event: CustomEvent<{ value: string }>) => {
     const value = event.detail?.value ?? '';

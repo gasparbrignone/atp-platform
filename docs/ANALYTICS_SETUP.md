@@ -80,6 +80,31 @@ contar.
 
 ---
 
+# "Más buscados" de la Biblioteca (token de API)
+
+Las pills "Más buscados" de `/biblioteca/` salen solas de las búsquedas
+reales de los últimos 30 días (eventos `busqueda:` de arriba), leídas en
+build time por `src/lib/goatcounter.ts`; el deploy corre todos los días
+(`.github/workflows/deploy.yml`) para mantenerlas al día. Sin token, las
+pills muestran las materias con más libros — nunca rompe el build.
+
+Para activarlo:
+
+1. GoatCounter → **Settings → API** → **New API key**. Permisos: **solo
+   lectura de estadísticas** (nada de escritura ni de configuración del
+   sitio). Si se filtrara, lo único que permite es ver las estadísticas.
+2. GitHub → repo → **Settings → Secrets and variables → Actions → New
+   repository secret**: nombre `GOATCOUNTER_API_TOKEN`, valor la key.
+3. Correr el workflow "Deploy to GitHub Pages" a mano (o esperar al de la
+   mañana siguiente).
+
+Qué se muestra (ver `src/lib/frequentSearches.ts`): solo búsquedas que
+encuentran algún libro y que se hicieron más de una vez, con las palabras
+llevadas a como figuran en los libros. Los toques en las propias pills se
+registran como `busqueda-rapida:` para no inflar el ranking que las genera.
+
+---
+
 # Microsoft Clarity (grabación de sesiones + mapas de calor)
 
 ## Por qué, además de GoatCounter

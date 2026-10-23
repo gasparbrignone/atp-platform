@@ -10,6 +10,25 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ---
 
+## 2026-10-22
+
+- **feat:** "Más buscados" en la Biblioteca. Nuevo secreto de build
+  `GOATCOUNTER_API_TOKEN` (GitHub Actions), token de GoatCounter de **solo
+  lectura de estadísticas**, usado únicamente en build time
+  (`src/lib/goatcounter.ts`, server-only, nunca llega al bundle). Si se
+  filtra, permite ver las estadísticas de visitas, nada más. Lo que se
+  publica deriva de texto que escriben los visitantes, así que se filtra
+  antes de mostrarlo: solo búsquedas que encuentran algún libro publicado,
+  hechas más de una vez, y reescritas con las palabras de los propios
+  libros (`src/lib/frequentSearches.ts`); Astro además escapa el texto. El
+  deploy pasa a correr también una vez por día (cron), sin cambiar
+  permisos del workflow.
+- **ops:** subida masiva de 62 libros a R2 con un token de R2 temporal,
+  scopeado solo al bucket `atp-biblioteca` (Object Read & Write), creado
+  para esta tarea y a borrar al terminar.
+
+---
+
 ## 2026-09-15
 
 - **feat:** el panel admin ya puede mandar campañas de mail a quienes

@@ -1,0 +1,56 @@
+---
+/**
+ * Fila de pills con búsquedas sugeridas (ej. "más buscados" de la
+ * Biblioteca). No conoce el buscador de la página — igual que FilterChip,
+ * al tocar una solo dispara un CustomEvent burbujeante
+ * (`quicksearch:select`, detail.query) y la página decide qué hacer.
+ * `aria-pressed` refleja si es la búsqueda activa; la página lo actualiza.
+ */
+import type { HTMLAttributes } from 'astro/types';
+import type { QuickSearch } from '@/lib/frequentSearches';
+
+interface Props extends HTMLAttributes<'div'> {
+  items: QuickSearch[];
+  label: string;
+}
+
+const { items, label, class: className, ...rest }: Props = Astro.props;
+---
+
+{
+  items.length > 0 && (
+    <div
+      role="group"
+      aria-label={label}
+      class:list={['flex flex-wrap items-center gap-2', className]}
+      {...rest}
+    >
+      <span class="text-caption text-text-secondary font-semibold" aria-hidden="true">
+        {label}:
+      </span>
+      {items.map(({ label: itemLabel, query }) => (
+        <button
+          type="button"
+          data-quick-search={query}
+          aria-pressed="false"
+          class="border-border bg-surface text-text-secondary text-body-sm ease-standard hover:bg-surface-alt aria-pressed:border-secondary aria-pressed:bg-secondary aria-pressed:text-secondary-foreground rounded-full border px-3 py-1 font-semibold transition-colors duration-150"
+        >
+          {itemLabel}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('[data-quick-search]').forEach((button) => {
+    button.addEventListener('click', () => {
+      button.dispatchEvent(
+        new CustomEvent('quicksearch:select', {
+          bubbles: true,
+          detail: { query: button.dataset.quickSearch ?? '' },
+        }),
+      );
+    });
+  });
+</script>

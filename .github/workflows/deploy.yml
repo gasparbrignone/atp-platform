@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # Rebuild diario (06:00 Argentina) aunque nadie publique nada: los datos
+  # que se leen en build time (búsquedas frecuentes de la Biblioteca vía
+  # GoatCounter, últimos videos de YouTube) se quedarían congelados en el
+  # último push si no.
+  schedule:
+    - cron: '0 9 * * *'
 
 permissions:
   contents: read
@@ -33,6 +39,10 @@ jobs:
           # de YouTube (src/lib/youtube.ts) y nunca llega al bundle del
           # cliente. Ver docs/YOUTUBE_SETUP.md para crearla.
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          # Mismo criterio: token de solo lectura de GoatCounter, usado en
+          # build time por src/lib/goatcounter.ts ("Más buscados" de la
+          # Biblioteca). Sin él, las pills muestran las materias con más libros.
+          GOATCOUNTER_API_TOKEN: ${{ secrets.GOATCOUNTER_API_TOKEN }}
 
   deploy:
     needs: build
