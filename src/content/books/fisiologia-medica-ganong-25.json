@@ -1,0 +1,16 @@
+{
+  "title": "Fisiología Médica",
+  "author": "Ganong",
+  "edition": 25,
+  "subject": "fisiologia",
+  "career": [
+    "medicina"
+  ],
+  "resourceType": "libro",
+  "driveUrl": "https://drive.google.com/file/d/1ILXRzboZDlRQaTRTaM9chmbnPBfQnjuc/view",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/fisiologia-medica-ganong-25.pdf",
+  "published": true,
+  "cover": "/uploads/portada-fisiologia-medica-ganong-25.webp",
+  "order": null,
+  "fileSize": 77174240
+}

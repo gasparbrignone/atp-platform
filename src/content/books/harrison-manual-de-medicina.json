@@ -1,0 +1,16 @@
+{
+  "title": "Manual de Medicina",
+  "author": "Harrison",
+  "edition": 19,
+  "subject": "medicina-interna",
+  "career": [
+    "medicina"
+  ],
+  "resourceType": "libro",
+  "driveUrl": "https://drive.google.com/file/d/1TRrtElE2h884uLdfOa-B6xIMjvFt9BZT/view",
+  "downloadUrl": "https://archivos.atpfcm.com.ar/harrison-manual-de-medicina.pdf",
+  "published": true,
+  "cover": "/uploads/portada-harrison-manual-de-medicina.webp",
+  "order": null,
+  "fileSize": 15855283
+}
