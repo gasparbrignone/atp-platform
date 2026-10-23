@@ -43,11 +43,16 @@ async function apiGet<T>(
 ): Promise<T> {
   const url = new URL(`https://${siteConfig.goatcounterSite}.goatcounter.com/api/v0/${endpoint}`);
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-  });
-  if (!response.ok) throw new Error(`GoatCounter ${endpoint}: HTTP ${response.status}`);
-  return (await response.json()) as T;
+  // Un reintento: la API devolvió un 404 pasajero en pruebas reales, y un
+  // solo tropiezo dejaría el día entero con las pills de respaldo.
+  for (let attempt = 1; ; attempt++) {
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+    if (response.ok) return (await response.json()) as T;
+    if (attempt >= 2) throw new Error(`GoatCounter ${endpoint}: HTTP ${response.status}`);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
 }
 
 async function listSearchPaths(token: string): Promise<ApiPath[]> {

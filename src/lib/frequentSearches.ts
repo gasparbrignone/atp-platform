@@ -31,16 +31,22 @@ function cleanQuery(query: string): string {
   return toSearchWords(query).join(' ');
 }
 
-/**
- * Palabra normalizada → cómo se escribe en los libros (con tildes y
- * mayúsculas), para mostrar "Anatomía" aunque alguien buscó "anatomia".
- */
-function displayDictionary(books: SearchableBook[]): Map<string, string> {
-  const dictionary = new Map<string, string>();
+interface KnownWord {
+  /** Cómo se escribe en los libros, con tildes y mayúsculas ("Anatomía"). */
+  display: string;
+  /** En cuántas palabras de los libros aparece: desempata correcciones. */
+  uses: number;
+}
+
+/** Palabra normalizada ("anatomia") → cómo figura en los libros y cuánto se usa. */
+function wordDictionary(books: SearchableBook[]): Map<string, KnownWord> {
+  const dictionary = new Map<string, KnownWord>();
   for (const { text } of books) {
     for (const word of text.split(/[^\p{L}\p{N}]+/u).filter(Boolean)) {
       const key = normalizeText(word);
-      if (!dictionary.has(key)) dictionary.set(key, word);
+      const known = dictionary.get(key);
+      if (known) known.uses += 1;
+      else dictionary.set(key, { display: word, uses: 1 });
     }
   }
   return dictionary;
@@ -50,29 +56,29 @@ function displayDictionary(books: SearchableBook[]): Map<string, string> {
  * Lleva cada palabra a la palabra real de los libros a la que apunta: la
  * misma si existe, la que empieza así si quedó a medio escribir ("guyt" →
  * "guyton"), o la más parecida si tiene un error ("robins" → "robbins"),
- * con la misma tolerancia que usa el buscador. Así la pill nunca muestra
- * una palabra mal escrita.
+ * con la misma tolerancia que usa el buscador. Entre varias candidatas gana
+ * la más usada en los libros ("anat" → "anatomia", no "anatomy" del único
+ * atlas en inglés). Así la pill nunca muestra una palabra mal escrita.
  */
-function canonicalQuery(query: string, dictionary: Map<string, string>): string {
+function canonicalQuery(query: string, dictionary: Map<string, KnownWord>): string {
   const known = [...dictionary.keys()];
+  const mostUsed = (a: string, b: string) => dictionary.get(b)!.uses - dictionary.get(a)!.uses;
   return query
     .split(' ')
     .map((word) => {
       if (dictionary.has(word)) return word;
-      const byShortest = (a: string, b: string) =>
-        Math.abs(a.length - word.length) - Math.abs(b.length - word.length);
-      const completed = known.filter((candidate) => candidate.startsWith(word)).sort(byShortest);
+      const completed = known.filter((candidate) => candidate.startsWith(word)).sort(mostUsed);
       if (completed.length > 0) return completed[0];
-      const corrected = known.filter((candidate) => wordMatches(word, candidate)).sort(byShortest);
+      const corrected = known.filter((candidate) => wordMatches(word, candidate)).sort(mostUsed);
       return corrected[0] ?? word;
     })
     .join(' ');
 }
 
-function toLabel(query: string, dictionary: Map<string, string>): string {
+function toLabel(query: string, dictionary: Map<string, KnownWord>): string {
   return query
     .split(' ')
-    .map((word) => dictionary.get(word) ?? word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => dictionary.get(word)?.display ?? word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 }
 
@@ -83,7 +89,7 @@ export function buildFrequentSearches(
   max = 8,
 ): QuickSearch[] {
   const bookWords = books.map(({ text }) => toSearchWords(text));
-  const dictionary = displayDictionary(books);
+  const dictionary = wordDictionary(books);
 
   // El filtro "encuentra algún libro" va ANTES de corregir palabras: si no,
   // una búsqueda basura podría "corregirse" hacia una palabra real.
@@ -96,11 +102,20 @@ export function buildFrequentSearches(
     totals.set(canonical, (totals.get(canonical) ?? 0) + count);
   }
 
-  const popular = [...totals.entries()]
+  // "berne" y "berne levy" (o "endemicas" y "enfermedades endemicas de la
+  // argentina") apuntan al mismo libro: si todas las palabras de una
+  // búsqueda están en otra, queda solo la más buscada.
+  const chosen: string[] = [];
+  const isWithin = (a: string, b: string) =>
+    a.split(' ').every((word) => b.split(' ').includes(word));
+  const overlaps = (a: string, b: string) => isWithin(a, b) || isWithin(b, a);
+  for (const [query] of [...totals.entries()]
     .filter(([, count]) => count >= MIN_COUNT)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, max)
-    .map(([query]) => ({ label: toLabel(query, dictionary), query }));
+    .sort((a, b) => b[1] - a[1])) {
+    if (chosen.length >= max) break;
+    if (!chosen.some((other) => overlaps(query, other))) chosen.push(query);
+  }
+  const popular = chosen.map((query) => ({ label: toLabel(query, dictionary), query }));
 
   const seen = new Set(popular.map(({ query }) => cleanQuery(query)));
   for (const item of fallback) {
