@@ -26,10 +26,23 @@ function levenshteinDistance(a: string, b: string): number {
   return dp[a.length][b.length];
 }
 
-export function wordMatches(queryWord: string, candidateWord: string): boolean {
-  if (candidateWord.includes(queryWord)) return true;
+/**
+ * Qué tan bien coincide una palabra (menor = mejor; null = no coincide):
+ * exacta < empieza igual < la contiene < error de tipeo. Sin este orden,
+ * "abbas" encontraba los 13 "atlas" (a 2 letras de distancia) y el Abbas
+ * quedaba último.
+ */
+function wordMatchRank(queryWord: string, candidateWord: string): number | null {
+  if (candidateWord === queryWord) return 0;
+  if (candidateWord.startsWith(queryWord)) return 1;
+  if (candidateWord.includes(queryWord)) return 2;
   const maxDistance = queryWord.length <= 4 ? 1 : 2;
-  return levenshteinDistance(queryWord, candidateWord) <= maxDistance;
+  const distance = levenshteinDistance(queryWord, candidateWord);
+  return distance <= maxDistance ? 2 + distance : null;
+}
+
+export function wordMatches(queryWord: string, candidateWord: string): boolean {
+  return wordMatchRank(queryWord, candidateWord) !== null;
 }
 
 export function toSearchWords(text: string): string[] {
@@ -38,10 +51,24 @@ export function toSearchWords(text: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Relevancia de un resultado (menor = mejor; null = no coincide): suma, por
+ * cada palabra buscada, su mejor coincidencia. Para ordenar resultados.
+ */
+export function queryRank(query: string, candidateWords: string[]): number | null {
+  let total = 0;
+  for (const queryWord of toSearchWords(query)) {
+    let best: number | null = null;
+    for (const word of candidateWords) {
+      const rank = wordMatchRank(queryWord, word);
+      if (rank !== null && (best === null || rank < best)) best = rank;
+    }
+    if (best === null) return null;
+    total += best;
+  }
+  return total;
+}
+
 export function matchesQuery(query: string, candidateWords: string[]): boolean {
-  const queryWords = toSearchWords(query);
-  if (queryWords.length === 0) return true;
-  return queryWords.every((queryWord) =>
-    candidateWords.some((word) => wordMatches(queryWord, word)),
-  );
+  return queryRank(query, candidateWords) !== null;
 }

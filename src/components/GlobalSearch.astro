@@ -32,7 +32,7 @@ import SearchBar from './SearchBar.astro';
 </Modal>
 
 <script>
-  import { toSearchWords, matchesQuery } from '@/lib/textSearch';
+  import { toSearchWords, queryRank } from '@/lib/textSearch';
 
   interface SearchItem {
     type: 'actividad' | 'herramienta' | 'carrera' | 'libro';
@@ -81,7 +81,13 @@ import SearchBar from './SearchBar.astro';
     const trimmed = query.trim();
     if (!trimmed) return null;
 
-    const matches = items.filter((item) => matchesQuery(trimmed, item.words));
+    // Los que mejor coinciden primero: con el tope por sección, si no, un
+    // resultado exacto podía quedar afuera detrás de 5 parecidos.
+    const matches = items
+      .map((item) => ({ item, rank: queryRank(trimmed, item.words) }))
+      .filter((entry): entry is { item: typeof entry.item; rank: number } => entry.rank !== null)
+      .sort((a, b) => a.rank - b.rank)
+      .map(({ item }) => item);
     if (matches.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'text-body-sm text-text-secondary text-center py-4';

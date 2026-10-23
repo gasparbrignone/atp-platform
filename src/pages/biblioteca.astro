@@ -247,7 +247,7 @@ const filterChips = [
 </BaseLayout>
 
 <script>
-  import { toSearchWords, matchesQuery, normalizeText } from '@/lib/textSearch';
+  import { toSearchWords, queryRank, normalizeText } from '@/lib/textSearch';
 
   // Fase 12 — Analíticas: qué buscan los estudiantes (GoatCounter, ver
   // BaseLayout.astro). Debounced: un evento por búsqueda "asentada", no uno
@@ -279,17 +279,24 @@ const filterChips = [
     const type = typeSelect?.value ?? 'all';
     const query = searchInput?.value ?? '';
     let visibleCount = 0;
+    const ranks = new Map<HTMLElement, number>();
 
     cards.forEach((card) => {
       const cardCareers = (card.dataset.career ?? '').split(' ');
       const matchesCareer = career === 'all' || cardCareers.includes(career);
       const matchesSubject = subject === 'all' || card.dataset.subject === subject;
       const matchesType = type === 'all' || card.dataset.resourceType === type;
-      const words = cardWords.get(card) ?? [];
-      const matches = matchesCareer && matchesSubject && matchesType && matchesQuery(query, words);
+      const rank = queryRank(query, cardWords.get(card) ?? []);
+      const matches = matchesCareer && matchesSubject && matchesType && rank !== null;
       card.classList.toggle('hidden', !matches);
       if (matches) visibleCount += 1;
+      ranks.set(card, rank ?? Infinity);
     });
+
+    // Los que mejor coinciden primero (sort estable: a igual relevancia, y
+    // sin búsqueda, vuelve el orden original). Se reordena el DOM y no con
+    // CSS `order`, para que teclado y lector de pantalla sigan el mismo orden.
+    grid?.append(...[...cards].sort((a, b) => (ranks.get(a) ?? 0) - (ranks.get(b) ?? 0)));
 
     chips.forEach((chip) => {
       const value = chip.dataset.filterChip ?? '';
