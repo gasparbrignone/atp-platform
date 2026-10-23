@@ -8,13 +8,15 @@
  */
 import type { HTMLAttributes } from 'astro/types';
 import type { QuickSearch } from '@/lib/frequentSearches';
+import { getChipRowClasses, type ChipRowLayout } from '@/lib/chipRowClasses';
 
 interface Props extends HTMLAttributes<'div'> {
   items: QuickSearch[];
   label: string;
+  layout?: ChipRowLayout;
 }
 
-const { items, label, class: className, ...rest }: Props = Astro.props;
+const { items, label, layout = 'wrap', class: className, ...rest }: Props = Astro.props;
 ---
 
 {
@@ -22,10 +24,13 @@ const { items, label, class: className, ...rest }: Props = Astro.props;
     <div
       role="group"
       aria-label={label}
-      class:list={['flex flex-wrap items-center gap-2', className]}
+      class:list={[getChipRowClasses(layout), 'items-center', className]}
       {...rest}
     >
-      <span class="text-caption text-text-secondary font-semibold" aria-hidden="true">
+      <span
+        class="text-caption text-text-secondary shrink-0 font-semibold whitespace-nowrap"
+        aria-hidden="true"
+      >
         {label}:
       </span>
       {items.map(({ label: itemLabel, query }) => (
@@ -33,7 +38,7 @@ const { items, label, class: className, ...rest }: Props = Astro.props;
           type="button"
           data-quick-search={query}
           aria-pressed="false"
-          class="border-border bg-surface text-text-secondary text-body-sm ease-standard hover:bg-surface-alt aria-pressed:border-secondary aria-pressed:bg-secondary aria-pressed:text-secondary-foreground rounded-full border px-3 py-1 font-semibold transition-colors duration-150"
+          class="border-border bg-surface text-text-secondary text-body-sm ease-standard hover:bg-surface-alt aria-pressed:border-secondary aria-pressed:bg-secondary aria-pressed:text-secondary-foreground shrink-0 rounded-full border px-3 py-1 font-semibold whitespace-nowrap transition-colors duration-150"
         >
           {itemLabel}
         </button>

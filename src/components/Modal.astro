@@ -5,36 +5,58 @@
  * on the page with `data-modal-open={id}` opens this modal, and any element
  * inside it with `data-modal-close` closes it. This lets multiple, unrelated
  * components open the same modal without prop-drilling a click handler.
+ *
+ * `variant="sheet"`: panel que sube desde abajo, a lo ancho — en el celular
+ * queda al alcance del pulgar (ej. los filtros de la Biblioteca).
  */
 import type { HTMLAttributes } from 'astro/types';
 import X from '@lucide/astro/icons/x';
 
+export type ModalVariant = 'dialog' | 'sheet';
+
 interface Props extends Omit<HTMLAttributes<'dialog'>, 'id'> {
   /** Unique id — trigger buttons reference it via `data-modal-open={id}`. */
   id: string;
+  variant?: ModalVariant;
 }
 
-const { id, class: className, ...rest }: Props = Astro.props;
+const { id, variant = 'dialog', class: className, ...rest }: Props = Astro.props;
 const titleId = `${id}-title`;
+
+const dialogClasses: Record<ModalVariant, string> = {
+  // `fixed` + `inset-0` + `m-auto`: el reset global de Tailwind pone
+  // `margin: 0` en todo, lo que rompe el auto-centrado nativo de
+  // <dialog> (que depende de `margin: auto`) — sin esto, el modal queda
+  // pegado arriba de la pantalla en vez de centrado.
+  dialog: 'inset-0 m-auto w-[calc(100%-2rem)]',
+  sheet: 'inset-x-0 top-auto bottom-0 mx-auto mb-0 w-full',
+};
+
+// Estado inicial (cerrado) — el script de abajo usa los mismos pares.
+const panelClasses: Record<ModalVariant, string> = {
+  dialog: 'scale-95 rounded-lg p-6',
+  sheet: 'translate-y-full rounded-t-lg p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]',
+};
 ---
 
 <dialog
   id={id}
   data-modal
+  data-modal-variant={variant}
   aria-labelledby={titleId}
   class:list={[
-    // `fixed` + `inset-0` + `m-auto`: el reset global de Tailwind pone
-    // `margin: 0` en todo, lo que rompe el auto-centrado nativo de
-    // <dialog> (que depende de `margin: auto`) — sin esto, el modal queda
-    // pegado arriba de la pantalla en vez de centrado.
-    'fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg border-0 bg-transparent p-0 backdrop:bg-gray-900/60 backdrop:backdrop-blur-sm',
+    'fixed max-h-[85dvh] max-w-lg border-0 bg-transparent p-0 backdrop:bg-gray-900/60 backdrop:backdrop-blur-sm',
+    dialogClasses[variant],
     className,
   ]}
   {...rest}
 >
   <div
     data-modal-panel
-    class="bg-surface ease-standard flex max-h-[85dvh] scale-95 flex-col gap-6 overflow-y-auto rounded-lg p-6 opacity-0 shadow-xl transition-[transform,opacity] duration-200"
+    class:list={[
+      'bg-surface ease-standard flex max-h-[85dvh] flex-col gap-6 overflow-y-auto opacity-0 shadow-xl transition-[transform,opacity] duration-200',
+      panelClasses[variant],
+    ]}
   >
     <div class="flex items-start justify-between gap-4">
       <h2 id={titleId} class="text-h4 text-text font-bold">
@@ -67,11 +89,12 @@ const titleId = `${id}-title`;
     const panel = dialog.querySelector<HTMLElement>('[data-modal-panel]');
     if (!panel) return;
 
+    const isSheet = dialog.dataset.modalVariant === 'sheet';
     const modal = createDialogController({
       dialog,
       panel,
-      openClasses: ['scale-100', 'opacity-100'],
-      closedClasses: ['scale-95', 'opacity-0'],
+      openClasses: [isSheet ? 'translate-y-0' : 'scale-100', 'opacity-100'],
+      closedClasses: [isSheet ? 'translate-y-full' : 'scale-95', 'opacity-0'],
     });
 
     document

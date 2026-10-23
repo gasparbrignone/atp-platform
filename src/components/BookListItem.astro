@@ -1,0 +1,193 @@
+---
+/**
+ * Una fila de la Biblioteca: portada, título, autor y botón de descarga.
+ * Compacta a propósito (entran ~7 por pantalla de celular, contra ~2 de
+ * las tarjetas anteriores). Si el libro tiene varias ediciones
+ * (src/lib/bookGroups.ts), muestra chips para elegir cuál bajar; cada
+ * edición trae su propia portada y su propio link, y el script de abajo
+ * muestra solo los de la elegida.
+ *
+ * Los `data-*` del <li> son lo que filtra y ordena biblioteca.astro.
+ */
+import type { CollectionEntry } from 'astro:content';
+import Button from './Button.astro';
+import Badge from './Badge.astro';
+import ChipRadioGroup from './ChipRadioGroup.astro';
+import { uploadThumb } from '@/lib/uploadThumb';
+import { formatEdition } from '@/lib/bookEdition';
+import BookOpen from '@lucide/astro/icons/book-open';
+import Download from '@lucide/astro/icons/download';
+
+interface Props {
+  /** Ediciones del mismo libro, la más nueva primero (la que arranca elegida). */
+  editions: CollectionEntry<'books'>[];
+  subjectName: string;
+}
+
+const { editions, subjectName }: Props = Astro.props;
+const [latest] = editions;
+const { title, author, resourceType } = latest.data;
+const hasEditionChoice = editions.length > 1;
+const latestEditionLabel = formatEdition(latest.data.edition);
+
+const careers = [...new Set(editions.flatMap((book) => book.data.career))];
+const editionLabels = editions.map((book) => formatEdition(book.data.edition) ?? '');
+const searchText = [author, title, subjectName, ...editionLabels].join(' ');
+
+// Auditoría UX 2026-09-14: nada avisaba el peso del archivo antes de
+// descargar (algunos libros pesan varios cientos de MB) — importa sobre
+// todo con datos móviles. Redondea a MB salvo que sea más chico que 1MB.
+function formatFileSize(bytes: number): string {
+  const mb = bytes / 1024 / 1024;
+  if (mb < 1) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${Math.round(mb)} MB`;
+}
+---
+
+<li
+  data-book-item
+  data-career={careers.join(' ')}
+  data-resource-type={resourceType}
+  data-search={searchText}
+  class="relative flex items-start gap-3 py-3"
+>
+  <div class="relative h-18 w-12 shrink-0">
+    {
+      editions.map((book) => (
+        <div data-edition-for={book.id} hidden={book !== latest} class="size-full">
+          {book.data.cover && (
+            <img
+              data-book-cover
+              src={uploadThumb(book.data.cover, 'cover')}
+              alt=""
+              loading="lazy"
+              width="48"
+              height="72"
+              class="border-border size-full rounded-xs border object-cover"
+            />
+          )}
+          {/* Sin portada, o si la imagen falla al cargar (ver script). */}
+          <div
+            data-book-cover-fallback
+            hidden={Boolean(book.data.cover)}
+            class="border-border bg-surface-alt text-text-secondary flex size-full items-center justify-center rounded-xs border"
+          >
+            <BookOpen class="size-5" aria-hidden="true" />
+          </div>
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="flex min-w-0 flex-1 flex-col gap-1">
+    <h3 class="text-body text-text line-clamp-2 font-bold">{title}</h3>
+    <p class="text-body-sm text-text-secondary">
+      {author}
+      {!hasEditionChoice && latestEditionLabel && ` · ${latestEditionLabel}`}
+    </p>
+    {
+      hasEditionChoice && (
+        // `relative z-10`: por encima del área clickeable de la fila (el
+        // `after:` del botón de descarga), para que tocar un chip elija la
+        // edición en vez de descargar.
+        <ChipRadioGroup
+          name={`edicion-${latest.id}`}
+          legend={`Edición de ${title}`}
+          hideLegend
+          size="sm"
+          options={editions.map((book, index) => ({
+            value: book.id,
+            label: editionLabels[index] || 'Otra ed.',
+          }))}
+          value={latest.id}
+          class="relative z-10 mt-1"
+        />
+      )
+    }
+  </div>
+
+  {
+    editions.map((book, index) =>
+      book.data.downloadUrl ? (
+        // Sin `target="_blank"`: archivos.atpfcm.com.ar manda
+        // `Content-Disposition: attachment` (regla de Cloudflare, 2026-10-23),
+        // así que el PDF se descarga sin salir de la página — una pestaña
+        // nueva quedaría vacía.
+        <Button
+          href={book.data.downloadUrl}
+          variant="outline"
+          trackId={`descarga:${book.id}`}
+          data-book-download
+          data-edition-for={book.id}
+          hidden={book !== latest}
+          aria-label={[
+            `Descargar ${title}`,
+            editionLabels[index],
+            book.data.fileSize && `(${formatFileSize(book.data.fileSize)})`,
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          class="shrink-0 px-3 after:absolute after:inset-0 after:content-['']"
+        >
+          <Download slot="icon-start" class="size-4" aria-hidden="true" />
+          {book.data.fileSize ? formatFileSize(book.data.fileSize) : 'Descargar'}
+        </Button>
+      ) : (
+        <Badge
+          variant="info"
+          data-edition-for={book.id}
+          hidden={book !== latest}
+          class="shrink-0 self-center"
+        >
+          Pronto
+        </Badge>
+      ),
+    )
+  }
+</li>
+
+<script>
+  import { showToast } from '@/lib/toast';
+
+  // La descarga no se ve en pantalla: avisar que arrancó y dónde queda. En
+  // iPhone no hay forma de forzar la descarga — aun con `Content-Disposition:
+  // attachment`, Chrome (y a veces Safari) abre el PDF igual — así que el
+  // aviso explica cómo guardarlo si eso pasa.
+  const isIOS =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  document.querySelectorAll<HTMLElement>('[data-book-download]').forEach((link) => {
+    link.addEventListener('click', () => {
+      showToast({
+        message: isIOS
+          ? 'Si se abre el libro, tocá Compartir y elegí «Guardar en Archivos» (o «Libros»).'
+          : 'Descargando… El libro queda en la carpeta Descargas.',
+        duration: 8000,
+      });
+    });
+  });
+
+  // Elegir otra edición: mostrar su portada y su botón, esconder el resto.
+  document.querySelectorAll<HTMLElement>('[data-book-item]').forEach((item) => {
+    item.addEventListener('change', (event) => {
+      const chosen = (event.target as HTMLInputElement).value;
+      item.querySelectorAll<HTMLElement>('[data-edition-for]').forEach((element) => {
+        element.hidden = element.dataset.editionFor !== chosen;
+      });
+    });
+  });
+
+  // Portada que no carga → ícono de libro. Antes era un `onerror` inline,
+  // que la CSP (astro.config.mjs) bloquea en silencio: quedaba un recuadro
+  // vacío. `complete && naturalWidth === 0` cubre las que fallaron antes de
+  // que corriera este script.
+  document.querySelectorAll<HTMLImageElement>('[data-book-cover]').forEach((image) => {
+    const showFallback = () => {
+      image.hidden = true;
+      const fallback = image.nextElementSibling;
+      if (fallback instanceof HTMLElement) fallback.hidden = false;
+    };
+    if (image.complete && image.naturalWidth === 0 && image.currentSrc) showFallback();
+    else image.addEventListener('error', showFallback);
+  });
+</script>

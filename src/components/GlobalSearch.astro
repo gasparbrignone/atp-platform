@@ -161,7 +161,10 @@ import SearchBar from './SearchBar.astro';
         if (!query || matchCount === null) return;
         window.goatcounter?.count({ path: `busqueda-global:${query}`, event: true });
         if (matchCount === 0) {
-          window.goatcounter?.count({ path: `busqueda-global-sin-resultado:${query}`, event: true });
+          window.goatcounter?.count({
+            path: `busqueda-global-sin-resultado:${query}`,
+            event: true,
+          });
         }
       }, 600);
     });

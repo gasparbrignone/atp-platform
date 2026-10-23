@@ -6,67 +6,71 @@
  * materia or tipo de recurso (ej. "Cuaderno del alumno", "Inmunología") from
  * the CMS itself, without a code change.
  *
- * Three filter axes (Carrera, Materia, Tipo) plus a title/author search.
- * Filter chips only ever represent the *currently selected* value of each
- * dropdown — they're not a static legend. Visibility is driven by an inline
- * `style.display`, not a `hidden` class: FilterChip's root element already
- * carries `inline-flex` in its own template, and Tailwind can (depending on
- * build-time utility ordering) generate `.inline-flex{}` *after* `.hidden{}`
- * in the stylesheet, in which case same-specificity `inline-flex` wins the
- * cascade and the chip stays visually shown even with the `hidden` class
- * applied — inline style always wins regardless of that ordering.
+ * Pensada primero para el celular (rediseño 2026-10-22): lista compacta
+ * agrupada por materia, con las ediciones de un mismo libro juntas
+ * (BookListItem + src/lib/bookGroups.ts). Arriba, fijos al bajar: el
+ * buscador, el botón "Filtros" (Carrera y Tipo, en un panel desde abajo) y
+ * una fila deslizable de materias. Al buscar, los resultados que mejor
+ * coinciden suben primero, dentro de cada materia y entre materias.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Section from '@/components/Section.astro';
 import Container from '@/components/Container.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
-import Grid from '@/components/Grid.astro';
-import Card from '@/components/Card.astro';
-import Badge from '@/components/Badge.astro';
 import Button from '@/components/Button.astro';
-import Select from '@/components/Select.astro';
+import Modal from '@/components/Modal.astro';
 import SearchBar from '@/components/SearchBar.astro';
-import FilterPanel from '@/components/FilterPanel.astro';
+import ChipRadioGroup from '@/components/ChipRadioGroup.astro';
 import FilterChip from '@/components/FilterChip.astro';
+import BookListItem from '@/components/BookListItem.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import LibraryNotice from '@/components/LibraryNotice.astro';
 import QuickSearchPills from '@/components/QuickSearchPills.astro';
 import { getCollection } from 'astro:content';
 import { careerLabels, type CareerSlug } from '@/lib/labels';
-import { uploadThumb } from '@/lib/uploadThumb';
-import { formatEdition } from '@/lib/bookEdition';
+import { groupBookEditions } from '@/lib/bookGroups';
 import { getRecentLibrarySearches } from '@/lib/goatcounter';
 import { buildFrequentSearches } from '@/lib/frequentSearches';
-import BookOpen from '@lucide/astro/icons/book-open';
+import SlidersHorizontal from '@lucide/astro/icons/sliders-horizontal';
 
 const publishedBooks = await getCollection('books', ({ data }) => data.published);
-
-// Auditoría UX 2026-09-14: nada avisaba el peso del archivo antes de
-// descargar (algunos libros pesan varios cientos de MB) — importa sobre
-// todo con datos móviles. Redondea a MB salvo que sea más chico que 1MB.
-function formatFileSize(bytes: number): string {
-  const mb = bytes / 1024 / 1024;
-  if (mb < 1) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${Math.round(mb)} MB`;
-}
-const careerOptions = Object.entries(careerLabels) as [CareerSlug, string][];
 
 const subjects = await getCollection('subjects');
 const resourceTypes = await getCollection('resourceTypes');
 const subjectNames = new Map(subjects.map((entry) => [entry.id, entry.data.name]));
 const resourceTypeNames = new Map(resourceTypes.map((entry) => [entry.id, entry.data.name]));
 
+// Un slug sin entrada en su colección se muestra tal cual en vez de
+// descartarse: un libro con una materia mal cargada sigue apareciendo.
 function sortedUsedOptions(names: Map<string, string>, usedSlugs: Set<string>) {
   return [...usedSlugs]
-    .filter((slug) => names.has(slug))
-    .map((slug) => [slug, names.get(slug)!] as const)
-    .sort((a, b) => a[1].localeCompare(b[1], 'es'));
+    .map((slug) => ({ value: slug, label: names.get(slug) ?? slug }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 }
 
 const usedSubjectSlugs = new Set(publishedBooks.map((book) => book.data.subject));
 const usedResourceTypeSlugs = new Set(publishedBooks.map((book) => book.data.resourceType));
 const subjectOptions = sortedUsedOptions(subjectNames, usedSubjectSlugs);
 const resourceTypeOptions = sortedUsedOptions(resourceTypeNames, usedResourceTypeSlugs);
+// Solo carreras con algún libro: elegir una vacía siempre deja la lista en
+// blanco. Con una sola (hoy todo es Medicina), el filtro no se muestra.
+const usedCareers = new Set(publishedBooks.flatMap((book) => book.data.career));
+const careerOptions = (Object.entries(careerLabels) as [CareerSlug, string][])
+  .filter(([value]) => usedCareers.has(value))
+  .map(([value, label]) => ({ value, label }));
+
+const bookGroups = groupBookEditions(publishedBooks);
+const sections = subjectOptions.map(({ value: slug, label: name }) => ({
+  slug,
+  name,
+  groups: bookGroups
+    .filter(([latest]) => latest.data.subject === slug)
+    .sort(
+      ([a], [b]) =>
+        (a.data.order ?? Infinity) - (b.data.order ?? Infinity) ||
+        a.data.title.localeCompare(b.data.title, 'es'),
+    ),
+}));
 
 // "Más buscados": lo que la gente buscó en los últimos 30 días (GoatCounter,
 // se actualiza con el deploy diario). Sin datos, las materias con más libros.
@@ -86,15 +90,11 @@ const frequentSearches = buildFrequentSearches(
   subjectsByBookCount,
 );
 
-// Built as one flat array instead of three separate `.map()` blocks in the
-// template: Astro only kept the *last* of several sibling expressions each
-// targeting the same named slot (`slot="chips"`), silently dropping the
-// career/subject chips — merging into a single array + single `.map()`
-// sidesteps that entirely.
+// Chips de los filtros del panel que están activos, para que se vea por qué
+// la lista está recortada aunque el panel esté cerrado.
 const filterChips = [
-  ...careerOptions.map(([slug, label]) => ({ value: `career:${slug}`, label })),
-  ...subjectOptions.map(([slug, label]) => ({ value: `subject:${slug}`, label })),
-  ...resourceTypeOptions.map(([slug, label]) => ({ value: `type:${slug}`, label })),
+  ...careerOptions.map(({ value, label }) => ({ value: `carrera:${value}`, label })),
+  ...resourceTypeOptions.map(({ value, label }) => ({ value: `tipo:${value}`, label })),
 ];
 ---
 
@@ -103,147 +103,131 @@ const filterChips = [
   description="Material de estudio de la Facultad de Ciencias Médicas (UNR): apuntes, resúmenes y guías de Medicina, Enfermería, Fonoaudiología y Terapia Ocupacional, organizados por materia y carrera."
   canonicalPath="/biblioteca/"
 >
-  <Section spacing="lg">
-    <Container class="flex flex-col gap-10">
+  <Section spacing="sm" reveal={false}>
+    <Container class="flex flex-col">
       <SectionHeader
         as="h1"
         title="Biblioteca"
         description="Apuntes, resúmenes y guías de estudio de la FCM (UNR), organizados por materia y carrera."
       />
 
-      <FilterPanel title="Buscar">
-        <div class="flex min-w-64 flex-1 flex-col gap-1">
-          <span class="text-caption text-text-secondary font-semibold" aria-hidden="true">
-            Buscar por título o autor
-          </span>
-          <SearchBar data-library-search label="Buscar por título o autor" />
+      <!-- Marca dónde arranca la barra: cuando sale de pantalla, la barra ya
+           está pegada arriba y se le agrega sombra (ver script). -->
+      <div data-library-toolbar-sentinel aria-hidden="true" class="mt-6"></div>
+
+      <!-- Fija solo hasta `lg`: en compu las materias ocupan varias filas y,
+           pegadas arriba, taparían un tercio de la pantalla. -->
+      <div
+        data-library-toolbar
+        class="bg-background z-dropdown data-stuck:border-border ease-standard sticky top-16 -mx-4 flex flex-col gap-3 border-b border-transparent px-4 py-3 transition-[box-shadow,border-color] duration-200 data-stuck:shadow-sm md:-mx-6 md:px-6 lg:static lg:data-stuck:border-transparent lg:data-stuck:shadow-none xl:-mx-8 xl:px-8"
+      >
+        <div class="flex gap-2">
+          <SearchBar
+            data-library-search
+            label="Buscar por título o autor"
+            placeholder="Libro o autor…"
+            class="min-w-0 flex-1"
+          />
+          <Button
+            variant="outline"
+            data-modal-open="library-filters"
+            class="relative h-11 shrink-0 px-3"
+          >
+            <SlidersHorizontal slot="icon-start" class="size-4" aria-hidden="true" />
+            Filtros
+            <span
+              data-filter-count
+              hidden
+              class="bg-secondary text-secondary-foreground text-caption absolute -top-2 -right-2 inline-flex size-5 items-center justify-center rounded-full font-bold"
+            >
+            </span>
+          </Button>
         </div>
 
-        <QuickSearchPills items={frequentSearches} label="Más buscados" class="basis-full" />
+        <ChipRadioGroup
+          name="materia"
+          legend="Materia"
+          hideLegend
+          layout="scroll"
+          options={[{ value: 'all', label: 'Todas' }, ...subjectOptions]}
+          value="all"
+        />
 
-        <div class="flex flex-col gap-1">
-          <label for="filter-career" class="text-caption text-text-secondary font-semibold">
-            Carrera
-          </label>
-          <Select id="filter-career" data-filter-career class="min-w-48">
-            <option value="all">Todas las carreras</option>
-            {careerOptions.map(([slug, label]) => <option value={slug}>{label}</option>)}
-          </Select>
+        <div data-active-filters hidden class="flex flex-wrap gap-2">
+          {filterChips.map(({ value, label }) => <FilterChip value={value} label={label} hidden />)}
         </div>
+      </div>
 
-        <div class="flex flex-col gap-1">
-          <label for="filter-subject" class="text-caption text-text-secondary font-semibold">
-            Materia
-          </label>
-          <Select id="filter-subject" data-filter-subject class="min-w-48">
-            <option value="all">Todas las materias</option>
-            {subjectOptions.map(([slug, label]) => <option value={slug}>{label}</option>)}
-          </Select>
-        </div>
+      <QuickSearchPills
+        items={frequentSearches}
+        label="Más buscados"
+        layout="scroll"
+        class="mt-3"
+      />
 
-        <div class="flex flex-col gap-1">
-          <label for="filter-type" class="text-caption text-text-secondary font-semibold">
-            Tipo
-          </label>
-          <Select id="filter-type" data-filter-type class="min-w-48">
-            <option value="all">Todos los tipos</option>
-            {resourceTypeOptions.map(([slug, label]) => <option value={slug}>{label}</option>)}
-          </Select>
-        </div>
-
+      <div data-library-results class="mt-6 flex flex-col gap-10">
         {
-          filterChips.map(({ value, label }) => (
-            <FilterChip slot="chips" value={value} label={label} class="hidden" />
+          sections.map(({ slug, name, groups }) => (
+            <section data-subject-section={slug} aria-labelledby={`materia-${slug}`}>
+              <h2
+                id={`materia-${slug}`}
+                class="text-h4 text-text border-border flex items-baseline gap-2 border-b pb-2 font-bold"
+              >
+                {name}
+                <span class="text-body-sm text-text-secondary font-semibold">
+                  <span data-section-count>{groups.length}</span>
+                  <span class="sr-only">libros</span>
+                </span>
+              </h2>
+              <ul class="*:border-border grid *:border-b lg:grid-cols-2 lg:gap-x-10">
+                {groups.map((editions) => (
+                  <BookListItem editions={editions} subjectName={name} />
+                ))}
+              </ul>
+            </section>
           ))
         }
-      </FilterPanel>
-
-      <Grid data-library-grid cols={3} gap="md">
-        {
-          publishedBooks.map((book) => {
-            const subjectName = subjectNames.get(book.data.subject) ?? book.data.subject;
-            const editionLabel = formatEdition(book.data.edition);
-            return (
-              <Card
-                data-reveal
-                data-book-card
-                data-career={book.data.career.join(' ')}
-                data-subject={book.data.subject}
-                data-resource-type={book.data.resourceType}
-                data-search={`${book.data.author} ${book.data.title} ${subjectName} ${editionLabel ?? ''}`}
-              >
-                <Badge slot="badge" variant="secondary" class="self-start">
-                  {subjectName}
-                </Badge>
-                <div slot="title" class="flex items-start gap-3">
-                  {book.data.cover && (
-                    // Auditoría UX 2026-09-14: una portada externa rota (ver
-                    // anatomia-humana-netter.json) quedaba como un recuadro
-                    // en blanco, sin nada para agarrarse — sobre todo grave
-                    // para alguien que se guía más por íconos que por texto.
-                    // `onerror` esconde la <img> rota y muestra un ícono de
-                    // libro genérico en su lugar, para cualquier portada que
-                    // falle, no solo esta.
-                    <div class="relative h-14 w-10 flex-shrink-0">
-                      <img
-                        src={uploadThumb(book.data.cover, 'cover')}
-                        alt=""
-                        loading="lazy"
-                        width="40"
-                        height="56"
-                        class="border-border h-14 w-10 rounded-sm border object-cover"
-                        onerror="this.style.display='none';this.nextElementSibling.hidden=false"
-                      />
-                      <div
-                        hidden
-                        class="border-border bg-surface-alt text-text-secondary absolute inset-0 flex items-center justify-center rounded-sm border"
-                      >
-                        <BookOpen class="size-5" aria-hidden="true" />
-                      </div>
-                    </div>
-                  )}
-                  <div class="flex flex-col items-start gap-1">
-                    <h3 class="text-h4 text-text font-bold">{book.data.title}</h3>
-                    <p class="text-body-sm text-text-secondary">{book.data.author}</p>
-                    {editionLabel && <Badge variant="neutral">{editionLabel}</Badge>}
-                  </div>
-                </div>
-                <div slot="actions" class="flex items-center justify-between gap-4">
-                  <span class="text-caption text-text-secondary">
-                    {book.data.career.map((slug) => careerLabels[slug]).join(', ')}
-                  </span>
-                  {book.data.downloadUrl ? (
-                    <Button
-                      href={book.data.downloadUrl}
-                      target="_blank"
-                      variant="outline"
-                      size="sm"
-                      trackId={`descarga:${book.id}`}
-                      class="after:absolute after:inset-0 after:content-['']"
-                    >
-                      Descargar
-                      {book.data.fileSize && ` (${formatFileSize(book.data.fileSize)})`}
-                    </Button>
-                  ) : (
-                    <Badge variant="info">Disponible pronto</Badge>
-                  )}
-                </div>
-              </Card>
-            );
-          })
-        }
-      </Grid>
+      </div>
 
       <EmptyState
         data-library-empty
-        class="hidden"
+        hidden
         title="No encontramos nada con esa búsqueda"
         description="Probá con otra palabra o cambiá los filtros."
       />
 
-      <LibraryNotice />
+      <div class="mt-12">
+        <LibraryNotice />
+      </div>
     </Container>
   </Section>
+
+  <Modal id="library-filters" variant="sheet">
+    <span slot="title">Filtros</span>
+    <div class="flex flex-col gap-6">
+      {
+        careerOptions.length > 1 && (
+          <ChipRadioGroup
+            name="carrera"
+            legend="Carrera"
+            options={[{ value: 'all', label: 'Todas' }, ...careerOptions]}
+            value="all"
+          />
+        )
+      }
+      <ChipRadioGroup
+        name="tipo"
+        legend="Tipo de material"
+        options={[{ value: 'all', label: 'Todos' }, ...resourceTypeOptions]}
+        value="all"
+      />
+    </div>
+    <Fragment slot="actions">
+      <Button variant="ghost" data-library-filters-clear>Limpiar filtros</Button>
+      <Button variant="secondary" data-modal-close data-library-filters-apply>Ver resultados</Button
+      >
+    </Fragment>
+  </Modal>
 </BaseLayout>
 
 <script>
@@ -258,57 +242,100 @@ const filterChips = [
     }
   }
 
-  const cards = document.querySelectorAll<HTMLElement>('[data-book-card]');
-  const chips = document.querySelectorAll<HTMLElement>('[data-filter-chip]');
+  const FILTER_NAMES = ['materia', 'carrera', 'tipo'];
+
+  const items = [...document.querySelectorAll<HTMLElement>('[data-book-item]')];
+  const sections = [...document.querySelectorAll<HTMLElement>('[data-subject-section]')];
+  const resultsRoot = document.querySelector<HTMLElement>('[data-library-results]');
+  const toolbar = document.querySelector<HTMLElement>('[data-library-toolbar]');
+  const toolbarSentinel = document.querySelector<HTMLElement>('[data-library-toolbar-sentinel]');
   const searchInput = document.querySelector<HTMLInputElement>('[data-library-search]');
-  const careerSelect = document.querySelector<HTMLSelectElement>('#filter-career');
-  const subjectSelect = document.querySelector<HTMLSelectElement>('#filter-subject');
-  const typeSelect = document.querySelector<HTMLSelectElement>('#filter-type');
-  const grid = document.querySelector<HTMLElement>('[data-library-grid]');
   const emptyState = document.querySelector<HTMLElement>('[data-library-empty]');
+  const filterCount = document.querySelector<HTMLElement>('[data-filter-count]');
+  const activeFilters = document.querySelector<HTMLElement>('[data-active-filters]');
+  const filterChips = document.querySelectorAll<HTMLElement>('[data-filter-chip]');
+  const applyButton = document.querySelector<HTMLElement>('[data-library-filters-apply]');
   const quickSearches = document.querySelectorAll<HTMLButtonElement>('[data-quick-search]');
 
-  const cardWords = new Map<HTMLElement, string[]>();
-  cards.forEach((card) => {
-    cardWords.set(card, toSearchWords(card.dataset.search ?? ''));
-  });
+  const itemWords = new Map(items.map((item) => [item, toSearchWords(item.dataset.search ?? '')]));
+  // Orden original (alfabético) para desempatar: sin búsqueda, todo vuelve
+  // a como estaba aunque el DOM haya quedado reordenado por una anterior.
+  const originalIndex = new Map<HTMLElement, number>(
+    [...items, ...sections].map((element, index) => [element, index]),
+  );
+  const byRank = (a: { element: HTMLElement; rank: number }, b: typeof a) =>
+    a.rank - b.rank || originalIndex.get(a.element)! - originalIndex.get(b.element)!;
+
+  function checkedValue(name: string): string {
+    return (
+      document.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`)?.value ?? 'all'
+    );
+  }
+
+  function setChecked(name: string, value: string) {
+    const input = document.querySelector<HTMLInputElement>(
+      `input[name="${name}"][value="${value}"]`,
+    );
+    if (input) input.checked = true;
+  }
 
   function applyFilters() {
-    const career = careerSelect?.value ?? 'all';
-    const subject = subjectSelect?.value ?? 'all';
-    const type = typeSelect?.value ?? 'all';
+    const subject = checkedValue('materia');
+    const career = checkedValue('carrera');
+    const type = checkedValue('tipo');
     const query = searchInput?.value ?? '';
     let visibleCount = 0;
-    const ranks = new Map<HTMLElement, number>();
 
-    cards.forEach((card) => {
-      const cardCareers = (card.dataset.career ?? '').split(' ');
-      const matchesCareer = career === 'all' || cardCareers.includes(career);
-      const matchesSubject = subject === 'all' || card.dataset.subject === subject;
-      const matchesType = type === 'all' || card.dataset.resourceType === type;
-      const rank = queryRank(query, cardWords.get(card) ?? []);
-      const matches = matchesCareer && matchesSubject && matchesType && rank !== null;
-      card.classList.toggle('hidden', !matches);
-      if (matches) visibleCount += 1;
-      ranks.set(card, rank ?? Infinity);
+    // Dentro de cada materia, los que mejor coinciden primero; y las
+    // materias, según su mejor resultado (buscar "abbas" sube Inmunología).
+    // Se reordena el DOM y no con CSS `order`, para que teclado y lector de
+    // pantalla sigan el mismo orden que se ve.
+    const rankedSections = sections.map((section) => {
+      const inSubject = subject === 'all' || section.dataset.subjectSection === subject;
+      const rankedItems = [...section.querySelectorAll<HTMLElement>('[data-book-item]')]
+        .map((item) => {
+          const careers = (item.dataset.career ?? '').split(' ');
+          const matchesFilters =
+            inSubject &&
+            (career === 'all' || careers.includes(career)) &&
+            (type === 'all' || item.dataset.resourceType === type);
+          const rank = matchesFilters ? queryRank(query, itemWords.get(item) ?? []) : null;
+          item.hidden = rank === null;
+          return { element: item, rank: rank ?? Infinity };
+        })
+        .sort(byRank);
+
+      section.querySelector('ul')?.append(...rankedItems.map(({ element }) => element));
+      const sectionVisible = rankedItems.filter(({ element }) => !element.hidden).length;
+      section.hidden = sectionVisible === 0;
+      const count = section.querySelector<HTMLElement>('[data-section-count]');
+      if (count) count.textContent = String(sectionVisible);
+      visibleCount += sectionVisible;
+      return { element: section, rank: rankedItems[0]?.rank ?? Infinity };
     });
+    resultsRoot?.append(...rankedSections.sort(byRank).map(({ element }) => element));
 
-    // Los que mejor coinciden primero (sort estable: a igual relevancia, y
-    // sin búsqueda, vuelve el orden original). Se reordena el DOM y no con
-    // CSS `order`, para que teclado y lector de pantalla sigan el mismo orden.
-    grid?.append(...[...cards].sort((a, b) => (ranks.get(a) ?? 0) - (ranks.get(b) ?? 0)));
+    if (resultsRoot) resultsRoot.hidden = visibleCount === 0;
+    if (emptyState) emptyState.hidden = visibleCount !== 0;
+    if (applyButton) {
+      applyButton.textContent =
+        visibleCount === 0
+          ? 'Ver resultados'
+          : `Ver ${visibleCount} ${visibleCount === 1 ? 'libro' : 'libros'}`;
+    }
 
-    chips.forEach((chip) => {
-      const value = chip.dataset.filterChip ?? '';
-      const isActive =
-        (career !== 'all' && value === `career:${career}`) ||
-        (subject !== 'all' && value === `subject:${subject}`) ||
-        (type !== 'all' && value === `type:${type}`);
-      chip.style.display = isActive ? '' : 'none';
+    const activeValues = [
+      career !== 'all' && `carrera:${career}`,
+      type !== 'all' && `tipo:${type}`,
+    ].filter(Boolean);
+    filterChips.forEach((chip) => {
+      chip.hidden = !activeValues.includes(chip.dataset.filterChip ?? '');
     });
-
-    grid?.classList.toggle('hidden', visibleCount === 0);
-    emptyState?.classList.toggle('hidden', visibleCount !== 0);
+    if (activeFilters) activeFilters.hidden = activeValues.length === 0;
+    if (filterCount) {
+      filterCount.hidden = activeValues.length === 0;
+      filterCount.textContent = String(activeValues.length);
+    }
 
     const normalizedQuery = normalizeText(query.trim());
     quickSearches.forEach((button) => {
@@ -317,19 +344,48 @@ const filterChips = [
     });
   }
 
-  careerSelect?.addEventListener('change', applyFilters);
-  subjectSelect?.addEventListener('change', applyFilters);
-  typeSelect?.addEventListener('change', applyFilters);
-  searchInput?.addEventListener('input', applyFilters);
+  // Si se cambia la búsqueda o un filtro con la lista ya bajada, volver al
+  // principio de los resultados: si no, la pantalla queda en el medio de
+  // una lista nueva (o vacía) sin que se entienda qué pasó.
+  function showResultsFromTop() {
+    if (!resultsRoot || !toolbar?.hasAttribute('data-stuck')) return;
+    const toolbarBottom = toolbar.getBoundingClientRect().bottom;
+    const resultsTop = resultsRoot.getBoundingClientRect().top;
+    if (resultsTop < toolbarBottom) {
+      window.scrollBy({ top: resultsTop - toolbarBottom - 12 });
+    }
+  }
+
+  function onFiltersChanged() {
+    applyFilters();
+    showResultsFromTop();
+  }
+
+  document.addEventListener('change', (event) => {
+    const target = event.target;
+    if (target instanceof HTMLInputElement && FILTER_NAMES.includes(target.name)) {
+      onFiltersChanged();
+    }
+  });
+  searchInput?.addEventListener('input', onFiltersChanged);
+
+  // Sombra en la barra solo mientras está pegada arriba. 64px = alto del
+  // Navbar (h-16), que es donde se pega.
+  if (toolbar && toolbarSentinel) {
+    new IntersectionObserver(
+      ([entry]) => {
+        const isStuck = entry.boundingClientRect.top < (entry.rootBounds?.top ?? 0);
+        toolbar.toggleAttribute('data-stuck', isStuck);
+      },
+      { rootMargin: '-64px 0px 0px 0px' },
+    ).observe(toolbarSentinel);
+  }
 
   // Pre-carga la búsqueda si se llega con ?q= (el buscador global,
   // GlobalSearch.astro, manda acá así para un libro puntual — la
   // biblioteca no tiene página propia por libro).
   const queryParam = new URLSearchParams(window.location.search).get('q');
-  if (queryParam && searchInput) {
-    searchInput.value = queryParam;
-    applyFilters();
-  }
+  if (queryParam && searchInput) searchInput.value = queryParam;
 
   let searchTrackTimeout: ReturnType<typeof setTimeout> | undefined;
   searchInput?.addEventListener('input', () => {
@@ -343,8 +399,7 @@ const filterChips = [
       // cuando la búsqueda no encontró ningún resultado — filtrable en
       // GoatCounter por separado, sin tener que revisar búsqueda por
       // búsqueda cuáles dieron vacío.
-      const noResults = !emptyState?.classList.contains('hidden');
-      if (noResults) {
+      if (emptyState && !emptyState.hidden) {
         window.goatcounter?.count({ path: `busqueda-sin-resultado:${query}`, event: true });
       }
     }, 600);
@@ -360,26 +415,22 @@ const filterChips = [
     const query = event.detail?.query ?? '';
     const isActive = normalizeText(searchInput.value.trim()) === normalizeText(query);
     searchInput.value = isActive ? '' : query;
-    applyFilters();
+    onFiltersChanged();
     if (!isActive) {
       window.goatcounter?.count({ path: `busqueda-rapida:${normalizeText(query)}`, event: true });
     }
   }) as EventListener);
 
   document.addEventListener('filterchip:remove', ((event: CustomEvent<{ value: string }>) => {
-    const value = event.detail?.value ?? '';
-    if (value.startsWith('career:') && careerSelect) careerSelect.value = 'all';
-    if (value.startsWith('subject:') && subjectSelect) subjectSelect.value = 'all';
-    if (value.startsWith('type:') && typeSelect) typeSelect.value = 'all';
-    applyFilters();
+    const [name] = (event.detail?.value ?? '').split(':');
+    setChecked(name, 'all');
+    onFiltersChanged();
   }) as EventListener);
 
-  document.addEventListener('filterpanel:clear', () => {
-    if (careerSelect) careerSelect.value = 'all';
-    if (subjectSelect) subjectSelect.value = 'all';
-    if (typeSelect) typeSelect.value = 'all';
-    if (searchInput) searchInput.value = '';
-    applyFilters();
+  document.querySelector('[data-library-filters-clear]')?.addEventListener('click', () => {
+    setChecked('carrera', 'all');
+    setChecked('tipo', 'all');
+    onFiltersChanged();
   });
 
   applyFilters();

@@ -1,0 +1,75 @@
+---
+/**
+ * Elegir UNA opción entre varias como fila de chips (ej. la materia en la
+ * Biblioteca). Son radios nativos, así que teclado (flechas), lector de
+ * pantalla y estado vienen del navegador, sin JS: la página solo escucha
+ * `change` y lee `input:checked`.
+ */
+import type { HTMLAttributes } from 'astro/types';
+import { getChipRowClasses, type ChipRowLayout } from '@/lib/chipRowClasses';
+
+interface ChipOption {
+  value: string;
+  label: string;
+}
+
+interface Props extends HTMLAttributes<'fieldset'> {
+  name: string;
+  legend: string;
+  options: ChipOption[];
+  value: string;
+  /** Leyenda solo para lector de pantalla (el contexto ya se ve). */
+  hideLegend?: boolean;
+  layout?: ChipRowLayout;
+  size?: 'sm' | 'md';
+}
+
+const {
+  name,
+  legend,
+  options,
+  value,
+  hideLegend = false,
+  layout = 'wrap',
+  size = 'md',
+  class: className,
+  ...rest
+}: Props = Astro.props;
+
+const sizeClasses = {
+  sm: 'h-8 px-3 text-caption',
+  md: 'h-10 px-4 text-body-sm',
+};
+---
+
+<fieldset class:list={['min-w-0', className]} {...rest}>
+  <legend
+    class:list={[hideLegend ? 'sr-only' : 'text-caption text-text-secondary mb-2 font-semibold']}
+  >
+    {legend}
+  </legend>
+  <div class={getChipRowClasses(layout)}>
+    {
+      options.map((option) => (
+        <label
+          class:list={[
+            // `relative`: el radio `sr-only` es `position: absolute`; sin un
+            // ancestro posicionado DENTRO de la fila deslizable, escapa de su
+            // `overflow-x-auto` y ensancha la página (en iPhone, achica todo).
+            'border-border bg-surface text-text-secondary ease-standard hover:bg-surface-alt has-checked:border-secondary has-checked:bg-secondary has-checked:text-secondary-foreground has-focus-visible:outline-secondary-strong relative inline-flex shrink-0 cursor-pointer items-center rounded-full border font-semibold whitespace-nowrap transition-colors duration-150 has-focus-visible:outline-2 has-focus-visible:outline-offset-2',
+            sizeClasses[size],
+          ]}
+        >
+          <input
+            type="radio"
+            class="sr-only"
+            name={name}
+            value={option.value}
+            checked={option.value === value}
+          />
+          {option.label}
+        </label>
+      ))
+    }
+  </div>
+</fieldset>
