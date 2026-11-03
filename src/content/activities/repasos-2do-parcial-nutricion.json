@@ -1,0 +1,61 @@
+{
+  "title": "Repasos - 2do parcial nutrición",
+  "summary": "Sumate a repasar los temas más importantes para el segundo parcial de Nutrición",
+  "description": "",
+  "image": "",
+  "schedule": null,
+  "sessions": [
+    {
+      "title": "Grupo de estudio: UP7 y metabolismo fosfocálcico",
+      "date": "2026-11-04",
+      "weekday": "",
+      "time": "12:00",
+      "endTime": "14:00",
+      "location": "Subsuelo Sala 7"
+    },
+    {
+      "title": "Grupo de estudio: ANATO-HISTO-FISIO de intestino grueso",
+      "date": "2026-11-04",
+      "weekday": "",
+      "time": "14:00",
+      "endTime": "16:00",
+      "location": "Subsuelo Sala 7"
+    },
+    {
+      "title": "Embriología del aparato digestivo",
+      "date": "2026-11-06",
+      "weekday": "",
+      "time": "10:00",
+      "endTime": "12:00",
+      "location": "Aula a confirmar"
+    },
+    {
+      "title": "Irrigación de la cavidad abdominal",
+      "date": "2026-11-06",
+      "weekday": "",
+      "time": "12:00",
+      "endTime": "14:00",
+      "location": "Aula a confirmar"
+    },
+    {
+      "title": "Fisiología hepática + integración metabólica",
+      "date": "2026-11-06",
+      "weekday": "",
+      "time": "14:00",
+      "endTime": "16:00",
+      "location": "Aula a confirmar"
+    }
+  ],
+  "status": "proxima",
+  "registration": {
+    "useRegistrationForm": true,
+    "registrationUrl": "",
+    "confirmationMessage": "",
+    "confirmationLinkLabel": "",
+    "confirmationLinkUrl": "",
+    "collectCertificateData": false
+  },
+  "featured": true,
+  "published": true,
+  "order": null
+}
