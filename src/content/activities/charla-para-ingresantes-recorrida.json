@@ -1,0 +1,27 @@
+{
+  "title": "CHARLA PARA INGRESANTES + RECORRIDA",
+  "summary": "¿Ingresás a la FCM en 2027? vení a sacarte todas las dudas y conocer la facu!",
+  "description": "",
+  "image": "",
+  "schedule": {
+    "recurring": false,
+    "weekday": "",
+    "date": "2026-11-20",
+    "time": "18:00",
+    "endTime": "20:00",
+    "location": "Anfiteatro a confirmar"
+  },
+  "sessions": [],
+  "status": "proxima",
+  "registration": {
+    "useRegistrationForm": true,
+    "registrationUrl": "",
+    "confirmationMessage": "Listo! ya estás inscriptx. \nTe esperamos!\n\nEn nuestras redes @atp.fcm vamos a avisar en qué anfiteatro va a ser la charla y te mostramos como llegar. También te vamos a mandar la info por mail ;)",
+    "confirmationLinkLabel": "Seguir en Instagram",
+    "confirmationLinkUrl": "https://www.instagram.com/atp.fcm/",
+    "collectCertificateData": false
+  },
+  "featured": true,
+  "published": true,
+  "order": null
+}
