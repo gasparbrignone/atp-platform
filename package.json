@@ -33,7 +33,7 @@
     "@tiptap/extension-text": "3.31.3",
     "@tiptap/pm": "3.31.3",
     "@tiptap/react": "3.31.3",
-    "astro": "^7.0.6",
+    "astro": "^7.4.12",
     "jsqr": "^1.4.0",
     "lucide-react": "^1.23.0",
     "marked": "^18.0.5",
