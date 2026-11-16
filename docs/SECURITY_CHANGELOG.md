@@ -12,6 +12,11 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ## 2026-11-16
 
+- **deps:** `astro` 7.4.2 → 7.4.12, cierra GHSA-mh32-jxcr-mh9f (XSS por
+  inyección de atributos en nombres de tag dinámicos) y GHSA-r3h5-4585-7x3w
+  (endpoint de imágenes de `@astrojs/node`, que este sitio estático no
+  usa). `npm audit --omit=dev` queda en 0.
+
 - **feat:** venta de libritos con cobro por Mercado Pago (Checkout Pro)
   desde el home (`BookletSaleSection.astro`). Nuevo secreto
   `MP_ACCESS_TOKEN` (constante del Apps Script, cuenta de MP distinta de la
