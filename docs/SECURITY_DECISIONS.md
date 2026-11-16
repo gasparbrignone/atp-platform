@@ -1162,3 +1162,66 @@ esa suposición fija es la que causó el problema técnico de arriba. No
 sacar la exclusión de `AGENDA_SHEET_NAME` sin un pedido igual de
 explícito del dueño para esa hoja en particular (no aplica solo porque
 aplicó para llaveros).
+
+---
+
+### 2026-11-16 — Venta de libritos: primer cobro online (Mercado Pago Checkout Pro) en el Apps Script
+
+**Contexto:** el dueño del proyecto pidió vender libritos ($4.000 c/u) desde
+el home con pago por Mercado Pago y un mail de resumen al comprar. Es el
+primer flujo del sitio que mueve plata real sin pasar por una persona
+(las ventas anteriores eran "transferí al alias y mandá el comprobante").
+El EFS 2026 ya cobraba por MP, pero con su propio camino (`EFS.gs` +
+`cloudflare/efs-worker`, token en `EFS_MP_TOKEN`) y en otra cuenta de MP.
+
+**Decisión:**
+1. **El navegador nunca decide qué se cobra ni si se pagó.** El sitio solo
+   manda cantidades; el script calcula el total con `BOOKLET_UNIT_PRICE`
+   (topea cada librito en `BOOKLET_MAX_PER_ITEM`) y arma el cobro. El
+   estado "Pagado" y el mail salen únicamente de `syncBookletPayment`,
+   que consulta el pago a la API de MP con el token y además chequea que
+   la `external_reference` sea un pedido de libritos existente y que el
+   monto cobrado (en ARS) no sea menor al del pedido. Ni el `status` de la
+   URL de vuelta ni el cuerpo del aviso de MP se usan para nada salvo el
+   número de pago.
+2. **Aviso de MP sin firma, a propósito:** `doPost` de Apps Script no puede
+   leer headers, así que no se puede validar la firma `x-signature` de
+   los webhooks. Se compensa con lo de arriba (el aviso solo dispara una
+   consulta autenticada a MP) más un freno propio (`rl_mp_webhook`). Un
+   aviso falso como mucho gasta una llamada a la API.
+3. **Idempotencia:** `LockService` + columna "Estado". MP reintenta avisos
+   y Apps Script no le contesta un 200 limpio (redirección), así que el
+   mismo pago puede llegar varias veces: el mail sale una sola vez, y un
+   aviso viejo de "rechazado/pendiente" nunca pisa un "Pagado".
+4. **Consultar un pago desde el navegador exige el `orderId`** (UUID del
+   pedido, que MP devuelve en la URL de vuelta) además del número de
+   pago, y tiene freno propio (`rl_booklet_status`): sin eso, cualquiera
+   podría consultar el estado de pagos ajenos probando números.
+5. **Fórmulas en celdas:** todo texto del formulario que empiece con
+   `= + - @` se guarda con apóstrofe (`asPlainCell`). Es el primer
+   formulario que lo hace; los anteriores (inscripciones, llaveros) siguen
+   sin esa protección — pendiente de evaluar aparte.
+6. **La hoja "Pedidos Libritos" queda fuera del panel de campañas**
+   (`getEligibleActivitySheet`): tiene "Email" pero no "Dado de baja", y la
+   decisión del 2026-09-15 pide revisar ese trade-off para cada venta
+   nueva en vez de repetirlo. Habilitarla es decisión del dueño.
+7. **Token:** `MP_ACCESS_TOKEN` como constante del script, igual que los
+   demás secretos de este script (ver `SECURITY.md`), en una cuenta de MP
+   aparte de la del EFS. Lo trajo Claude con el conector de MP, a pedido
+   explícito del dueño (que eligió eso sabiendo que el token pasa por la
+   conversación), y quedó solo en la copia local del script, fuera del
+   repo.
+
+**Alternativas consideradas:** hacer el cobro en un Worker de Cloudflare
+(como el EFS) — permite validar la firma del webhook y contestar 200, pero
+suma un deploy más que mantener para una venta chica. Con la verificación
+contra la API de MP no hace falta para la seguridad.
+
+**Riesgo residual:** si se filtra `MP_ACCESS_TOKEN`, permite ver y
+devolver pagos de esa cuenta (no retirar la plata). Rotación en
+`SECURITY.md`.
+
+**Qué NO hacer en el futuro:** no marcar un pedido como pagado a partir de
+algo que mande el navegador o el aviso de MP sin consultar la API. No
+reusar `syncBookletPayment` para otro producto sin chequear que la
+`external_reference` no se pueda confundir con la de otro flujo.

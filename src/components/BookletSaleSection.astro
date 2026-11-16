@@ -1,0 +1,556 @@
+---
+/**
+ * Venta de libritos ATP (ECG Normal, ECG Patológico, 100 Esquemas) con
+ * cobro por Mercado Pago (Checkout Pro). El catálogo vive en
+ * src/config/bookletSale.ts; el pedido, el link de pago y la confirmación
+ * del pago viven en el Apps Script (docs/GOOGLE_SHEETS_FORM_SETUP.md,
+ * "VENTA DE LIBRITOS"), que es el único que conoce el Access Token de MP.
+ *
+ * Flujo:
+ * 1. Enviar → POST (no-cors) con los datos y un `orderId` (UUID generado
+ *    acá): el script guarda la fila, calcula el total él mismo (nunca
+ *    confía en el precio del navegador) y crea la "preferencia" de pago.
+ * 2. Mismo patrón que el login del panel: el POST no puede devolver nada
+ *    legible, así que el link de pago se retira con un GET/JSONP
+ *    (`bookletCheckoutPoll`) y el navegador va a Mercado Pago.
+ * 3. MP vuelve a `/?libritos=vuelta&payment_id=…&external_reference=…`.
+ *    Esta sección lo detecta y le pide al script que verifique el pago
+ *    contra la API de MP (`bookletPaymentStatus`) — nunca se cree en el
+ *    `status` de la URL, que cualquiera puede escribir a mano. El mail
+ *    con el resumen lo manda el script cuando MP confirma el pago (por esta
+ *    vuelta o por el aviso automático de MP, lo que llegue primero).
+ *
+ * Va con id="libritos" para poder linkearla directo desde la bio de
+ * Instagram (atpfcm.com.ar/#libritos).
+ */
+import { Image } from 'astro:assets';
+import Section from '@/components/Section.astro';
+import Container from '@/components/Container.astro';
+import Input from '@/components/Input.astro';
+import Select from '@/components/Select.astro';
+import Button from '@/components/Button.astro';
+import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
+import { studyYearOptions } from '@/lib/labels';
+import { siteConfig } from '@/config/site';
+import { bookletProducts } from '@/config/bookletSale';
+import {
+  BOOKLET_UNIT_PRICE,
+  BOOKLET_MAX_PER_ITEM,
+  BOOKLET_FORMAT,
+  BOOKLET_PICKUP,
+  formatPesos,
+} from '@/config/bookletSaleTerms';
+import Minus from '@lucide/astro/icons/minus';
+import Plus from '@lucide/astro/icons/plus';
+---
+
+<Section id="libritos" spacing="md" background="surface-alt">
+  <Container class="flex flex-col gap-10">
+    <header class="mx-auto flex max-w-2xl flex-col items-center gap-3 text-center">
+      <p class="text-caption text-primary-strong font-bold tracking-wide uppercase">
+        Nuevos libritos a color
+      </p>
+      <h2 class="text-h2 sm:text-h1 text-text font-extrabold text-balance">
+        ¿Ya no sabés cómo
+        <span class="font-script text-primary-strong block text-[1.5em] leading-none font-normal">
+          romantizar
+        </span>
+        el estudio?
+      </h2>
+      <p class="text-body-lg text-text-secondary">
+        Mirá estos libritos. {BOOKLET_FORMAT}, {formatPesos(BOOKLET_UNIT_PRICE)} cada uno.
+      </p>
+    </header>
+
+    <form
+      data-booklet-form
+      data-endpoint={GOOGLE_FORMS_ENDPOINT}
+      novalidate
+      class="flex flex-col gap-10"
+    >
+      <input type="hidden" name="formType" value="libritos" />
+      <input type="hidden" name="orderId" data-booklet-order-id />
+
+      <ul class="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+        {
+          bookletProducts.map((product) => (
+            <li class="booklet-item border-border bg-surface flex flex-row items-center gap-4 rounded-md border p-4 lg:flex-col lg:items-stretch lg:gap-5 lg:p-6">
+              <div class="flex w-24 shrink-0 items-center justify-center sm:w-36 lg:h-60 lg:w-full">
+                <Image
+                  src={product.image}
+                  alt={`Librito ${product.title} de ATP`}
+                  widths={[240, 480]}
+                  sizes="(min-width: 1024px) 240px, 144px"
+                  loading="lazy"
+                  class="booklet-image max-h-40 w-auto object-contain lg:max-h-60"
+                />
+              </div>
+
+              <div class="flex min-w-0 flex-1 flex-col gap-2 lg:gap-3">
+                <div class="flex flex-wrap items-baseline justify-between gap-x-2">
+                  <h3 class="text-h4 text-text font-bold">{product.title}</h3>
+                  <span class="text-body text-text shrink-0 font-semibold">
+                    {formatPesos(BOOKLET_UNIT_PRICE)}
+                  </span>
+                </div>
+                <p class="text-body-sm text-text-secondary">{product.description}</p>
+
+                <div class="mt-auto flex items-center gap-1.5 pt-1 sm:gap-2">
+                  <button
+                    type="button"
+                    class="booklet-step border-border-strong text-text hover:bg-surface-alt ease-standard inline-flex size-10 items-center justify-center rounded-full border transition-colors duration-150 disabled:opacity-40"
+                    data-booklet-step="-1"
+                    data-booklet-target={product.key}
+                    aria-label={`Sacar un ${product.title}`}
+                  >
+                    <Minus class="size-4" aria-hidden="true" />
+                  </button>
+                  <label for={`booklet-qty-${product.key}`} class="sr-only">
+                    Cantidad de {product.title}
+                  </label>
+                  <Input
+                    id={`booklet-qty-${product.key}`}
+                    name={`${product.key}Qty`}
+                    type="number"
+                    inputmode="numeric"
+                    min="0"
+                    max={String(BOOKLET_MAX_PER_ITEM)}
+                    value="0"
+                    data-booklet-qty={product.key}
+                    class="booklet-qty text-center"
+                  />
+                  <button
+                    type="button"
+                    class="booklet-step border-border-strong text-text hover:bg-surface-alt ease-standard inline-flex size-10 items-center justify-center rounded-full border transition-colors duration-150 disabled:opacity-40"
+                    data-booklet-step="1"
+                    data-booklet-target={product.key}
+                    aria-label={`Sumar un ${product.title}`}
+                  >
+                    <Plus class="size-4" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+
+      <div
+        class="border-border bg-surface mx-auto flex w-full max-w-2xl flex-col gap-4 rounded-md border p-6"
+        data-booklet-checkout
+      >
+        <h3 class="text-h4 text-text font-bold">Tus datos</h3>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="flex flex-col gap-2">
+            <label for="booklet-name" class="text-caption text-text-secondary font-semibold">
+              Nombre
+            </label>
+            <Input
+              id="booklet-name"
+              name="name"
+              autocomplete="given-name"
+              maxlength="80"
+              required
+            />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label for="booklet-lastname" class="text-caption text-text-secondary font-semibold">
+              Apellido
+            </label>
+            <Input
+              id="booklet-lastname"
+              name="lastName"
+              autocomplete="family-name"
+              maxlength="80"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="flex flex-col gap-2">
+            <label for="booklet-year" class="text-caption text-text-secondary font-semibold">
+              Año
+            </label>
+            <Select id="booklet-year" name="year" required>
+              <option value="">Elegí tu año</option>
+              {studyYearOptions.map((year) => <option value={year}>{year}</option>)}
+            </Select>
+          </div>
+          <div class="flex flex-col gap-2">
+            <label for="booklet-phone" class="text-caption text-text-secondary font-semibold">
+              Teléfono
+            </label>
+            <Input
+              id="booklet-phone"
+              name="phone"
+              type="tel"
+              autocomplete="tel"
+              maxlength="30"
+              data-clarity-mask="true"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label for="booklet-email" class="text-caption text-text-secondary font-semibold">
+            Email
+          </label>
+          <Input
+            id="booklet-email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            maxlength="120"
+            aria-describedby="booklet-email-hint"
+            data-clarity-mask="true"
+            required
+          />
+          <p id="booklet-email-hint" class="text-caption text-text-secondary">
+            Te mandamos el resumen de tu compra acá.
+          </p>
+        </div>
+
+        <div
+          class="bg-surface-alt flex items-center justify-between gap-4 rounded-sm p-4"
+          aria-live="polite"
+        >
+          <span class="text-body text-text" data-booklet-summary>Elegí al menos un librito</span>
+          <strong class="text-h4 text-text" data-booklet-total>$0</strong>
+        </div>
+
+        <div
+          class="cf-turnstile"
+          data-sitekey={siteConfig.turnstileSiteKey}
+          data-appearance="interaction-only"
+        >
+        </div>
+
+        <Button type="submit" size="lg" data-booklet-submit trackId="compra:libritos">
+          Pagar con Mercado Pago
+        </Button>
+
+        <p class="text-body-sm text-text-secondary">
+          Pagás en Mercado Pago (tarjeta, dinero en cuenta o efectivo). Cuando se acredita te llega
+          un mail con el resumen. {BOOKLET_PICKUP}
+        </p>
+      </div>
+    </form>
+
+    <div
+      class="border-border bg-surface mx-auto w-full max-w-2xl flex-col gap-3 rounded-md border p-6 text-center"
+      data-booklet-result
+      role="status"
+      tabindex="-1"
+      hidden
+    >
+      <h3 class="text-h3 text-text font-bold" data-booklet-result-title></h3>
+      <p class="text-body text-text-secondary" data-booklet-result-text></p>
+      <Button variant="outline" class="self-center" data-booklet-restart hidden>
+        Hacer otro pedido
+      </Button>
+    </div>
+  </Container>
+</Section>
+
+<style>
+  /* Mismo balanceo sutil que tenían los llaveros (KeychainSaleSection):
+     sin JS, y la regla global de prefers-reduced-motion lo apaga sola. */
+  .booklet-image {
+    animation: booklet-float 3.4s var(--ease-standard) infinite;
+  }
+  .booklet-item:nth-child(2) .booklet-image {
+    animation-delay: 0.35s;
+  }
+  .booklet-item:nth-child(3) .booklet-image {
+    animation-delay: 0.7s;
+  }
+  @keyframes booklet-float {
+    0%,
+    100% {
+      transform: translateY(0) rotate(-1deg);
+    }
+    50% {
+      transform: translateY(-6px) rotate(1deg);
+    }
+  }
+  [data-booklet-result]:not([hidden]) {
+    display: flex;
+  }
+  /* Ya hay botones − / + propios: sin las flechitas nativas el número
+     entra en el ancho chico del celular (320px). */
+  /* Ancho acá y no con una clase: Input.astro trae `w-full`, que le gana a
+     cualquier utilidad de ancho que se le pase. */
+  :global(.booklet-qty) {
+    width: 3.5rem;
+    flex: none;
+    padding-inline: 0.25rem;
+    appearance: textfield;
+  }
+  :global(.booklet-qty)::-webkit-inner-spin-button,
+  :global(.booklet-qty)::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+</style>
+
+<!-- Solo en páginas con este formulario (ver KeychainSaleSection.astro). -->
+<script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+<script>
+  import { showToast } from '@/lib/toast';
+  import { hasTurnstileToken, resetTurnstile } from '@/lib/turnstile';
+  import { applySpanishValidationMessages } from '@/lib/formSpanishValidation';
+  import { jsonpRequest } from '@/lib/jsonp';
+  import {
+    BOOKLET_MAX_PER_ITEM,
+    BOOKLET_PICKUP,
+    BOOKLET_UNIT_PRICE,
+    formatPesos,
+  } from '@/config/bookletSaleTerms';
+
+  type CheckoutPollResponse =
+    | { result: 'pending' }
+    | { result: 'success'; checkoutUrl: string }
+    | { result: 'error' | 'rate_limited' | 'not_found' };
+
+  type PaymentStatusResponse = {
+    result: 'success' | 'error' | 'not_found' | 'rate_limited';
+    status?: 'approved' | 'pending' | 'rejected' | 'refunded' | 'review';
+  };
+
+  const RETURN_MARKER = 'vuelta';
+
+  const form = document.querySelector<HTMLFormElement>('[data-booklet-form]');
+  const result = document.querySelector<HTMLElement>('[data-booklet-result]');
+
+  if (form && result) initBookletSale(form, result);
+
+  function initBookletSale(form: HTMLFormElement, result: HTMLElement) {
+    applySpanishValidationMessages(form);
+
+    const endpoint = form.dataset.endpoint ?? '';
+    const submitButton = form.querySelector<HTMLButtonElement>('[data-booklet-submit]');
+    const orderIdInput = form.querySelector<HTMLInputElement>('[data-booklet-order-id]');
+    const qtyInputs = [...form.querySelectorAll<HTMLInputElement>('[data-booklet-qty]')];
+    const summaryEl = form.querySelector<HTMLElement>('[data-booklet-summary]');
+    const totalEl = form.querySelector<HTMLElement>('[data-booklet-total]');
+    const resultTitle = result.querySelector<HTMLElement>('[data-booklet-result-title]');
+    const resultText = result.querySelector<HTMLElement>('[data-booklet-result-text]');
+    const restartButton = result.querySelector<HTMLButtonElement>('[data-booklet-restart]');
+
+    function readQuantity(input: HTMLInputElement): number {
+      const value = Math.floor(Number(input.value) || 0);
+      return Math.min(BOOKLET_MAX_PER_ITEM, Math.max(0, value));
+    }
+
+    function totalQuantity(): number {
+      return qtyInputs.reduce((sum, input) => sum + readQuantity(input), 0);
+    }
+
+    function updateTotal() {
+      const quantity = totalQuantity();
+      if (summaryEl) {
+        summaryEl.textContent =
+          quantity === 0
+            ? 'Elegí al menos un librito'
+            : `${quantity} ${quantity === 1 ? 'librito' : 'libritos'}`;
+      }
+      if (totalEl) totalEl.textContent = formatPesos(quantity * BOOKLET_UNIT_PRICE);
+      form.querySelectorAll<HTMLButtonElement>('[data-booklet-step]').forEach((button) => {
+        const input = qtyInputs.find(
+          (item) => item.dataset.bookletQty === button.dataset.bookletTarget,
+        );
+        if (!input) return;
+        const quantityForItem = readQuantity(input);
+        button.disabled =
+          button.dataset.bookletStep === '-1'
+            ? quantityForItem <= 0
+            : quantityForItem >= BOOKLET_MAX_PER_ITEM;
+      });
+    }
+
+    form.querySelectorAll<HTMLButtonElement>('[data-booklet-step]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const input = qtyInputs.find(
+          (item) => item.dataset.bookletQty === button.dataset.bookletTarget,
+        );
+        if (!input) return;
+        input.value = String(
+          Math.min(
+            BOOKLET_MAX_PER_ITEM,
+            Math.max(0, readQuantity(input) + Number(button.dataset.bookletStep)),
+          ),
+        );
+        updateTotal();
+      });
+    });
+
+    qtyInputs.forEach((input) => {
+      input.addEventListener('input', updateTotal);
+      input.addEventListener('blur', () => {
+        input.value = String(readQuantity(input));
+        updateTotal();
+      });
+    });
+    updateTotal();
+
+    function showResult(title: string, text: string, canRestart: boolean) {
+      if (resultTitle) resultTitle.textContent = title;
+      if (resultText) resultText.textContent = text;
+      if (restartButton) restartButton.hidden = !canRestart;
+      form.hidden = true;
+      result.hidden = false;
+      result.focus({ preventScroll: true });
+      result.scrollIntoView({ block: 'center' });
+    }
+
+    restartButton?.addEventListener('click', () => {
+      result.hidden = true;
+      form.hidden = false;
+      form.scrollIntoView({ block: 'start' });
+    });
+
+    function isMercadoPagoUrl(value: string): boolean {
+      try {
+        const url = new URL(value);
+        return (
+          url.protocol === 'https:' &&
+          (url.hostname === 'mercadopago.com.ar' ||
+            url.hostname.endsWith('.mercadopago.com.ar') ||
+            url.hostname.endsWith('.mercadopago.com'))
+        );
+      } catch {
+        return false;
+      }
+    }
+
+    // El POST de arriba ya terminó cuando esto corre (fetch espera la
+    // respuesta aunque sea opaca), así que casi siempre alcanza con el
+    // primer intento — los reintentos cubren alguna demora del cache.
+    async function fetchCheckoutUrl(orderId: string): Promise<string | null> {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const response = await jsonpRequest<CheckoutPollResponse>(endpoint, {
+          action: 'bookletCheckoutPoll',
+          orderId,
+        });
+        if (response.result === 'success') {
+          return isMercadoPagoUrl(response.checkoutUrl) ? response.checkoutUrl : null;
+        }
+        if (response.result !== 'pending') return null;
+        await new Promise((resolve) => window.setTimeout(resolve, 1500));
+      }
+      return null;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!submitButton || submitButton.disabled || !orderIdInput) return;
+
+      if (totalQuantity() < 1) {
+        showToast({ message: 'Elegí al menos un librito.', variant: 'error' });
+        return;
+      }
+      if (!form.reportValidity()) return;
+      if (!hasTurnstileToken(form)) {
+        showToast({ message: 'Esperá un instante y volvé a intentar.', variant: 'info' });
+        return;
+      }
+
+      const originalLabel = submitButton.textContent;
+      submitButton.disabled = true;
+      submitButton.textContent = 'Preparando tu pago…';
+
+      const orderId = crypto.randomUUID();
+      orderIdInput.value = orderId;
+      let redirecting = false;
+
+      try {
+        const params = new URLSearchParams();
+        for (const [key, value] of new FormData(form).entries()) {
+          params.append(key, String(value));
+        }
+        await fetch(endpoint, { method: 'POST', mode: 'no-cors', body: params });
+
+        const checkoutUrl = await fetchCheckoutUrl(orderId);
+        if (!checkoutUrl) throw new Error('checkout');
+
+        redirecting = true;
+        submitButton.textContent = 'Te llevamos a Mercado Pago…';
+        window.location.assign(checkoutUrl);
+      } catch {
+        showToast({
+          message:
+            'No pudimos preparar el pago. Probá de nuevo en un rato, o compralos directo en nuestra mesita.',
+          variant: 'error',
+          duration: 8000,
+        });
+      } finally {
+        if (!redirecting) {
+          submitButton.disabled = false;
+          submitButton.textContent = originalLabel;
+          resetTurnstile();
+        }
+      }
+    });
+
+    // ====== Vuelta desde Mercado Pago ======
+    const query = new URLSearchParams(window.location.search);
+    if (query.get('libritos') !== RETURN_MARKER) return;
+
+    const paymentId = query.get('payment_id') ?? query.get('collection_id') ?? '';
+    const orderId = query.get('external_reference') ?? '';
+    // Saca los datos de MP de la barra de direcciones (y de un recargo de
+    // página) sin recargar nada.
+    window.history.replaceState(null, '', `${window.location.pathname}#libritos`);
+
+    if (!/^\d+$/.test(paymentId) || !orderId) {
+      showResult(
+        'El pago no se completó',
+        'No se hizo ningún cobro. Si querés, probá de nuevo.',
+        true,
+      );
+      return;
+    }
+
+    showResult('Confirmando tu pago…', 'Un segundito, estamos chequeando con Mercado Pago.', false);
+
+    jsonpRequest<PaymentStatusResponse>(endpoint, {
+      action: 'bookletPaymentStatus',
+      paymentId,
+      orderId,
+    })
+      .then((response) => {
+        if (response.result === 'success' && response.status === 'approved') {
+          showResult(
+            '¡Gracias por tu compra!',
+            `Recibimos tu pago y te mandamos un mail con el resumen. ${BOOKLET_PICKUP}`,
+            true,
+          );
+        } else if (response.result === 'success' && response.status === 'pending') {
+          showResult(
+            'Tu pago está en proceso',
+            'Cuando Mercado Pago lo acredite te llega un mail con el resumen de tu compra.',
+            true,
+          );
+        } else if (response.result === 'success' && response.status === 'rejected') {
+          showResult(
+            'El pago no se completó',
+            'Mercado Pago no aprobó el pago, así que no se hizo ningún cobro. Podés probar de nuevo con otro medio.',
+            true,
+          );
+        } else {
+          throw new Error(response.result);
+        }
+      })
+      .catch(() => {
+        showResult(
+          'Estamos confirmando tu pago',
+          'Si Mercado Pago lo aprobó, en un rato te llega el mail con el resumen. Si no te llega, escribinos.',
+          true,
+        );
+      });
+  }
+</script>

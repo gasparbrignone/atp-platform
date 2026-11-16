@@ -151,6 +151,7 @@ Búsqueda inmediata, botón limpiar, accesible, navegable por teclado.
 
 * `ActivityRegistrationForm` — inscripción simple a una actividad.
 * `ActivityCertificateRegistrationForm` — inscripción a una capacitación con certificado (pide los datos del certificado, entrega QR de acceso).
+* `BookletSaleSection` — venta de libritos con cobro por Mercado Pago (Checkout Pro), primera sección del home desde el 2026-11-16 (`#libritos`, el link de la bio de Instagram). Catálogo en `src/config/bookletSale.ts`, precio/tope/retiro en `src/config/bookletSaleTerms.ts`; cobro, verificación del pago y mail en el Apps Script ("VENTA DE LIBRITOS" en `docs/GOOGLE_SHEETS_FORM_SETUP.md`). Al terminar la venta, sacarla de `index.astro` y dejarla de referencia como las de abajo.
 * `AgendaSaleSection` / `KeychainSaleSection` — venta de merchandising. Ninguna de las dos se renderiza hoy (agenda retirada; llaveros pasó a venderse 100% presencial en la facultad, 2026-09-18) — quedan como referencia del patrón por si hace falta armar otra venta puntual (ver `docs/GOOGLE_SHEETS_FORM_SETUP.md`).
 * `DocChecklistItem` — ítem tildable de una checklist de documentación (checkbox + título + detalle + badge de plazo opcional + links opcionales). Usado en `/ingresantes/` (dos veces, documentación Argentina/Extranjero) — la persistencia del tilde entre visitas (`localStorage`) vive en el `<script>` de la página que lo usa, no en el componente.
 

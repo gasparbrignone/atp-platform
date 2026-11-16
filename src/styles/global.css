@@ -46,6 +46,7 @@
   --color-gray-900: var(--gray-900);
 
   --font-sans: var(--font-sans);
+  --font-script: var(--font-script);
 
   /* Maps to Tailwind's own "normal" weight key so `font-normal` reads from our token too. */
   --font-weight-normal: var(--font-weight-regular);
@@ -227,6 +228,21 @@
   src: url('/branding/Montserrat-ExtraBoldItalic.woff2') format('woff2');
   font-weight: 800;
   font-style: italic;
+  font-display: swap;
+}
+/*
+ * Parisienne (OFL, ver /branding/Parisienne-OFL.txt) — `--font-script`.
+ * Recortada a solo las letras de "romantizar" (~4KB): si alguna vez se usa
+ * para otra palabra, volver a recortarla con esas letras sumadas:
+ *   pyftsubset Parisienne-Regular.ttf --flavor=woff2 --layout-features='*'
+ *   --text="romantizarROMANTIZAR"
+ * Una letra que falte cae a la cursiva del sistema, no se rompe nada.
+ */
+@font-face {
+  font-family: 'Parisienne';
+  src: url('/branding/Parisienne-Subset.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
   font-display: swap;
 }
 

@@ -16,6 +16,7 @@ import Select from '@/components/Select.astro';
 import Button from '@/components/Button.astro';
 import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
 import { siteConfig } from '@/config/site';
+import { studyYearOptions } from '@/lib/labels';
 import Check from '@lucide/astro/icons/check';
 
 interface Props {
@@ -26,10 +27,6 @@ interface Props {
 const { activityId, activityTitle } = Astro.props;
 
 const careers = await getCollection('careers');
-
-// 1° a 6° cubre cualquier carrera de la facultad; Egresado/a y Docente para
-// quien ya no cursa pero también participa de estas charlas.
-const yearOptions = ['1°', '2°', '3°', '4°', '5°', '6°', 'Egresado/a', 'Docente'];
 ---
 
 <div class="w-full max-w-xl">
@@ -123,7 +120,7 @@ const yearOptions = ['1°', '2°', '3°', '4°', '5°', '6°', 'Egresado/a', 'Do
           </label>
           <Select id="certificate-year" name="year" required>
             <option value="" selected disabled>Elegí una opción</option>
-            {yearOptions.map((year) => <option value={year}>{year}</option>)}
+            {studyYearOptions.map((year) => <option value={year}>{year}</option>)}
           </Select>
         </div>
       </div>

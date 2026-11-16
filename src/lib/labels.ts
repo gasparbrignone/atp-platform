@@ -37,6 +37,11 @@ export const weekdayLabels: Record<Weekday, string> = {
 // colección editable `resourceTypes` — se resuelven contra ella en
 // src/pages/biblioteca.astro, igual que `subjects`.
 
+// Año de cursada, para los formularios que lo piden (charla con certificado,
+// venta de libritos). 1° a 6° cubre cualquier carrera de la facultad;
+// Egresado/a y Docente para quien ya no cursa pero también participa.
+export const studyYearOptions = ['1°', '2°', '3°', '4°', '5°', '6°', 'Egresado/a', 'Docente'];
+
 export const careerLabels: Record<CareerSlug, string> = {
   medicina: 'Medicina',
   enfermeria: 'Enfermería',

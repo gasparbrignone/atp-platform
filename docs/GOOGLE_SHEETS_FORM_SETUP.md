@@ -135,6 +135,14 @@ inscripción" — nunca ambos a la vez.
   admin" más abajo — es el único de todos estos pasos que además requiere
   cargar un código en tu celular, no solo pegar código en el script.
 
+- `src/components/BookletSaleSection.astro` (+ `src/config/bookletSale.ts`
+  y `bookletSaleTerms.ts`): venta de libritos con cobro por Mercado Pago
+  (Checkout Pro). Necesita `MP_ACCESS_TOKEN` cargado en el script (token de
+  producción de la app "Web ATP libritos" en el panel de desarrolladores
+  de MP). Para chequear que quedó bien: correr `testMercadoPagoToken` en
+  el editor. No hace falta configurar webhooks en el panel de MP: cada
+  cobro le dice a MP adónde avisar (`notification_url`).
+
 Falta un solo paso externo: (re)cargar el código nuevo del Apps Script,
 **cambiar `STAFF_CHECKIN_SECRET`, `UNSUBSCRIBE_SECRET`,
 `TURNSTILE_SECRET_KEY`, `ADMIN_PASSWORD` y `ADMIN_TOTP_SECRET` por valores
@@ -220,6 +228,37 @@ actividad solo.
    // alguien que clickeara ese link corrompería datos reales del pedido.
    var KEYCHAIN_SHEET_NAME = 'Reserva Llaveros';
 
+   // Venta de libritos con cobro por Mercado Pago (2026-11-16) — ver
+   // "VENTA DE LIBRITOS" más abajo y src/components/BookletSaleSection.astro.
+   // Precio, tope y productos están repetidos en src/config/bookletSale.ts
+   // y bookletSaleTerms.ts (dos runtimes sin forma de compartir código):
+   // ESTOS son los que valen para cobrar, los del sitio son solo para
+   // mostrar. Si cambian, actualizar los dos lados. Los `key` tienen que
+   // coincidir con los del sitio (viajan como `ecgNormalQty`, etc.) y los
+   // `title` son además los encabezados de columna de la hoja.
+   var BOOKLET_SHEET_NAME = 'Pedidos Libritos';
+   var BOOKLET_UNIT_PRICE = 4000;
+   var BOOKLET_MAX_PER_ITEM = 10;
+   var BOOKLET_PRODUCTS = [
+     { key: 'ecgNormal', title: 'ECG Normal' },
+     { key: 'ecgPatologico', title: 'ECG Patológico' },
+     { key: 'esquemas', title: '100 Esquemas Médicos' },
+   ];
+   var BOOKLET_PICKUP_TEXT = 'Podés buscarlo por nuestra mesita cualquier día de 10 a 14hs.';
+
+   // Access Token de PRODUCCIÓN de Mercado Pago (app "Web ATP libritos" →
+   // Credenciales de producción, empieza con APP_USR-). Es la llave de la
+   // cuenta de cobros: permite crear cobros, ver pagos y devolverlos. Vive
+   // SOLO acá — nunca en el sitio ni en el repo. CAMBIAR antes de publicar.
+   var MP_ACCESS_TOKEN = 'CAMBIAR-ESTE-ACCESS-TOKEN-DE-MERCADO-PAGO';
+
+   // URL pública de esta misma Aplicación web (la misma de
+   // src/lib/googleFormsEndpoint.ts): Mercado Pago manda acá el aviso de
+   // cada pago (`notification_url`, ver createBookletPreference). Si algún
+   // día se hace "Nueva implementación" (URL nueva) en vez de "Nueva
+   // versión", actualizar acá también.
+   var WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzIYU4H3B94IoTyH40O4EXljqPVTNGd0Ult_yi8VzS3hhAOjScEdsCQlNZarE5Ixe6f/exec';
+
    // Charlas/capacitaciones con certificado + QR de acceso (ver
    // ActivityCertificateRegistrationForm.astro y src/pages/staff/escanear.astro).
    // CAMBIAR este valor por una clave propia antes de publicar el script —
@@ -280,6 +319,14 @@ actividad solo.
    function doPost(e) {
      try {
        var params = e.parameter;
+
+       // Aviso automático de Mercado Pago de que hubo un pago (ver
+       // handleMercadoPagoWebhook). Va antes de todo: no trae email ni
+       // Turnstile (lo manda el servidor de MP, no un navegador) y nunca
+       // se cree en lo que dice — solo dispara una consulta a la API de MP.
+       if (params.mpWebhook === '1') {
+         return handleMercadoPagoWebhook(e);
+       }
 
        // Login del panel admin: la contraseña y el código de Authenticator
        // viajan acá, en el body de un POST, y en ningún otro lado — nunca
@@ -351,6 +398,13 @@ actividad solo.
        // `formType=llaveros`).
        if (params.formType === 'llaveros') {
          return handleKeychainReservation(params);
+       }
+
+       // Venta de libritos con Mercado Pago (2026-11-16, ver
+       // BookletSaleSection.astro, que manda `formType=libritos`). Pasa
+       // por el mismo freno de spam y Turnstile de arriba.
+       if (params.formType === 'libritos') {
+         return handleBookletOrder(params);
        }
 
        var sheetName = sanitizeSheetName(params.activityTitle || 'Sin actividad');
@@ -443,6 +497,15 @@ actividad solo.
      // crítico — este endpoint nunca marca nada, solo lee.
      if (e.parameter.action === 'checkinRoster') {
        return handleCheckinRoster(e.parameter);
+     }
+     // Venta de libritos (ver "VENTA DE LIBRITOS"): retirar el link de
+     // pago que dejó handleBookletOrder, y confirmar un pago al volver de
+     // Mercado Pago. JSONP por el mismo motivo que checkin.
+     if (e.parameter.action === 'bookletCheckoutPoll') {
+       return handleBookletCheckoutPoll(e.parameter);
+     }
+     if (e.parameter.action === 'bookletPaymentStatus') {
+       return handleBookletPaymentStatus(e.parameter);
      }
      // Panel admin (src/pages/staff/panel.astro) — igual que checkin, vía
      // JSONP porque hace falta leer la respuesta real (lista de
@@ -629,7 +692,12 @@ actividad solo.
    // (ej. la de log de campañas, CAMPAIGNS_LOG_SHEET_NAME, queda afuera
    // sola por este mismo motivo).
    function getEligibleActivitySheet(sheetName) {
-     if (!sheetName || sheetName === AGENDA_SHEET_NAME) {
+     // BOOKLET_SHEET_NAME (pedidos de libritos, 2026-11-16) también queda
+     // afuera por default: tiene "Email" pero no "Dado de baja", y la
+     // decisión del 2026-09-15 (llaveros) pide revisar ese trade-off para
+     // cada venta nueva en vez de repetirlo solo — ver
+     // docs/SECURITY_DECISIONS.md. Para habilitarla, sacarla de acá.
+     if (!sheetName || sheetName === AGENDA_SHEET_NAME || sheetName === BOOKLET_SHEET_NAME) {
        return null;
      }
      var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
@@ -2003,7 +2071,8 @@ actividad solo.
      if (
        sheetName === 'Errores' ||
        sheetName === AGENDA_SHEET_NAME ||
-       sheetName === KEYCHAIN_SHEET_NAME
+       sheetName === KEYCHAIN_SHEET_NAME ||
+       sheetName === BOOKLET_SHEET_NAME
      ) {
        ui.alert('Abrí la pestaña de la actividad que querés reprogramar (no esta) y probá de nuevo.');
        return;
@@ -2171,6 +2240,409 @@ actividad solo.
        ]);
      }
      return sheet;
+   }
+
+   // ====== VENTA DE LIBRITOS (Mercado Pago) ======
+   //
+   // src/components/BookletSaleSection.astro. Primera venta del sitio con
+   // cobro online (Mercado Pago Checkout Pro). El flujo completo:
+   //   1. handleBookletOrder (POST, formType=libritos): guarda la fila como
+   //      "Pendiente de pago", calcula el total ACÁ (nunca con un precio
+   //      que mande el navegador) y crea la "preferencia" de pago en MP. El
+   //      link de pago queda en el cache bajo el `orderId` (UUID que generó
+   //      el navegador, solo sirve para identificar este pedido).
+   //   2. handleBookletCheckoutPoll (GET/JSONP): el navegador retira ese
+   //      link y se va a pagar a Mercado Pago.
+   //   3. MP avisa el pago por dos lados: a este Web App
+   //      (handleMercadoPagoWebhook, el aviso automático) y cuando la
+   //      persona vuelve al sitio (handleBookletPaymentStatus). Los dos
+   //      terminan en syncBookletPayment, que NUNCA se cree lo que dice el
+   //      aviso: le pregunta el pago a la API de MP con MP_ACCESS_TOKEN y
+   //      chequea pedido y monto. Es idempotente (LockService + columna
+   //      "Estado"): el mail de "gracias por tu compra" sale una sola vez
+   //      aunque MP avise varias veces (MP reintenta sus avisos, y Apps
+   //      Script no le contesta un 200 limpio sino una redirección).
+   //
+   // La hoja tiene columna "Email" pero no "Dado de baja", así que por
+   // ahora el panel admin NO le puede mandar campañas (ver
+   // getEligibleActivitySheet). "Retirado" es para que el staff marque a
+   // mano quién ya se llevó su pedido de la mesita.
+
+   var BOOKLET_STATE_PENDING = 'Pendiente de pago';
+   var BOOKLET_STATE_PAID = 'Pagado';
+   var BOOKLET_STATE_IN_PROCESS = 'Pago en proceso';
+   var BOOKLET_STATE_REJECTED = 'Pago rechazado';
+   var BOOKLET_STATE_REFUNDED = 'Devuelto';
+   var BOOKLET_STATE_REVIEW = 'Revisar: el monto no coincide';
+   var BOOKLET_STATE_CHECKOUT_ERROR = 'Error al crear el pago';
+
+   function getBookletHeaders() {
+     return ['Fecha', 'Pedido', 'Nombre', 'Apellido', 'Email', 'Teléfono', 'Año']
+       .concat(BOOKLET_PRODUCTS.map(function (product) { return product.title; }))
+       .concat(['Total libritos', 'Monto', 'Estado', 'ID de pago MP', 'Fecha de pago', 'Mail enviado', 'Retirado']);
+   }
+
+   function getOrCreateBookletSheet() {
+     var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+     var sheet = spreadsheet.getSheetByName(BOOKLET_SHEET_NAME);
+     if (!sheet) {
+       sheet = spreadsheet.insertSheet(BOOKLET_SHEET_NAME);
+       sheet.appendRow(getBookletHeaders());
+       sheet.setFrozenRows(1);
+     }
+     return sheet;
+   }
+
+   function isValidBookletOrderId(orderId) {
+     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(orderId || ''));
+   }
+
+   // Número de fila (1 = encabezados) del pedido, o 0 si no existe. Busca
+   // solo en la columna "Pedido" (B).
+   function findBookletOrderRow(sheet, orderId) {
+     var lastRow = sheet.getLastRow();
+     if (lastRow < 2) return 0;
+     var match = sheet.getRange(2, 2, lastRow - 1, 1)
+       .createTextFinder(orderId)
+       .matchEntireCell(true)
+       .findNext();
+     return match ? match.getRow() : 0;
+   }
+
+   // Sheets interpreta como fórmula cualquier texto que arranque con
+   // = + - @ (un "nombre" tipo =IMPORTXML(...) se ejecutaría dentro de la
+   // planilla). El apóstrofe adelante lo fuerza a texto y no se ve.
+   function asPlainCell(value) {
+     var text = String(value == null ? '' : value).trim();
+     return /^[=+\-@]/.test(text) ? "'" + text : text;
+   }
+
+   function formatPesosForEmail(amount) {
+     return '$' + String(Math.round(Number(amount) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+   }
+
+   function handleBookletOrder(params) {
+     var orderId = String(params.orderId || '');
+     if (!isValidBookletOrderId(orderId)) {
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'error' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     }
+
+     var result;
+     try {
+       result = createBookletOrder(params, orderId);
+     } catch (err) {
+       logError('libritos', err, params);
+       result = { result: 'error' };
+     }
+
+     // 10 minutos: el navegador lo retira enseguida
+     // (handleBookletCheckoutPoll), el margen es por si reintenta.
+     CacheService.getScriptCache().put('booklet_checkout_' + orderId, JSON.stringify(result), 600);
+
+     return ContentService
+       .createTextOutput(JSON.stringify({ result: 'queued' }))
+       .setMimeType(ContentService.MimeType.JSON);
+   }
+
+   function createBookletOrder(params, orderId) {
+     var quantities = {};
+     var totalQuantity = 0;
+     BOOKLET_PRODUCTS.forEach(function (product) {
+       var quantity = Math.floor(Number(params[product.key + 'Qty']) || 0);
+       quantity = Math.min(BOOKLET_MAX_PER_ITEM, Math.max(0, quantity));
+       quantities[product.key] = quantity;
+       totalQuantity += quantity;
+     });
+
+     var buyer = {
+       name: String(params.name || '').trim().slice(0, 80),
+       lastName: String(params.lastName || '').trim().slice(0, 80),
+       email: String(params.email || '').trim().slice(0, 120),
+       phone: String(params.phone || '').trim().slice(0, 30),
+       year: String(params.year || '').trim().slice(0, 20),
+     };
+
+     // Nunca confiar solo en la validación del navegador: un pedido armado
+     // a mano podría saltearla.
+     if (
+       totalQuantity < 1 ||
+       !buyer.name ||
+       !buyer.lastName ||
+       !buyer.phone ||
+       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyer.email)
+     ) {
+       return { result: 'error' };
+     }
+
+     var sheet = getOrCreateBookletSheet();
+     if (findBookletOrderRow(sheet, orderId)) return { result: 'error' };
+
+     var total = totalQuantity * BOOKLET_UNIT_PRICE;
+     sheet.appendRow(
+       [
+         new Date(),
+         orderId,
+         asPlainCell(buyer.name),
+         asPlainCell(buyer.lastName),
+         asPlainCell(buyer.email),
+         asPlainCell(buyer.phone),
+         asPlainCell(buyer.year),
+       ]
+         .concat(BOOKLET_PRODUCTS.map(function (product) { return quantities[product.key]; }))
+         .concat([totalQuantity, total, BOOKLET_STATE_PENDING, '', '', false, false])
+     );
+
+     var checkoutUrl = createBookletPreference(orderId, quantities, buyer);
+     if (!checkoutUrl) {
+       var rowIndex = findBookletOrderRow(sheet, orderId);
+       if (rowIndex) {
+         sheet.getRange(rowIndex, getBookletHeaders().indexOf('Estado') + 1).setValue(BOOKLET_STATE_CHECKOUT_ERROR);
+       }
+       return { result: 'error' };
+     }
+     return { result: 'success', checkoutUrl: checkoutUrl };
+   }
+
+   // Crea el cobro en Mercado Pago y devuelve el link para pagar
+   // (init_point), o null si MP no lo aceptó (queda el motivo en
+   // "Errores").
+   function createBookletPreference(orderId, quantities, buyer) {
+     var items = BOOKLET_PRODUCTS
+       .filter(function (product) { return quantities[product.key] > 0; })
+       .map(function (product) {
+         return {
+           id: product.key,
+           title: 'Librito ' + product.title + ' - ATP',
+           quantity: quantities[product.key],
+           unit_price: BOOKLET_UNIT_PRICE,
+           currency_id: 'ARS',
+         };
+       });
+     var returnUrl = SITE_URL + '/?libritos=vuelta';
+
+     var response = UrlFetchApp.fetch('https://api.mercadopago.com/checkout/preferences', {
+       method: 'post',
+       contentType: 'application/json',
+       headers: { Authorization: 'Bearer ' + MP_ACCESS_TOKEN },
+       payload: JSON.stringify({
+         items: items,
+         payer: { name: buyer.name, surname: buyer.lastName, email: buyer.email },
+         external_reference: orderId,
+         back_urls: { success: returnUrl, pending: returnUrl, failure: returnUrl },
+         auto_return: 'approved',
+         notification_url: WEB_APP_URL + '?mpWebhook=1',
+         statement_descriptor: 'ATP FCM',
+       }),
+       muteHttpExceptions: true,
+     });
+
+     var code = response.getResponseCode();
+     if (code !== 200 && code !== 201) {
+       logError('mp-preferencia', new Error('MP respondió ' + code + ': ' + response.getContentText().slice(0, 500)), { orderId: orderId });
+       return null;
+     }
+     var preference = JSON.parse(response.getContentText());
+     return preference.init_point || null;
+   }
+
+   function handleBookletCheckoutPoll(params) {
+     if (!isValidBookletOrderId(params.orderId)) {
+       return jsonpResponse({ result: 'error' }, params.callback);
+     }
+     var stored = CacheService.getScriptCache().get('booklet_checkout_' + params.orderId);
+     return jsonpResponse(stored ? JSON.parse(stored) : { result: 'pending' }, params.callback);
+   }
+
+   // Al volver de Mercado Pago. Exige el `orderId` además del id de pago
+   // (MP devuelve los dos en la URL): sin él, cualquiera podría consultar
+   // el estado de pagos ajenos de esta cuenta probando números. Con freno
+   // propio porque cada llamada es un pedido a la API de MP.
+   function handleBookletPaymentStatus(params) {
+     if (!isValidBookletOrderId(params.orderId)) {
+       return jsonpResponse({ result: 'not_found' }, params.callback);
+     }
+     if (isRateLimited('rl_booklet_status', 60, 600)) {
+       return jsonpResponse({ result: 'rate_limited' }, params.callback);
+     }
+     try {
+       return jsonpResponse(syncBookletPayment(params.paymentId, params.orderId), params.callback);
+     } catch (err) {
+       logError('libritos-estado', err, params);
+       return jsonpResponse({ result: 'error' }, params.callback);
+     }
+   }
+
+   // Aviso automático de MP. Puede llegar como webhook (`?type=payment&
+   // data.id=123` + cuerpo JSON) o como IPN viejo (`?topic=payment&id=123`)
+   // — se aceptan los dos. Los avisos de "merchant_order" se ignoran: con
+   // los de "payment" alcanza. Como cualquiera puede pegarle a esta URL,
+   // tiene freno propio y nunca usa nada del aviso salvo el número de pago.
+   function handleMercadoPagoWebhook(e) {
+     var params = e.parameter || {};
+     var topic = params.type || params.topic || '';
+     var paymentId = topic === 'payment' ? (params['data.id'] || params.id || '') : '';
+     if (!paymentId && e.postData && e.postData.contents) {
+       var body = safeParseJson(e.postData.contents);
+       if (body && body.type === 'payment' && body.data && body.data.id) {
+         paymentId = String(body.data.id);
+       }
+     }
+
+     if (paymentId && !isRateLimited('rl_mp_webhook', 300, 600)) {
+       try {
+         syncBookletPayment(paymentId, null);
+       } catch (err) {
+         logError('mp-aviso', err, params);
+       }
+     }
+
+     return ContentService.createTextOutput('ok');
+   }
+
+   function mapMercadoPagoStatus(status) {
+     if (status === 'approved') return 'approved';
+     if (status === 'rejected' || status === 'cancelled') return 'rejected';
+     if (status === 'refunded' || status === 'charged_back') return 'refunded';
+     return 'pending'; // pending, in_process, authorized, in_mediation
+   }
+
+   // Única función que cambia el estado de un pedido. Le pregunta el pago
+   // a la API de MP (nunca usa el estado que diga un aviso o la URL de
+   // vuelta), y solo toca pedidos de libritos: un pago de esta cuenta con
+   // otra `external_reference` se ignora.
+   function syncBookletPayment(paymentId, expectedOrderId) {
+     var id = String(paymentId || '');
+     if (!/^\d{1,20}$/.test(id)) return { result: 'not_found' };
+
+     var response = UrlFetchApp.fetch('https://api.mercadopago.com/v1/payments/' + id, {
+       headers: { Authorization: 'Bearer ' + MP_ACCESS_TOKEN },
+       muteHttpExceptions: true,
+     });
+     var code = response.getResponseCode();
+     if (code === 404) return { result: 'not_found' };
+     if (code !== 200) {
+       logError('mp-pago', new Error('MP respondió ' + code), { paymentId: id });
+       return { result: 'error' };
+     }
+
+     var payment = JSON.parse(response.getContentText());
+     var orderId = String(payment.external_reference || '');
+     if (!isValidBookletOrderId(orderId) || (expectedOrderId && orderId !== expectedOrderId)) {
+       return { result: 'not_found' };
+     }
+     var status = mapMercadoPagoStatus(payment.status);
+
+     var lock = LockService.getScriptLock();
+     lock.waitLock(20000);
+     try {
+       var sheet = getOrCreateBookletSheet();
+       var rowIndex = findBookletOrderRow(sheet, orderId);
+       if (!rowIndex) {
+         logError('mp-pago', new Error('Pago sin pedido en la planilla'), { paymentId: id, orderId: orderId });
+         return { result: 'not_found' };
+       }
+
+       var headers = getBookletHeaders();
+       var row = sheet.getRange(rowIndex, 1, 1, headers.length).getValues()[0];
+       var stateCol = headers.indexOf('Estado') + 1;
+       var currentState = row[stateCol - 1];
+
+       if (status === 'approved') {
+         if (currentState === BOOKLET_STATE_PAID) return { result: 'success', status: 'approved' };
+
+         var expectedAmount = Number(row[headers.indexOf('Monto')]);
+         if (payment.currency_id !== 'ARS' || Number(payment.transaction_amount) < expectedAmount) {
+           sheet.getRange(rowIndex, stateCol, 1, 2).setValues([[BOOKLET_STATE_REVIEW, id]]);
+           logError('mp-pago', new Error('Monto distinto al del pedido: ' + payment.transaction_amount + ' ' + payment.currency_id), { paymentId: id, orderId: orderId });
+           return { result: 'success', status: 'review' };
+         }
+
+         // Estado, ID de pago MP y Fecha de pago son columnas seguidas.
+         sheet.getRange(rowIndex, stateCol, 1, 3).setValues([[BOOKLET_STATE_PAID, id, new Date()]]);
+         try {
+           sendBookletReceiptEmail(row, headers, id);
+           sheet.getRange(rowIndex, headers.indexOf('Mail enviado') + 1).setValue(true);
+         } catch (mailErr) {
+           // El pago ya quedó registrado, que es lo importante: "Mail
+           // enviado" queda en FALSE para poder revisarlo a mano.
+           logError('mail-libritos', mailErr, { orderId: orderId });
+         }
+         return { result: 'success', status: 'approved' };
+       }
+
+       if (status === 'refunded') {
+         sheet.getRange(rowIndex, stateCol, 1, 2).setValues([[BOOKLET_STATE_REFUNDED, id]]);
+       } else if (currentState !== BOOKLET_STATE_PAID) {
+         // Un aviso viejo de "pendiente" o de un intento rechazado nunca
+         // pisa un pedido que ya está pagado.
+         var newState = status === 'rejected' ? BOOKLET_STATE_REJECTED : BOOKLET_STATE_IN_PROCESS;
+         sheet.getRange(rowIndex, stateCol, 1, 2).setValues([[newState, id]]);
+       }
+       return { result: 'success', status: status };
+     } finally {
+       lock.releaseLock();
+     }
+   }
+
+   function sendBookletReceiptEmail(row, headers, paymentId) {
+     var email = row[headers.indexOf('Email')];
+     if (!email) return;
+     var html = wrapEmailHtml(buildBookletReceiptBody(row, headers, paymentId));
+
+     GmailApp.sendEmail(String(email), '¡Gracias por tu compra! Tus libritos ATP', '', {
+       htmlBody: html,
+       name: SENDER_NAME,
+     });
+   }
+
+   // Mismo tono compañero que el resto de los mails (sin guion largo).
+   function buildBookletReceiptBody(row, headers, paymentId) {
+     var name = row[headers.indexOf('Nombre')];
+     var total = row[headers.indexOf('Monto')];
+     var lines = BOOKLET_PRODUCTS
+       .map(function (product) {
+         return { title: product.title, quantity: Number(row[headers.indexOf(product.title)]) || 0 };
+       })
+       .filter(function (line) { return line.quantity > 0; });
+
+     var cell = 'padding:10px 0;border-bottom:1px solid #eef1f6;color:#111827;';
+     var itemsHtml = lines.map(function (line) {
+       return (
+         '<tr>' +
+         '<td style="' + cell + '">' + line.quantity + ' × ' + escapeHtml(line.title) + '</td>' +
+         '<td style="' + cell + 'text-align:right;white-space:nowrap;">' + formatPesosForEmail(line.quantity * BOOKLET_UNIT_PRICE) + '</td>' +
+         '</tr>'
+       );
+     }).join('');
+
+     var greeting =
+       '<p style="margin:0 0 4px;color:#6b7280;font-size:14px;">Hola ' + escapeHtml(name) + ',</p>' +
+       '<h1 style="margin:0 0 20px;font-size:21px;color:#111827;line-height:1.4;">¡Gracias por tu compra!</h1>' +
+       '<p style="margin:0 0 16px;color:#374151;">Ya recibimos tu pago. Este es el resumen de lo que compraste:</p>';
+
+     var summary =
+       '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 8px;">' +
+       itemsHtml +
+       '<tr>' +
+       '<td style="padding:12px 0 0;color:#111827;font-weight:bold;">Total pagado</td>' +
+       '<td style="padding:12px 0 0;color:#111827;font-weight:bold;text-align:right;white-space:nowrap;">' + formatPesosForEmail(total) + '</td>' +
+       '</tr>' +
+       '</table>' +
+       '<p style="margin:0 0 24px;color:#9aa3af;font-size:12px;">N° de operación de Mercado Pago: ' + escapeHtml(paymentId) + '</p>';
+
+     var pickup =
+       '<div style="border:1px solid #e5e9f0;background:#f8f9fb;border-radius:10px;padding:18px 20px;margin:0 0 24px;">' +
+       '<p style="margin:0 0 6px;color:#111827;font-weight:bold;">¿Dónde lo retiro?</p>' +
+       '<p style="margin:0;color:#374151;">' + escapeHtml(BOOKLET_PICKUP_TEXT) + ' Acercate con tu nombre y apellido.</p>' +
+       '</div>';
+
+     var thanks =
+       '<p style="margin:0 0 16px;color:#374151;">Desde ATP intentamos siempre ofrecer opciones y materiales académicos lo más baratos posible. Tu compra nos ayuda a seguir haciendo todas nuestras actividades. ¡Gracias por bancarnos!</p>' +
+       '<p style="margin:0;color:#6b7280;font-size:14px;">¿Alguna duda? Escribinos por WhatsApp al <a href="https://wa.me/' + PAYMENT_WHATSAPP + '" style="color:' + BRAND_COLOR + ';">3406 40-4841</a>.</p>';
+
+     return greeting + summary + pickup + thanks + getPromoActivitiesHtml();
    }
 
    // ====== RECORDATORIOS (correr sendReminders con un disparador diario) ======
@@ -2688,6 +3160,22 @@ actividad solo.
        },
      };
      doPost(fakeEvent);
+   }
+
+   // Chequea que MP_ACCESS_TOKEN quedó bien pegado, sin cobrar nada: elegí
+   // "testMercadoPagoToken" en el desplegable de funciones y "Ejecutar".
+   // El resultado sale abajo, en el registro de ejecución.
+   function testMercadoPagoToken() {
+     var response = UrlFetchApp.fetch('https://api.mercadopago.com/users/me', {
+       headers: { Authorization: 'Bearer ' + MP_ACCESS_TOKEN },
+       muteHttpExceptions: true,
+     });
+     if (response.getResponseCode() === 200) {
+       var user = JSON.parse(response.getContentText());
+       Logger.log('Token OK. Cuenta de Mercado Pago: ' + (user.nickname || user.id));
+     } else {
+       Logger.log('El token NO funciona (Mercado Pago respondió ' + response.getResponseCode() + '). Revisá que esté bien copiado.');
+     }
    }
    ```
 

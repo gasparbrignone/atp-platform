@@ -10,6 +10,23 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ---
 
+## 2026-11-16
+
+- **feat:** venta de libritos con cobro por Mercado Pago (Checkout Pro)
+  desde el home (`BookletSaleSection.astro`). Nuevo secreto
+  `MP_ACCESS_TOKEN` (constante del Apps Script, cuenta de MP distinta de la
+  del EFS). Dos acciones GET nuevas (`bookletCheckoutPoll`,
+  `bookletPaymentStatus`, esta última con freno propio y exigiendo el
+  `orderId`) y una entrada POST nueva para los avisos de MP
+  (`mpWebhook=1`, antes del freno de spam y de Turnstile, con freno
+  propio). El estado de pago sale siempre de la API de MP, nunca del
+  navegador ni del aviso. Primer formulario que neutraliza fórmulas en las
+  celdas del Sheet. Detalle en `docs/SECURITY_DECISIONS.md` (2026-11-16).
+  La CSP no cambia: el sitio solo navega a `mercadopago.com.ar`, no le
+  hace pedidos.
+
+---
+
 ## 2026-10-22
 
 - **feat:** "Más buscados" en la Biblioteca. Nuevo secreto de build

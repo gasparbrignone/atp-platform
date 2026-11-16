@@ -113,6 +113,10 @@
   /* Typography                                                         */
   /* ---------------------------------------------------------------- */
   --font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Acento caligráfico de campañas (la palabra "romantizar" de la venta de
+     libritos, igual que en la publi de Instagram). Nunca para texto corrido:
+     el archivo solo trae las letras de esa palabra (ver global.css). */
+  --font-script: 'Parisienne', cursive;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
