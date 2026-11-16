@@ -36,11 +36,11 @@ const CALLOUT_LABELS: Record<CalloutType, string> = {
 
 // Full class strings only (see file header) — no `border-${x}` templating.
 const CALLOUT_STYLES: Record<CalloutType, string> = {
-  note: 'border-info bg-info/10 text-info',
-  tip: 'border-success bg-success/10 text-success',
+  note: 'border-info bg-info/10 text-info-strong',
+  tip: 'border-success bg-success/10 text-success-strong',
   important: 'border-secondary-strong bg-secondary/10 text-secondary-strong',
-  warning: 'border-warning bg-warning/10 text-warning',
-  caution: 'border-error bg-error/10 text-error',
+  warning: 'border-warning bg-warning/10 text-warning-strong',
+  caution: 'border-error bg-error/10 text-error-strong',
 };
 
 // Lucide's `info` / `lightbulb` / `circle-alert` / `triangle-alert` /

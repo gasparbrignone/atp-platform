@@ -120,17 +120,24 @@ function formatFileSize(bytes: number): string {
           data-book-download
           data-edition-for={book.id}
           hidden={book !== latest}
-          aria-label={[
-            `Descargar ${title}`,
-            editionLabels[index],
-            book.data.fileSize && `(${formatFileSize(book.data.fileSize)})`,
-          ]
-            .filter(Boolean)
-            .join(' ')}
           class="shrink-0 px-3 after:absolute after:inset-0 after:content-['']"
         >
           <Download slot="icon-start" class="size-4" aria-hidden="true" />
-          {book.data.fileSize ? formatFileSize(book.data.fileSize) : 'Descargar'}
+          {/* El nombre accesible sale del propio texto (parte solo para
+              lectores de pantalla + parte visible) en vez de un aria-label:
+              así siempre incluye lo que se ve escrito en el botón (WCAG
+              2.5.3), que es lo que dice en voz alta quien usa control por voz. */}
+          {book.data.fileSize ? (
+            <>
+              <span class="sr-only">{`Descargar ${title} ${editionLabels[index]}`.trim()},</span>
+              {formatFileSize(book.data.fileSize)}
+            </>
+          ) : (
+            <>
+              Descargar
+              <span class="sr-only">{`${title} ${editionLabels[index]}`.trim()}</span>
+            </>
+          )}
         </Button>
       ) : (
         <Badge

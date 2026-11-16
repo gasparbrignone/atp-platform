@@ -77,9 +77,22 @@
      solid fill — and the color itself as text — both clear 4.5:1 (AA). */
   --color-error: #d32f2f;
   --color-error-foreground: #ffffff;
-  --color-error-strong: #d32f2f;
   --color-info: #1d63c4;
   --color-info-foreground: #ffffff;
+  /*
+   * "-strong": the state color used AS TEXT (or icon) on a page surface or
+   * on its own `bg-<state>/10` tint, re-tuned per theme so it clears 4.5:1
+   * on every one of them. The base colors above are fills — as text they
+   * dropped to 2.2–2.8:1 (warning/success in light, info/error in dark).
+   */
+  --color-success-strong: #1a6b3c;
+  --color-warning-strong: #8a5a00;
+  --color-error-strong: #b71c1c;
+  --color-info-strong: #1a56ab;
+
+  /* WhatsApp brand green — white on it is 2:1, dark text 8.7:1. */
+  --color-whatsapp: #25d366;
+  --color-whatsapp-foreground: var(--gray-900);
 
   /* ---------------------------------------------------------------- */
   /* Semantic surfaces — light mode (default)                          */
@@ -234,7 +247,10 @@
     --color-border: #362f44;
     --color-border-strong: #6b6480;
     --color-primary-strong: #f969d7;
+    --color-success-strong: #5fd38d;
+    --color-warning-strong: #f5b544;
     --color-error-strong: #ff6b6b;
+    --color-info-strong: #8ab4ff;
     /*
      * #2E5699 drops to ~2.5:1 against these dark surfaces (see the
      * definition above) — lightened here so it stays clearly blue and

@@ -84,9 +84,9 @@ const hasAnyTool = publishedTools.length > 0 || careerTools.length > 0;
                   <div slot="image" class="p-6 pb-0">
                     <ToolIconBadge icon={Icon} customIcon={tool.data.customIcon} />
                   </div>
-                  <h3 slot="title" class="text-h4 text-text font-bold">
+                  <h2 slot="title" class="text-h4 text-text font-bold">
                     {tool.data.name}
-                  </h3>
+                  </h2>
                   <p set:html={renderInlineMarkdown(tool.data.description)} />
                   <div slot="actions" class="flex flex-wrap items-center gap-2">
                     <Button href={`/herramientas/${tool.id}/`} variant="outline" size="sm">
@@ -116,9 +116,9 @@ const hasAnyTool = publishedTools.length > 0 || careerTools.length > 0;
                   <div slot="image" class="p-6 pb-0">
                     <ToolIconBadge icon={Icon} customIcon={tool.customIcon} />
                   </div>
-                  <h3 slot="title" class="text-h4 text-text font-bold">
+                  <h2 slot="title" class="text-h4 text-text font-bold">
                     {tool.name}
-                  </h3>
+                  </h2>
                   <p set:html={renderInlineMarkdown(tool.description)} />
                   <div slot="actions" class="flex flex-wrap items-center gap-2">
                     <Button

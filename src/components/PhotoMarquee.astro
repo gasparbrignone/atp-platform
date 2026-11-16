@@ -28,9 +28,11 @@ interface MarqueePhoto {
 
 interface Props {
   photos: MarqueePhoto[];
+  /** Accessible name of the scrollable strip, read when it gets keyboard focus. */
+  label: string;
 }
 
-const { photos }: Props = Astro.props;
+const { photos, label }: Props = Astro.props;
 
 // Mostly small (1x1) tiles with the occasional big one (2x2) — always
 // square, just two sizes of it, like a real Pinterest/bento board instead
@@ -49,7 +51,16 @@ const tiles = Array.from({ length: tileCount }, (_, i) => ({
 ---
 
 <div class="marquee-viewport" data-marquee>
-  <div data-marquee-track class="marquee-track flex gap-3 overflow-x-auto sm:gap-4">
+  {/* Focusable so keyboard users can scroll it with the arrow keys: the
+      photos inside aren't focusable, so without this a scroll container is
+      unreachable by keyboard (Safari doesn't focus it on its own). */}
+  <div
+    data-marquee-track
+    tabindex="0"
+    role="region"
+    aria-label={label}
+    class="marquee-track flex gap-3 overflow-x-auto sm:gap-4"
+  >
     {
       [tiles, tiles].map((block, blockIndex) => (
         <div
