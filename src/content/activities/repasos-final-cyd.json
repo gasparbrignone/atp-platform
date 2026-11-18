@@ -1,0 +1,61 @@
+{
+  "title": "Repasos - Final CyD",
+  "summary": "Sumate a repasar para el final de Crecimiento y Desarrollo",
+  "description": "",
+  "image": "",
+  "schedule": null,
+  "sessions": [
+    {
+      "title": "Repaso integrador de sistema nervioso",
+      "date": "2026-11-19",
+      "weekday": "",
+      "time": "12:00",
+      "endTime": "14:00",
+      "location": "Anf. Anatomía Normal"
+    },
+    {
+      "title": "Repaso integrador sistema endocrino",
+      "date": "2026-11-19",
+      "weekday": "",
+      "time": "14:00",
+      "endTime": "16:00",
+      "location": "CECECAP Grande"
+    },
+    {
+      "title": "Repaso integrador fisiología celular",
+      "date": "2026-11-19",
+      "weekday": "",
+      "time": "16:00",
+      "endTime": "18:00",
+      "location": "CECECAP Grande"
+    },
+    {
+      "title": "Repaso embriología + anatomía de genitales",
+      "date": "2026-11-20",
+      "weekday": "",
+      "time": "12:00",
+      "endTime": "14:00",
+      "location": "CECECAP Grande"
+    },
+    {
+      "title": "Anatomía de cráneo y columna",
+      "date": "2026-11-20",
+      "weekday": "",
+      "time": "14:00",
+      "endTime": "16:00",
+      "location": "CECECAP Grande"
+    }
+  ],
+  "status": "proxima",
+  "registration": {
+    "useRegistrationForm": true,
+    "registrationUrl": "",
+    "confirmationMessage": "",
+    "confirmationLinkLabel": "",
+    "confirmationLinkUrl": "",
+    "collectCertificateData": false
+  },
+  "featured": false,
+  "published": true,
+  "order": null
+}
