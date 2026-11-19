@@ -154,7 +154,10 @@ expone), demora progresiva en intentos fallidos de check-in, y
 — un allowlist a medida (`p`/`br`/`b`/`strong`/`i`/`em`/`a[href]`/
 `img[src,alt]`, esquemas de URL restringidos a `http(s)`/`mailto:`) para
 el mensaje de campaña del panel admin, que desde esa fecha puede traer
-HTML real (editor de texto enriquecido).
+HTML real (editor de texto enriquecido). Desde 2026-11-19 las imágenes de
+una campaña viajan adjuntas al mail (`cid:imgN`, solo si esa campaña trajo
+esa imagen; validadas por `parseCampaignImages`: ≤4, JPEG/PNG, ≤340.000
+caracteres base64 cada una) en vez de por URL.
 
 ## CMS
 

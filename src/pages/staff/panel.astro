@@ -277,6 +277,7 @@ import Send from '@lucide/astro/icons/send';
       import { jsonpRequest } from '@/lib/jsonp';
       import { GOOGLE_FORMS_ENDPOINT } from '@/lib/googleFormsEndpoint';
       import { showToast } from '@/lib/toast';
+      import { inlineCampaignImages, type CampaignImage } from '@/lib/campaignImages';
 
       const SESSION_KEY = 'atp-admin-token';
 
@@ -320,6 +321,9 @@ import Send from '@lucide/astro/icons/send';
       // con el mismo atributo data-campaign-body, así que todo lo de abajo
       // (invalidatePreview, el fetch de stage) no necesitó cambiar.
       const campaignBody = document.querySelector<HTMLInputElement>('[data-campaign-body]');
+      // Imágenes del mensaje, ya separadas del HTML por CampaignEditor.tsx
+      // (el HTML las nombra `cid:img1`, `cid:img2`...).
+      const campaignImages = document.querySelector<HTMLInputElement>('[data-campaign-images]');
       const campaignReminder = document.querySelector<HTMLInputElement>('[data-campaign-reminder]');
       const campaignSubmit = document.querySelector<HTMLButtonElement>('[data-campaign-submit]');
       const manualRecipientName = document.querySelector<HTMLInputElement>(
@@ -740,6 +744,7 @@ import Send from '@lucide/astro/icons/send';
               sheetName,
               subject,
               body,
+              images: campaignImages?.value || '[]',
               includeSessionReminder: String(campaignReminder?.checked ?? false),
               extraRecipients: JSON.stringify(extraRecipients),
               excludedEmails: JSON.stringify([...excludedEmails]),
@@ -777,7 +782,17 @@ import Send from '@lucide/astro/icons/send';
 
           if (previewRecipient) previewRecipient.textContent = response.sampleName ?? '';
           if (previewSubject) previewSubject.textContent = response.subject ?? '';
-          if (previewBody) previewBody.srcdoc = response.bodyHtml;
+          // El mail real lleva las imágenes adjuntas (cid:); acá se muestran
+          // con su contenido, que ya está en esta página. La hoja de estilos
+          // propia (permitida por la CSP, a diferencia de los estilos en
+          // línea del mail) mantiene las imágenes dentro del cuadro.
+          if (previewBody) {
+            const images = JSON.parse(campaignImages?.value || '[]') as CampaignImage[];
+            previewBody.srcdoc = inlineCampaignImages(response.bodyHtml, images).replace(
+              '</head>',
+              '<link rel="stylesheet" href="/staff-email-preview.css"></head>',
+            );
+          }
           if (previewPanel) previewPanel.hidden = false;
 
           if (campaignSubmit) {

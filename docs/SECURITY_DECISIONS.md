@@ -1225,3 +1225,103 @@ devolver pagos de esa cuenta (no retirar la plata). Rotación en
 algo que mande el navegador o el aviso de MP sin consultar la API. No
 reusar `syncBookletPayment` para otro producto sin chequear que la
 `external_reference` no se pueda confundir con la de otro flujo.
+
+---
+
+### 2026-11-19 — Campañas del panel: las imágenes viajan dentro del mail (arrastrar/pegar), ya no por URL
+
+**Contexto:** el dueño del proyecto no lograba poner una imagen en un mail
+de campaña: pegaba el link en el diálogo "Insertar imagen" y "no pasaba
+nada, ni daba error". Pidió poder arrastrar la imagen directo al editor,
+en el lugar que quiera, sin link.
+
+**Causa real del problema original:** la CSP del sitio (`img-src`) solo
+deja cargar imágenes de `'self'` y unos pocos dominios puntuales. El
+editor mostraba la imagen por su URL, así que cualquier imagen de otro
+dominio (Drive, Canva, `archivos.atpfcm.com.ar`, etc.) quedaba bloqueada
+por el navegador: se insertaba en el documento pero se veía rota o
+invisible, y el único aviso era un error en la consola del navegador, que
+nadie mira. Confirmado en un build de producción real (Playwright): "img-src
+bloqueó https://archivos.atpfcm.com.ar/ejemplo.png". Ya estaba anticipado
+en la decisión del 2026-09-14 (R2), "Qué NO hacer": una imagen servida
+desde otro dominio se rompe en silencio bajo la CSP actual.
+
+**Decisión:** la imagen se adjunta al mail (adjunto *inline*, referenciado
+por `cid:` desde el HTML), en vez de alojarla en algún lado público.
+
+1. **Navegador** (`src/lib/campaignImages.ts`, `CampaignEditor.tsx`): la
+   imagen se elige con el botón, se arrastra o se pega; se reduce en el
+   navegador (máx. 1200px de ancho, máx. 250KB; JPEG, o PNG si tiene
+   transparencia; PNG/JPG/WebP de entrada, nada de SVG). Máx. 4 por mail.
+   Entra siempre *entre* párrafos (nunca partiendo una palabra) y el editor
+   deja siempre una línea libre debajo para seguir escribiendo. El editor la
+   muestra como `data:` URI (ya permitido en `img-src`, no se toca la CSP);
+   al sincronizar con el formulario se separa del HTML (`src="cid:img1"`) y
+   viaja aparte (`images`, JSON).
+2. **Apps Script** (`parseCampaignImages` y siguientes, en
+   `docs/GOOGLE_SHEETS_FORM_SETUP.md`): valida cantidad (≤4), nombre
+   (`img\d{1,2}`, sin repetir), tipo (solo `image/jpeg`/`image/png`, y que
+   los primeros bytes del base64 coincidan con ese formato), tamaño (≤340.000
+   caracteres base64 por imagen) y que sea base64 puro. Si algo no cuadra
+   rechaza la campaña entera (nunca manda un mail al que le faltan imágenes
+   que la vista previa sí mostraba) y deja el motivo en la hoja "Errores"
+   (sin el contenido de la imagen). `sanitizeCampaignHtml` ahora acepta
+   `cid:imgN` solo si esa campaña trajo esa imagen.
+3. **Cache:** `CacheService` rechaza valores de más de 100KB, así que cada
+   imagen se parte en pedazos de 90.000 caracteres, cada uno en su propia
+   clave (mismo vencimiento de 5 minutos que el resto del staging). Si falta
+   un pedazo al previsualizar o al enviar → `not_found`, no se manda nada.
+   El envío borra todos los pedazos (un solo uso, como el registro).
+4. **Envío:** `GmailApp.sendEmail(..., { inlineImages })`, solo con las
+   imágenes que el HTML final realmente referencia.
+5. **Se quitó** la opción de insertar una imagen por URL del editor (era lo
+   que no funcionaba). El sanitizador del servidor sigue aceptando `<img>` con
+   `https://` por si queda alguna campaña vieja, pero el editor ya no las
+   produce.
+6. **Vista previa:** el navegador vuelve a poner el contenido en lugar de
+   `cid:` (ya lo tiene) para mostrarla; `public/staff-email-preview.css`
+   (hoja propia, permitida por `style-src 'self'`) evita que una imagen ancha
+   se salga del cuadro.
+
+**Alternativas consideradas:** (1) alojar la imagen en R2/Drive y poner la
+URL en el mail — descartada: obliga a abrir `img-src` (y a mantener
+credenciales de subida en el navegador del staff), deja la imagen pública y
+con URL fija para siempre, y sigue dependiendo de que el cliente de mail
+cargue imágenes remotas (muchos las bloquean por defecto). (2) incrustar
+`data:` en el HTML del mail — descartada: Gmail y Outlook lo bloquean.
+
+**Efecto secundario aceptado:** cada mail lleva sus imágenes adjuntas
+(hasta ~1MB en total), así que pesa más que uno solo de texto. A cambio, no
+hay ningún pedido a un servidor al abrirlo (ni "pixel" de apertura), y la
+imagen se ve aunque el cliente bloquee imágenes remotas.
+
+**Riesgo residual:** el tipo se comprueba por los primeros bytes, no
+decodificando la imagen completa — aceptado, el modelo de amenaza del panel
+sigue siendo un admin de confianza (ver 2026-09-05). Un rechazo de las
+validaciones aparece como "No pudimos armar la vista previa" (el paso de
+guardado es `no-cors`, el navegador no ve el motivo) — el motivo exacto
+queda en "Errores"; el navegador ya aplica los mismos límites antes de
+mandar, así que solo debería pasar con una página manipulada a mano.
+
+**Verificación:** (a) simulación en Node del Apps Script real (copia
+local) con mocks de `CacheService` (rechaza >100KB igual que el real),
+`GmailApp`, `Utilities`, etc.: 34 chequeos, incluida una imagen de ~240KB
+partida en 4 pedazos que vuelve idéntica byte a byte, rechazos de tipo/
+tamaño/cantidad/nombre, cache vaciado a mitad de camino sin mandar nada, y
+compatibilidad con un cliente sin el campo nuevo. (b) Navegador real
+(Playwright, build de producción) conectado a ese mismo Apps Script
+simulado: botón, arrastrar a un lugar puntual, pegar, límite de 4, vista
+previa, envío y vaciado del editor. Esa prueba encontró un problema real
+de usabilidad antes de publicar: soltar la imagen a mitad de una palabra
+partía el párrafo; se corrigió con la regla "siempre entre párrafos".
+
+**Pendiente / limitación previa descubierta:** la vista previa del mail
+ya se mostraba sin sus estilos en línea (el iframe hereda la CSP del sitio
+y bloquea `style=""`), o sea que hoy es una versión simplificada del mail,
+no un calco. No lo causa este cambio ni se arregló acá (la hoja de estilos
+nueva solo cubre las imágenes). Arreglarlo del todo requiere decidir entre
+relajar `style-src` para el iframe o armar la vista previa de otra forma.
+
+**Qué NO hacer en el futuro:** no poner imágenes `data:` en el HTML del
+mail; no guardar una imagen en un solo valor de `CacheService` (límite de
+100KB); no abrir `img-src` a dominios nuevos solo para este flujo.

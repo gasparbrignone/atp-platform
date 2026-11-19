@@ -231,7 +231,7 @@ Búsqueda global del sitio — no estaba documentado antes.
 
 Viven en `src/components/*.tsx`, solo se usan dentro de `/staff/` (nunca en páginas públicas):
 
-* `CampaignEditor` — editor de texto enriquecido (Tiptap) para campañas de email.
+* `CampaignEditor` — editor de texto enriquecido (Tiptap) para campañas de email. Las imágenes se arrastran, pegan o eligen con el botón y viajan dentro del mail (ver `lib/campaignImages.ts`).
 * `CertificateFieldEditor` — editor visual de posición de campos sobre el PDF de un certificado.
 * `CertificateReviewCarousel` — revisión en lote de certificados generados antes de aprobar el envío.
 * `CertificateSendPanel` — panel de envío real de certificados.

@@ -1,0 +1,10 @@
+/*
+ * Estilos de la vista previa de campañas (/staff/panel/). El mail se muestra
+ * en un iframe que hereda la CSP del sitio, y esa CSP bloquea los estilos
+ * en línea del propio mail — sin esto, una imagen ancha se saldría del
+ * cuadro de la vista previa en vez de achicarse como en el mail real.
+ */
+img {
+  max-width: 100%;
+  height: auto;
+}

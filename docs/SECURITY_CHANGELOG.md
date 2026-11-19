@@ -10,6 +10,19 @@ relevante, no se agrega entrada acá — no queremos ruido.
 
 ---
 
+## 2026-11-19
+
+- **feat:** imágenes embebidas en las campañas de mail del panel
+  (`/staff/panel/`): se arrastran/pegan en el editor y viajan adjuntas al
+  mail (`cid:`), en vez de por URL (que la CSP `img-src` bloqueaba en
+  silencio). Nueva superficie en el Apps Script: el campo `images` del
+  paso de guardado (`adminStageCampaign`), validado estrictamente
+  (cantidad, nombre, tipo, tamaño, base64) y guardado en `CacheService`
+  en pedazos de 90.000 caracteres. La CSP no cambia. Detalle en
+  `docs/SECURITY_DECISIONS.md` (2026-11-19).
+
+---
+
 ## 2026-11-16
 
 - **deps:** `astro` 7.4.2 → 7.4.12, cierra GHSA-mh32-jxcr-mh9f (XSS por

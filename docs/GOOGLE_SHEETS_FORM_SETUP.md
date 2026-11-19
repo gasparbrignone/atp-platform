@@ -802,10 +802,24 @@ actividad solo.
        .filter(function (email) { return typeof email === 'string'; })
        .map(function (email) { return email.toLowerCase(); });
 
+     // Imágenes embebidas en el mensaje (CampaignEditor.tsx): como todo lo
+     // que manda el navegador, nada se da por válido. Si algo no cuadra se
+     // descarta la campaña entera — mejor eso que mandar un mail al que le
+     // faltan imágenes que la vista previa sí mostraba. Como este paso es
+     // no-cors y el navegador nunca ve la respuesta, queda en "Errores".
+     var images = parseCampaignImages(params.images);
+     if (!images) {
+       logError('campaign-stage', new Error('Imágenes de la campaña inválidas'), { campaignId: params.campaignId });
+       return ContentService
+         .createTextOutput(JSON.stringify({ result: 'invalid' }))
+         .setMimeType(ContentService.MimeType.JSON);
+     }
+
      CacheService.getScriptCache().put('admin_campaign_' + params.campaignId, JSON.stringify({
        sheetName: params.sheetName || '',
        subject: params.subject || '',
        body: params.body || '',
+       images: stageCampaignImages(params.campaignId, images),
        includeSessionReminder: params.includeSessionReminder === 'true',
        extraRecipients: extraRecipients,
        excludedEmails: excludedEmails,
@@ -835,6 +849,12 @@ actividad solo.
      var campaign = JSON.parse(staged);
      var sheet = getEligibleActivitySheet(campaign.sheetName);
      if (!sheet) return jsonpResponse({ result: 'not_found' }, params.callback);
+     // Que las imágenes sigan en el cache: si ya no están, el envío real
+     // tampoco las tendría, y no hay que mostrar una vista previa que no
+     // se va a poder cumplir.
+     if (!getCampaignImageBlobs(params.campaignId, campaign)) {
+       return jsonpResponse({ result: 'not_found' }, params.callback);
+     }
 
      var data = sheet.getDataRange().getValues();
      var headers = data[0];
@@ -902,12 +922,18 @@ actividad solo.
      lock.waitLock(30000);
 
      var campaign;
+     var imageBlobs;
      try {
        var cache = CacheService.getScriptCache();
        var staged = cache.get('admin_campaign_' + params.campaignId);
        if (!staged) return jsonpResponse({ result: 'not_found' }, params.callback);
        cache.remove('admin_campaign_' + params.campaignId); // un solo uso
        campaign = JSON.parse(staged);
+       // Antes de mandar nada: si falta alguna imagen (el cache puede
+       // vaciarse solo), no se manda un mail a medias.
+       imageBlobs = getCampaignImageBlobs(params.campaignId, campaign);
+       removeCampaignImageChunks(params.campaignId, campaign);
+       if (!imageBlobs) return jsonpResponse({ result: 'not_found' }, params.callback);
      } finally {
        lock.releaseLock();
      }
@@ -940,10 +966,11 @@ actividad solo.
          // Mismo cuidado que en la vista previa: sin columna "Dado de
          // baja" no se arma el link (ver comentario en KEYCHAIN_SHEET_NAME).
          var unsubscribeUrl = unsubCol !== -1 ? buildUnsubscribeUrl(campaign.sheetName, tags.email) : null;
-         GmailApp.sendEmail(tags.email, subject, '', {
-           htmlBody: wrapEmailHtml(bodyHtml, unsubscribeUrl),
-           name: SENDER_NAME,
-         });
+         var fullHtml = wrapEmailHtml(bodyHtml, unsubscribeUrl);
+         var mailOptions = { htmlBody: fullHtml, name: SENDER_NAME };
+         var inlineImages = pickInlineImages(fullHtml, imageBlobs);
+         if (inlineImages) mailOptions.inlineImages = inlineImages;
+         GmailApp.sendEmail(tags.email, subject, '', mailOptions);
          sent++;
        } catch (mailErr) {
          logError('campaign', mailErr, { email: tags.email, sheetName: campaign.sheetName });
@@ -1009,7 +1036,9 @@ actividad solo.
      // bug de orden que el de <br> del 2026-09-05, ahora con el editor de
      // texto enriquecido. Ya no hace falta convertir saltos de línea a
      // <br> a mano: CampaignEditor.tsx genera <p>/<br> reales.
-     var messageHtml = sanitizeCampaignHtml(applyTemplateTags(String(campaign.body), tags));
+     var allowedCids = {};
+     (campaign.images || []).forEach(function (image) { allowedCids[image.cid] = true; });
+     var messageHtml = sanitizeCampaignHtml(applyTemplateTags(String(campaign.body), tags), allowedCids);
      var boxedMessage =
        '<div style="border:1px solid #e5e9f0;background:#f8f9fb;border-radius:10px;padding:18px 20px;">' +
        messageHtml +
@@ -1123,7 +1152,127 @@ actividad solo.
      return null;
    }
 
-   function sanitizeCampaignHtml(html) {
+   // ====== Imágenes embebidas en campañas ======
+   //
+   // CampaignEditor.tsx reduce cada imagen en el navegador y la manda aparte
+   // del HTML (que la nombra `cid:img1`, `cid:img2`...). Acá se valida, se
+   // guarda en el cache entre los pasos del envío, y al mandar cada mail
+   // viaja como adjunto "inline" (GmailApp inlineImages): sin link, sin
+   // hosting, y se ve igual en Gmail, Outlook y Apple Mail (a diferencia de
+   // una imagen `data:`, que esos clientes bloquean).
+   var CAMPAIGN_MAX_IMAGES = 4;
+   // Tope de cada imagen en base64 (~250KB de archivo): el navegador ya las
+   // reduce a ese tamaño, esto es solo la barrera del lado del servidor.
+   var CAMPAIGN_MAX_IMAGE_CHARS = 340000;
+   // CacheService rechaza cualquier valor de más de 100KB — una imagen se
+   // parte en pedazos más chicos que eso, cada uno en su propia clave.
+   var CAMPAIGN_CACHE_CHUNK_CHARS = 90000;
+   var CAMPAIGN_IMAGE_MAGIC_PREFIX = { 'image/jpeg': '/9j/', 'image/png': 'iVBORw0KGgo' };
+
+   // Devuelve la lista validada, o null si cualquier cosa no cuadra
+   // (cantidad, nombre, tipo, tamaño, o que no sea base64 de un JPEG/PNG de
+   // verdad según sus primeros bytes). `images` ausente = sin imágenes.
+   function parseCampaignImages(rawJson) {
+     var parsed = safeParseJson(rawJson || '[]');
+     if (!Array.isArray(parsed) || parsed.length > CAMPAIGN_MAX_IMAGES) return null;
+     var seen = {};
+     var images = [];
+     for (var i = 0; i < parsed.length; i++) {
+       var image = parsed[i];
+       if (!image || typeof image.cid !== 'string' || typeof image.data !== 'string') return null;
+       if (!/^img\d{1,2}$/.test(image.cid) || seen[image.cid]) return null;
+       var magic = CAMPAIGN_IMAGE_MAGIC_PREFIX[image.mime];
+       if (!magic || image.data.indexOf(magic) !== 0) return null;
+       if (image.data.length > CAMPAIGN_MAX_IMAGE_CHARS || !/^[A-Za-z0-9+\/]+={0,2}$/.test(image.data)) return null;
+       seen[image.cid] = true;
+       images.push({ cid: image.cid, mime: image.mime, data: image.data });
+     }
+     return images;
+   }
+
+   function campaignImageCacheKeys(campaignId, storedImages) {
+     var keys = [];
+     (storedImages || []).forEach(function (image) {
+       for (var i = 0; i < image.chunkCount; i++) {
+         keys.push('admin_campaign_' + campaignId + '_' + image.cid + '_' + i);
+       }
+     });
+     return keys;
+   }
+
+   // Guarda cada imagen en pedazos y devuelve solo lo que hace falta para
+   // volver a armarla ({cid, mime, chunkCount}) — eso sí entra en el
+   // registro principal de la campaña.
+   function stageCampaignImages(campaignId, images) {
+     var entries = {};
+     var stored = images.map(function (image) {
+       var chunkCount = Math.ceil(image.data.length / CAMPAIGN_CACHE_CHUNK_CHARS);
+       for (var i = 0; i < chunkCount; i++) {
+         entries['admin_campaign_' + campaignId + '_' + image.cid + '_' + i] =
+           image.data.substring(i * CAMPAIGN_CACHE_CHUNK_CHARS, (i + 1) * CAMPAIGN_CACHE_CHUNK_CHARS);
+       }
+       return { cid: image.cid, mime: image.mime, chunkCount: chunkCount };
+     });
+     if (stored.length > 0) CacheService.getScriptCache().putAll(entries, 300);
+     return stored;
+   }
+
+   // {cid: Blob} con las imágenes de la campaña (vacío si no tiene), o null
+   // si falta cualquier pedazo — el cache se puede vaciar solo, y un mail
+   // con la mitad de sus imágenes es peor que no mandarlo.
+   function getCampaignImageBlobs(campaignId, campaign) {
+     var stored = campaign.images || [];
+     var blobs = {};
+     if (stored.length === 0) return blobs;
+
+     var chunks = CacheService.getScriptCache().getAll(campaignImageCacheKeys(campaignId, stored));
+     for (var i = 0; i < stored.length; i++) {
+       var image = stored[i];
+       var data = '';
+       for (var j = 0; j < image.chunkCount; j++) {
+         var chunk = chunks['admin_campaign_' + campaignId + '_' + image.cid + '_' + j];
+         if (!chunk) return null;
+         data += chunk;
+       }
+       blobs[image.cid] = Utilities.newBlob(
+         Utilities.base64Decode(data),
+         image.mime,
+         image.cid + (image.mime === 'image/png' ? '.png' : '.jpg')
+       );
+     }
+     return blobs;
+   }
+
+   function removeCampaignImageChunks(campaignId, campaign) {
+     var keys = campaignImageCacheKeys(campaignId, campaign.images);
+     if (keys.length > 0) CacheService.getScriptCache().removeAll(keys);
+   }
+
+   // De todas las imágenes de la campaña, solo las que el HTML final
+   // realmente usa (una adjunta que nadie referencia aparecería suelta como
+   // archivo en algunos clientes). null si no hay ninguna.
+   function pickInlineImages(html, blobs) {
+     var inline = {};
+     var any = false;
+     Object.keys(blobs).forEach(function (cid) {
+       if (html.indexOf('src="cid:' + cid + '"') !== -1) {
+         inline[cid] = blobs[cid];
+         any = true;
+       }
+     });
+     return any ? inline : null;
+   }
+
+   // `cid:imgN` solo vale si ese N es una imagen que esta misma campaña
+   // trajo (allowedCids) — nunca un cid inventado en el HTML; el resto de
+   // las imágenes siguen siendo URL http(s) como siempre.
+   function sanitizeCampaignImageSrc(rawSrc, allowedCids) {
+     var cidMatch = String(rawSrc || '').trim().match(/^cid:(img\d{1,2})$/);
+     if (cidMatch) return allowedCids && allowedCids[cidMatch[1]] ? 'cid:' + cidMatch[1] : null;
+     return sanitizeCampaignUrl(rawSrc, false);
+   }
+
+   function sanitizeCampaignHtml(html, allowedCids) {
      // openAnchors: un <a href="..."> con un esquema no permitido
      // (javascript:, data:, etc.) se descarta arriba — sin este contador,
      // el </a> que le sigue quedaría suelto en el HTML final (no rompe
@@ -1151,11 +1300,11 @@ actividad solo.
 
        if (tag === 'img') {
          var srcMatch = attrs.match(/\bsrc\s*=\s*"([^"]*)"/i) || attrs.match(/\bsrc\s*=\s*'([^']*)'/i);
-         var src = srcMatch ? sanitizeCampaignUrl(srcMatch[1], false) : null;
+         var src = srcMatch ? sanitizeCampaignImageSrc(srcMatch[1], allowedCids) : null;
          if (!src) return '';
          var altMatch = attrs.match(/\balt\s*=\s*"([^"]*)"/i) || attrs.match(/\balt\s*=\s*'([^']*)'/i);
          var alt = altMatch ? altMatch[1] : '';
-         return '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt) + '" style="max-width:100%;height:auto;">';
+         return '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt) + '" style="display:block;max-width:100%;height:auto;margin:12px 0;border:0;">';
        }
 
        // p, br, b, strong, i, em: sin atributos, cualquiera que traigan se descarta.
