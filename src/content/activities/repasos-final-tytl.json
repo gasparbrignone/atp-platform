@@ -1,0 +1,53 @@
+{
+  "title": "Repasos final TyTL",
+  "summary": "Sumate a repasar para el final de Trabajo y Tiempo Libre!",
+  "description": "",
+  "image": "",
+  "schedule": null,
+  "sessions": [
+    {
+      "title": "Fisiología del estrés",
+      "date": "2026-11-23",
+      "weekday": "",
+      "time": "14:00",
+      "endTime": "16:00",
+      "location": "Virtual por Meet. Código: ofa-asyd-tyu"
+    },
+    {
+      "title": "Integrador de ejercicio",
+      "date": "2026-11-23",
+      "weekday": "",
+      "time": "16:00",
+      "endTime": "18:00",
+      "location": "Virtual por Meet. Código: ofa-asyd-tyu"
+    },
+    {
+      "title": "Repaso de ciclo cardíaco y regulación de la PA",
+      "date": "2026-11-24",
+      "weekday": "",
+      "time": "12:00",
+      "endTime": "14:00",
+      "location": "CECECAP Grande"
+    },
+    {
+      "title": "Anatomía de mediastino",
+      "date": "2026-11-24",
+      "weekday": "",
+      "time": "14:00",
+      "endTime": "16:00",
+      "location": "CECECAP Grande"
+    }
+  ],
+  "status": "proxima",
+  "registration": {
+    "useRegistrationForm": true,
+    "registrationUrl": "",
+    "confirmationMessage": "",
+    "confirmationLinkLabel": "",
+    "confirmationLinkUrl": "",
+    "collectCertificateData": false
+  },
+  "featured": true,
+  "published": true,
+  "order": null
+}
